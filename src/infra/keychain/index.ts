@@ -9,10 +9,18 @@ import type { TokenStore } from "@/core/auth/store"
 import { FileTokenStore } from "./file"
 import { LinuxKeychainStore } from "./linux"
 import { MacOSKeychainStore } from "./macos"
+import { validateProfile } from "./profile"
+import type { Spawner } from "./spawner"
 import { WindowsKeychainStore } from "./windows"
 
-export type { TokenStore }
-export { FileTokenStore, LinuxKeychainStore, MacOSKeychainStore, WindowsKeychainStore }
+export type { TokenStore, Spawner }
+export {
+  FileTokenStore,
+  LinuxKeychainStore,
+  MacOSKeychainStore,
+  WindowsKeychainStore,
+  validateProfile,
+}
 
 /** createTokenStore は現在の OS に最適な TokenStore インスタンスを返す。 */
 export function createTokenStore(opts: { insecureFileStore?: boolean } = {}): TokenStore {
