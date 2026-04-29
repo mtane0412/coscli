@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint / Type Check / Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      - name: Lint チェック
+        run: bunx biome ci src tests
+
+      - name: 型チェック
+        run: bun run typecheck
+
+      - name: テスト実行
+        run: bun test --coverage

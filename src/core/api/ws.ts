@@ -1,0 +1,190 @@
+/**
+ * ws.ts — Cosense WebSocket 書き込みの薄いラッパー。
+ *
+ * @cosense/std の patch()/deletePage() を ScrapboxWriter interface でラップし、
+ * --dry-run 対応と依存性注入 (テスト容易化) を提供する。
+ *
+ * 実際の WebSocket 接続は @cosense/std/websocket に委譲するため、
+ * このファイルでは Socket.IO の詳細を扱わない。
+ */
+
+import type { Line } from "@/schemas/page"
+
+/** ScrapboxWriterStdClient は @cosense/std の API 関数群の interface。 */
+export interface ScrapboxWriterStdClient {
+  patch(
+    project: string,
+    title: string,
+    update: (lines: Line[]) => Promise<string[]>,
+    options?: { sid?: string; maxRetry?: number },
+  ): Promise<{ commitId: string; pageId: string } | unknown>
+}
+
+/** DryRunResult は --dry-run 時に実際のコミットをしないで返す結果型。 */
+export interface DryRunResult {
+  dryRun: true
+  project: string
+  title: string
+  previewLines?: string[]
+}
+
+/** PatchOptions は patch() に渡すオプション。 */
+export interface PatchOptions {
+  project: string
+  title: string
+  update: (lines: Line[]) => string[] | Promise<string[]>
+  maxRetry?: number
+}
+
+/** InsertLinesOptions は insertLines() に渡すオプション。 */
+export interface InsertLinesOptions {
+  project: string
+  title: string
+  lines: string[]
+  afterLineId?: string
+}
+
+/** DeletePageOptions は deletePage() に渡すオプション。 */
+export interface DeletePageOptions {
+  project: string
+  title: string
+}
+
+/** ScrapboxWriter は Cosense への書き込み操作を抽象化する interface。 */
+export interface ScrapboxWriter {
+  patch(opts: PatchOptions): Promise<{ commitId: string; pageId: string } | DryRunResult>
+
+  insertLines(opts: InsertLinesOptions): Promise<{ commitId: string } | DryRunResult>
+
+  deletePage(opts: DeletePageOptions): Promise<{ title: string } | DryRunResult>
+}
+
+/** CosenseWriterOptions は CosenseWriter のオプション。 */
+export interface CosenseWriterOptions {
+  dryRun?: boolean
+  sid?: string
+  maxRetry?: number
+}
+
+/**
+ * CosenseWriter は @cosense/std を使った ScrapboxWriter の本番実装。
+ *
+ * コンストラクタで stdClient を受け取ることで、テスト時にモックを注入できる。
+ */
+export class CosenseWriter implements ScrapboxWriter {
+  constructor(
+    private readonly stdClient: ScrapboxWriterStdClient,
+    private readonly opts: CosenseWriterOptions = {},
+  ) {}
+
+  async patch(
+    patchOpts: PatchOptions,
+  ): Promise<{ commitId: string; pageId: string } | DryRunResult> {
+    if (this.opts.dryRun) {
+      return {
+        dryRun: true,
+        project: patchOpts.project,
+        title: patchOpts.title,
+      }
+    }
+
+    const patchOptions: { sid?: string; maxRetry?: number } = {}
+    if (this.opts.sid !== undefined) patchOptions.sid = this.opts.sid
+    const maxRetry = patchOpts.maxRetry ?? this.opts.maxRetry
+    if (maxRetry !== undefined) patchOptions.maxRetry = maxRetry
+
+    const result = await this.stdClient.patch(
+      patchOpts.project,
+      patchOpts.title,
+      async (lines: Line[]) => {
+        const updated = await patchOpts.update(lines)
+        return updated
+      },
+      patchOptions,
+    )
+
+    // @cosense/std の Result 型から値を取り出す
+    return result as { commitId: string; pageId: string }
+  }
+
+  async insertLines(opts: InsertLinesOptions): Promise<{ commitId: string } | DryRunResult> {
+    if (this.opts.dryRun) {
+      return { dryRun: true, project: opts.project, title: opts.title }
+    }
+
+    // insertLines は patch の特殊ケース: 現在の末尾に行を追加する
+    return this.patch({
+      project: opts.project,
+      title: opts.title,
+      update: (lines: Line[]) => [...lines.map((l) => l.text), ...opts.lines],
+    }) as Promise<{ commitId: string }>
+  }
+
+  async deletePage(opts: DeletePageOptions): Promise<{ title: string } | DryRunResult> {
+    if (this.opts.dryRun) {
+      return { dryRun: true, project: opts.project, title: opts.title }
+    }
+
+    // delete は update で空配列を返すことで実現する
+    await this.patch({
+      project: opts.project,
+      title: opts.title,
+      update: () => [],
+    })
+    return { title: opts.title }
+  }
+}
+
+/**
+ * DryRunWriter は常に dryRun: true を返す ScrapboxWriter の実装。
+ *
+ * --dry-run フラグが指定された時に使う。
+ * 実際の WebSocket 接続を一切行わない。
+ */
+export class DryRunWriter implements ScrapboxWriter {
+  async patch(opts: PatchOptions): Promise<DryRunResult> {
+    return { dryRun: true, project: opts.project, title: opts.title }
+  }
+
+  async insertLines(opts: InsertLinesOptions): Promise<DryRunResult> {
+    return { dryRun: true, project: opts.project, title: opts.title }
+  }
+
+  async deletePage(opts: DeletePageOptions): Promise<DryRunResult> {
+    return { dryRun: true, project: opts.project, title: opts.title }
+  }
+}
+
+/**
+ * createScrapboxWriter は設定に応じた ScrapboxWriter を返すファクトリ。
+ *
+ * --dry-run フラグが指定された場合は DryRunWriter を返す。
+ * そうでない場合は @cosense/std の patch 等を使った CosenseWriter を返す。
+ */
+export async function createScrapboxWriter(opts: {
+  dryRun?: boolean
+  sid: string
+  maxRetry?: number
+}): Promise<ScrapboxWriter> {
+  if (opts.dryRun) return new DryRunWriter()
+
+  // @cosense/std は動的 import で読み込み (バイナリサイズ最適化)
+  const { patch } = await import("@cosense/std/websocket")
+
+  const stdClient: ScrapboxWriterStdClient = {
+    patch: (project, title, update, options) =>
+      patch(
+        project,
+        title,
+        update as Parameters<typeof patch>[2],
+        {
+          sid: options?.sid,
+          retry: options?.maxRetry,
+        } as Parameters<typeof patch>[3],
+      ),
+  }
+
+  const writerOpts: CosenseWriterOptions = { sid: opts.sid }
+  if (opts.maxRetry !== undefined) writerOpts.maxRetry = opts.maxRetry
+  return new CosenseWriter(stdClient, writerOpts)
+}

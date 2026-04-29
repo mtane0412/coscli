@@ -1,0 +1,140 @@
+/**
+ * config.test.ts — infra/config の単体テスト。
+ *
+ * ファイルシステムへの副作用は tmp ディレクトリに限定し、
+ * テスト終了後にクリーンアップする。
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { existsSync, unlinkSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import {
+  defaultConfigPath,
+  getConfigValue,
+  loadConfig,
+  saveConfig,
+  setConfigValue,
+} from "@/infra/config"
+
+/** テスト用の一時ファイルパスを生成する */
+function tmpConfigPath(): string {
+  return join(tmpdir(), `coscli-config-test-${Date.now()}.json5`)
+}
+
+describe("defaultConfigPath", () => {
+  it("XDG_CONFIG_HOME が設定されている場合はそのパスを使う", () => {
+    const original = process.env["XDG_CONFIG_HOME"]
+    process.env["XDG_CONFIG_HOME"] = "/カスタム設定ディレクトリ"
+    const result = defaultConfigPath()
+    expect(result).toBe("/カスタム設定ディレクトリ/coscli/config.json5")
+    process.env["XDG_CONFIG_HOME"] = original
+  })
+})
+
+describe("loadConfig", () => {
+  it("設定ファイルが存在しない場合は空オブジェクトを返す", () => {
+    const result = loadConfig("/存在しないパス/config.json5")
+    expect(result).toEqual({})
+  })
+
+  it("正しいJSON5ファイルを読み込んで設定を返す", () => {
+    const path = tmpConfigPath()
+    saveConfig({ defaultProject: "テストプロジェクト" }, path)
+    const result = loadConfig(path)
+    expect(result.defaultProject).toBe("テストプロジェクト")
+    unlinkSync(path)
+  })
+
+  it("不正なJSON5ファイルの場合はエラーをスローする", () => {
+    const path = tmpConfigPath()
+    Bun.write(path, "{ 不正なJSON5 :")
+    expect(() => loadConfig(path)).toThrow("設定ファイルの読み込みに失敗しました")
+    unlinkSync(path)
+  })
+})
+
+describe("saveConfig", () => {
+  let path: string
+
+  beforeEach(() => {
+    path = tmpConfigPath()
+  })
+
+  afterEach(() => {
+    if (existsSync(path)) unlinkSync(path)
+  })
+
+  it("設定をファイルに保存して読み込めること", () => {
+    saveConfig({ defaultProject: "マイプロジェクト", defaultProfile: "work" }, path)
+    const loaded = loadConfig(path)
+    expect(loaded.defaultProject).toBe("マイプロジェクト")
+    expect(loaded.defaultProfile).toBe("work")
+  })
+
+  it("ディレクトリが存在しない場合は自動作成する", () => {
+    const nestedPath = join(tmpdir(), `coscli-nested-${Date.now()}`, "config.json5")
+    saveConfig({ defaultProject: "ネストテスト" }, nestedPath)
+    const loaded = loadConfig(nestedPath)
+    expect(loaded.defaultProject).toBe("ネストテスト")
+    unlinkSync(nestedPath)
+  })
+})
+
+describe("getConfigValue", () => {
+  const config = {
+    defaultProject: "テストプロジェクト",
+    output: { color: "always" as const },
+    projects: {
+      myproject: { defaultSort: "updated" },
+    },
+  }
+
+  it("トップレベルのキーを取得できる", () => {
+    expect(getConfigValue(config, "defaultProject")).toBe("テストプロジェクト")
+  })
+
+  it("ネストしたキーをドット区切りで取得できる", () => {
+    expect(getConfigValue(config, "output.color")).toBe("always")
+  })
+
+  it("存在しないキーは undefined を返す", () => {
+    expect(getConfigValue(config, "存在しないキー")).toBeUndefined()
+  })
+
+  it("ネストしたキーが存在しない場合は undefined を返す", () => {
+    expect(getConfigValue(config, "output.存在しない")).toBeUndefined()
+  })
+})
+
+describe("setConfigValue", () => {
+  it("トップレベルのキーを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "defaultProject", "新プロジェクト")
+    expect(updated.defaultProject).toBe("新プロジェクト")
+  })
+
+  it("ネストしたキーをドット区切りで設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "output.color", "never")
+    expect(updated.output?.color).toBe("never")
+  })
+
+  it("既存の設定を上書きできる", () => {
+    const config = { defaultProject: "古いプロジェクト" }
+    const updated = setConfigValue(config, "defaultProject", "新プロジェクト")
+    expect(updated.defaultProject).toBe("新プロジェクト")
+  })
+
+  it("元のオブジェクトを変更しない（イミュータブル）", () => {
+    const config = { defaultProject: "元のプロジェクト" }
+    setConfigValue(config, "defaultProject", "新プロジェクト")
+    expect(config.defaultProject).toBe("元のプロジェクト")
+  })
+
+  it("スキーマに合わない値はエラーをスローする", () => {
+    const config = {}
+    // output.color は "auto"|"always"|"never" のみ許可
+    expect(() => setConfigValue(config, "output.color", "invalid")).toThrow()
+  })
+})

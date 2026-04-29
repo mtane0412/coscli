@@ -1,0 +1,6 @@
+[test]
+# カバレッジ設定
+coverage = true
+coverageThreshold = { line = 80, function = 80 }
+# テストファイルのパターン
+include = ["tests/**/*.test.ts", "src/**/*.test.ts"]

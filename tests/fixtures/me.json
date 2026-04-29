@@ -1,0 +1,10 @@
+{
+  "id": "user-id-me",
+  "name": "テストユーザー",
+  "displayName": "テストユーザー表示名",
+  "email": "test@example.com",
+  "photo": "https://example.com/photo.jpg",
+  "csrfToken": "test-csrf-token-12345",
+  "isPasswordUser": false,
+  "isGitHubUser": true
+}

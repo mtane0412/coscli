@@ -1,0 +1,42 @@
+{
+  "name": "coscli",
+  "version": "0.1.0",
+  "description": "Cosense (旧 Scrapbox) 向け AI エージェント親和的 CLI",
+  "bin": {
+    "cos": "./dist/cos"
+  },
+  "module": "src/cli.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun run scripts/build.ts",
+    "build:dev": "bun build src/cli.ts --outdir dist --target bun",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "lint": "bunx biome check src tests",
+    "lint:fix": "bunx biome check --write src tests",
+    "format": "bunx biome format --write src tests",
+    "typecheck": "tsc --noEmit",
+    "ci": "bun run lint && bun run typecheck && bun test --coverage"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.1",
+    "@cosense/std": "npm:@jsr/cosense__std",
+    "@cosense/types": "npm:@jsr/cosense__types",
+    "citty": "^0.1.6",
+    "cli-table3": "^0.6.5",
+    "json5": "^2.2.3",
+    "picocolors": "^1.1.1",
+    "zod": "^3.25.17"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "@types/json5": "^2.2.0",
+    "msw": "^2.7.5",
+    "typescript": "^5.8.3"
+  },
+  "trustedDependencies": [
+    "@biomejs/biome"
+  ]
+}
