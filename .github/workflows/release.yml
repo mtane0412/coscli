@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            os: macos-latest
+            output: cos-darwin-arm64
+          - target: bun-darwin-x64
+            os: macos-latest
+            output: cos-darwin-x64
+          - target: bun-linux-x64
+            os: ubuntu-latest
+            output: cos-linux-x64
+          - target: bun-linux-arm64
+            os: ubuntu-latest
+            output: cos-linux-arm64
+          - target: bun-windows-x64
+            os: windows-latest
+            output: cos-windows-x64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      - name: バイナリのビルド
+        run: bun build src/cli.ts --compile --target=${{ matrix.target }} --outfile dist/${{ matrix.output }}
+
+      - name: アーティファクトのアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: dist/${{ matrix.output }}
+
+  release:
+    name: GitHub Release の作成
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*

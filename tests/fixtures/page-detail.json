@@ -1,0 +1,46 @@
+{
+  "id": "page-id-hello",
+  "title": "Hello World",
+  "image": null,
+  "descriptions": ["最初の行", "2行目"],
+  "user": {
+    "id": "user-id-1",
+    "name": "テストユーザー",
+    "displayName": "テストユーザー表示名"
+  },
+  "pin": 0,
+  "views": 10,
+  "linked": 3,
+  "commitId": "commit-id-hello",
+  "created": 1700000000,
+  "updated": 1700100000,
+  "accessed": 1700200000,
+  "snapshotCreated": null,
+  "persistent": true,
+  "lines": [
+    {
+      "id": "line-id-title",
+      "text": "Hello World",
+      "userId": "user-id-1",
+      "created": 1700000000,
+      "updated": 1700000000
+    },
+    {
+      "id": "line-id-1",
+      "text": "最初の行",
+      "userId": "user-id-1",
+      "created": 1700000001,
+      "updated": 1700000001
+    },
+    {
+      "id": "line-id-2",
+      "text": "2行目",
+      "userId": "user-id-1",
+      "created": 1700000002,
+      "updated": 1700000002
+    }
+  ],
+  "links": ["関連ページ1", "関連ページ2"],
+  "icons": [],
+  "files": []
+}
