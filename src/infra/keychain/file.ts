@@ -7,6 +7,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import type { TokenStore } from "@/core/auth/store"
 
@@ -54,6 +55,6 @@ export class FileTokenStore implements TokenStore {
 /** defaultSecretsPath は OS の規約に従ったデフォルト保存パスを返す。 */
 function defaultSecretsPath(): string {
   const xdgConfig = process.env["XDG_CONFIG_HOME"]
-  const base = xdgConfig ?? join(process.env["HOME"] ?? "~", ".config")
+  const base = xdgConfig ?? join(homedir(), ".config")
   return join(base, "coscli", "secrets.json")
 }

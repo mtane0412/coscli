@@ -9,6 +9,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildRestClient,
+  checkSandbox,
   commonArgs,
 } from "@/commands/_shared"
 import { writeJson } from "@/presenter/json"
@@ -20,6 +21,7 @@ export const projectListCommand = defineCommand({
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs
+    checkSandbox("project.list", a)
     const logger = buildLogger(a)
     const startTime = Date.now()
 

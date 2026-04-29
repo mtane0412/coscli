@@ -6,7 +6,13 @@
  * --no-input 時は --sid フラグが必須。
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
 import { saveSession } from "@/core/auth/session"
 import { createTokenStore } from "@/infra/keychain/index"
@@ -29,6 +35,7 @@ export const authLoginCommand = defineCommand({
   },
   async run({ args }) {
     const a = args as CommonArgs & { sid?: string; "no-input": boolean }
+    checkSandbox("auth.login", a)
     const logger = buildLogger(a)
     const startTime = Date.now()
     const profile = a.profile ?? "default"

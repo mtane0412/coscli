@@ -11,6 +11,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildWriter,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -38,6 +39,7 @@ export const pageNewCommand = defineCommand({
   },
   async run({ args }) {
     const a = args as CommonArgs & { title: string; "from-file"?: string; line?: string }
+    checkSandbox("page.new", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
@@ -45,7 +47,7 @@ export const pageNewCommand = defineCommand({
     let lines: string[] = []
     if (a["from-file"] === "-") {
       // stdin から読み込む
-      const content = readFileSync("/dev/stdin", "utf-8")
+      const content = readFileSync(0, "utf-8")
       lines = content.split("\n").filter((l) => l.length > 0 || content.endsWith("\n"))
     } else if (a["from-file"]) {
       const content = readFileSync(a["from-file"], "utf-8")

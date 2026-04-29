@@ -5,7 +5,13 @@
  * エディタで直接開きたい場合などに使う。
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { defaultConfigPath } from "@/infra/config"
 import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -15,6 +21,7 @@ export const configPathCommand = defineCommand({
   args: { ...commonArgs },
   run({ args }) {
     const a = args as CommonArgs
+    checkSandbox("config.path", a)
     const logger = buildLogger(a)
     const path = defaultConfigPath()
     const startTime = Date.now()

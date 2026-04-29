@@ -10,6 +10,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildWriter,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -40,6 +41,7 @@ export const pageDeleteCommand = defineCommand({
   },
   async run({ args }) {
     const a = args as CommonArgs & { title: string; force: boolean; "no-input": boolean }
+    checkSandbox("page.delete", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()

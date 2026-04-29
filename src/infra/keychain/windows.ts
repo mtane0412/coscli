@@ -21,8 +21,13 @@ export class WindowsKeychainStore implements TokenStore {
   }
 
   async load(profile: string): Promise<string | null> {
-    // Windows の cmdkey は直接値を読み出せないため PowerShell を使う
+    // cmdkey は直接パスワードを読み出せないため PowerShell + CredentialManager モジュールを試みる。
+    // Get-StoredCredential が未インストールの場合は FileTokenStore への移行を案内するエラーを throw する。
     const script = `
+      if (-not (Get-Command Get-StoredCredential -ErrorAction SilentlyContinue)) {
+        Write-Error 'CredentialManager module not found. Install it with: Install-Module CredentialManager -Scope CurrentUser'
+        exit 2
+      }
       $cred = Get-StoredCredential -Target '${SERVICE}:${profile}'
       if ($cred) { $cred.GetNetworkCredential().Password }
     `
@@ -30,7 +35,16 @@ export class WindowsKeychainStore implements TokenStore {
       stdout: "pipe",
       stderr: "pipe",
     })
-    const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
+    if (exitCode === 2) {
+      throw new Error(
+        `Windows Credential Manager の読み出しに失敗しました。\nPowerShell で次を実行してモジュールをインストールしてください:\n  Install-Module CredentialManager -Scope CurrentUser\nまたは cos auth login --insecure-file-store で代替ストアを使用してください。\n詳細: ${stderr.trim()}`,
+      )
+    }
     if (exitCode !== 0) return null
     return stdout.trim() || null
   }

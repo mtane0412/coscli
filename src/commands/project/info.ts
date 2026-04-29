@@ -10,6 +10,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildRestClient,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -29,6 +30,7 @@ export const projectInfoCommand = defineCommand({
   },
   async run({ args }) {
     const a = args as CommonArgs & { name?: string }
+    checkSandbox("project.info", a)
     const logger = buildLogger(a)
     const project = a.name ?? requireProject(a)
     const startTime = Date.now()

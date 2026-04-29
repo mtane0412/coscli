@@ -12,6 +12,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildWriter,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -36,13 +37,14 @@ export const pageEditCommand = defineCommand({
   },
   async run({ args }) {
     const a = args as CommonArgs & { title: string; "from-file": string }
+    checkSandbox("page.edit", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
     let content: string
     if (a["from-file"] === "-") {
-      content = readFileSync("/dev/stdin", "utf-8")
+      content = readFileSync(0, "utf-8")
     } else {
       content = readFileSync(a["from-file"], "utf-8")
     }

@@ -2,7 +2,6 @@
  * search.ts — `cos search <query>` コマンド。
  *
  * プロジェクト内のページをキーワード検索する。
- * --titles-only で高速なタイトル検索モードに切り替える。
  */
 
 import {
@@ -10,6 +9,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildRestClient,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -30,14 +30,10 @@ export const searchCommand = defineCommand({
       type: "string",
       description: "最大件数",
     },
-    "titles-only": {
-      type: "boolean",
-      description: "タイトルのみ検索 (高速)",
-      default: false,
-    },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { query: string; limit?: string; "titles-only": boolean }
+    const a = args as CommonArgs & { query: string; limit?: string }
+    checkSandbox("search", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
@@ -55,17 +51,10 @@ export const searchCommand = defineCommand({
     }
 
     if (a.plain) {
-      if (a["titles-only"]) {
-        writeTsv(
-          ["title"],
-          result.pages.map((p) => [p.title]),
-        )
-      } else {
-        writeTsv(
-          ["title"],
-          result.pages.map((p) => [p.title]),
-        )
-      }
+      writeTsv(
+        ["title"],
+        result.pages.map((p) => [p.title]),
+      )
       return
     }
 

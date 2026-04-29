@@ -4,7 +4,13 @@
  * 指定したプロファイルの connect.sid を TokenStore から削除する。
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { deleteSession } from "@/core/auth/session"
 import { createTokenStore } from "@/infra/keychain/index"
 import { writeJson } from "@/presenter/json"
@@ -15,6 +21,7 @@ export const authLogoutCommand = defineCommand({
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs
+    checkSandbox("auth.logout", a)
     const logger = buildLogger(a)
     const profile = a.profile ?? "default"
     const startTime = Date.now()

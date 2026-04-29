@@ -6,6 +6,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import JSON5 from "json5"
 import { z } from "zod"
@@ -41,7 +42,7 @@ export type CoscliConfig = z.infer<typeof CoscliConfigSchema>
 /** defaultConfigPath は OS 規約に従ったデフォルト設定ファイルパスを返す。 */
 export function defaultConfigPath(): string {
   const xdgConfig = process.env["XDG_CONFIG_HOME"]
-  const base = xdgConfig ?? join(process.env["HOME"] ?? "~", ".config")
+  const base = xdgConfig ?? join(homedir(), ".config")
   return join(base, "coscli", "config.json5")
 }
 

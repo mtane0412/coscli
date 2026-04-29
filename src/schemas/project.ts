@@ -25,7 +25,7 @@ export const ProjectSchema = z.object({
   pageCount: z.number().optional(),
   memberCount: z.number().optional(),
   invitationRotateTime: z.number().nullable().optional(),
-  uploadImaages: z.number().optional(),
+  uploadImages: z.number().optional(),
   uploadFiles: z.number().optional(),
 })
 export type Project = z.infer<typeof ProjectSchema>

@@ -5,7 +5,13 @@
  * alias: `cos me`
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
 import { loadSession } from "@/core/auth/session"
 import { createTokenStore } from "@/infra/keychain/index"
@@ -18,6 +24,7 @@ export const authWhoamiCommand = defineCommand({
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs
+    checkSandbox("auth.whoami", a)
     const logger = buildLogger(a)
     const startTime = Date.now()
 

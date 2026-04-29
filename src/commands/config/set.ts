@@ -6,7 +6,13 @@
  * 値は JSON として解釈し、失敗した場合は文字列として扱う。
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { loadConfig, saveConfig, setConfigValue } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -28,6 +34,7 @@ export const configSetCommand = defineCommand({
   },
   run({ args }) {
     const a = args as CommonArgs & { key: string; value: string }
+    checkSandbox("config.set", a)
     const logger = buildLogger(a)
     const startTime = Date.now()
 

@@ -2,7 +2,7 @@
  * index.ts — OS に応じた TokenStore 実装を返すファクトリ。
  *
  * OS を判定して macOS / Linux / Windows の keychain 実装を返す。
- * 各 keychain が利用できない場合はファイルフォールバックに移行する。
+ * 未知の OS の場合のみファイルフォールバックに移行する。keychain 実行失敗時は各実装がエラーを throw する。
  */
 
 import type { TokenStore } from "@/core/auth/store"

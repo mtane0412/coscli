@@ -5,7 +5,13 @@
  * キーはドット区切りのパス (例: output.color)。
  */
 
-import { type CommonArgs, buildJsonOpts, buildLogger, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  checkSandbox,
+  commonArgs,
+} from "@/commands/_shared"
 import { getConfigValue, loadConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -22,6 +28,7 @@ export const configGetCommand = defineCommand({
   },
   run({ args }) {
     const a = args as CommonArgs & { key: string }
+    checkSandbox("config.get", a)
     const logger = buildLogger(a)
     const startTime = Date.now()
 
@@ -32,7 +39,7 @@ export const configGetCommand = defineCommand({
       writeErrorJson(
         "KEY_NOT_FOUND",
         `設定キー "${a.key}" が見つかりません`,
-        "`cos config list` で設定一覧を確認してください",
+        "`cos config path` で設定ファイルのパスを確認し、直接編集してください",
       )
       process.exit(4)
     }

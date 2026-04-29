@@ -10,6 +10,7 @@ import {
   buildJsonOpts,
   buildLogger,
   buildRestClient,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -37,6 +38,7 @@ export const pageListCommand = defineCommand({
   },
   async run({ args }) {
     const commonArgs = args as CommonArgs & { limit?: string; skip?: string; sort?: string }
+    checkSandbox("page.list", commonArgs)
     const logger = buildLogger(commonArgs)
     const project = requireProject(commonArgs)
     const startTime = Date.now()

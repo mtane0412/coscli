@@ -9,6 +9,7 @@ import {
   type CommonArgs,
   buildJsonOpts,
   buildLogger,
+  checkSandbox,
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
@@ -28,6 +29,7 @@ export const pageUrlCommand = defineCommand({
   },
   run({ args }) {
     const a = args as CommonArgs & { title: string }
+    checkSandbox("page.url", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
