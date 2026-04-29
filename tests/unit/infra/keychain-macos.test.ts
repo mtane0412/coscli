@@ -7,34 +7,7 @@
 
 import { describe, expect, it } from "bun:test"
 import { MacOSKeychainStore } from "@/infra/keychain/macos"
-import type { SpawnOptions, SubprocessLike } from "@/infra/keychain/spawner"
-
-type CapturedCall = { cmd: string[]; options: SpawnOptions | undefined }
-
-/** fakeProcess は stdout / stderr / exited を返すプロセスの偽実装を生成する。 */
-function fakeProcess(stdout: string, stderr: string, exitCode: number): SubprocessLike {
-  return {
-    stdout: new Response(stdout).body as ReadableStream<Uint8Array>,
-    stderr: new Response(stderr).body as ReadableStream<Uint8Array>,
-    exited: Promise.resolve(exitCode),
-  }
-}
-
-/** captureSpawner は呼ばれた引数を記録しつつ指定の応答を返す偽 spawner を生成する。 */
-function captureSpawner(stdout: string, stderr: string, exitCode: number) {
-  const calls: CapturedCall[] = []
-  const spawner = (cmd: string[], options?: SpawnOptions): SubprocessLike => {
-    calls.push({ cmd, options })
-    return fakeProcess(stdout, stderr, exitCode)
-  }
-  /** getCall は指定インデックスの呼び出し記録を返す。存在しない場合はエラーを throw する。 */
-  function getCall(index: number): CapturedCall {
-    const call = calls[index]
-    if (call === undefined) throw new Error(`calls[${index}] が存在しません`)
-    return call
-  }
-  return { spawner, calls, getCall }
-}
+import { captureSpawner } from "./_keychain-test-helpers"
 
 describe("MacOSKeychainStore", () => {
   describe("save", () => {

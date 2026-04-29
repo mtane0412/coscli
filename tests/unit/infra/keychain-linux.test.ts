@@ -7,34 +7,7 @@
 
 import { describe, expect, it } from "bun:test"
 import { LinuxKeychainStore } from "@/infra/keychain/linux"
-import type { SpawnOptions, SubprocessLike } from "@/infra/keychain/spawner"
-
-type CapturedCall = { cmd: string[]; options: SpawnOptions | undefined }
-
-/** fakeProcess は stdout / stderr / exited を返すプロセスの偽実装を生成する。 */
-function fakeProcess(stdout: string, stderr: string, exitCode: number): SubprocessLike {
-  return {
-    stdout: new Response(stdout).body as ReadableStream<Uint8Array>,
-    stderr: new Response(stderr).body as ReadableStream<Uint8Array>,
-    exited: Promise.resolve(exitCode),
-  }
-}
-
-/** captureSpawner は呼ばれた引数を記録しつつ指定の応答を返す偽 spawner を生成する。 */
-function captureSpawner(stdout: string, stderr: string, exitCode: number) {
-  const calls: CapturedCall[] = []
-  const spawner = (cmd: string[], options?: SpawnOptions): SubprocessLike => {
-    calls.push({ cmd, options })
-    return fakeProcess(stdout, stderr, exitCode)
-  }
-  /** getCall は指定インデックスの呼び出し記録を返す。存在しない場合はエラーを throw する。 */
-  function getCall(index: number): CapturedCall {
-    const call = calls[index]
-    if (call === undefined) throw new Error(`calls[${index}] が存在しません`)
-    return call
-  }
-  return { spawner, calls, getCall }
-}
+import { captureSpawner, enoentSpawner } from "./_keychain-test-helpers"
 
 describe("LinuxKeychainStore", () => {
   describe("save", () => {
@@ -170,15 +143,6 @@ describe("LinuxKeychainStore", () => {
   })
 
   describe("未インストール検知 (ENOENT)", () => {
-    /** ENOENT エラーを throw する偽 spawner を生成する。 */
-    function enoentSpawner() {
-      return (_cmd: string[], _options?: SpawnOptions): SubprocessLike => {
-        const err = new Error("spawn secret-tool ENOENT") as NodeJS.ErrnoException
-        err.code = "ENOENT"
-        throw err
-      }
-    }
-
     it("save で secret-tool が見つからないとき専用エラーを throw する", async () => {
       const store = new LinuxKeychainStore(enoentSpawner())
       await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("secret-tool")

@@ -6,35 +6,8 @@
  */
 
 import { describe, expect, it } from "bun:test"
-import type { SpawnOptions, SubprocessLike } from "@/infra/keychain/spawner"
 import { WindowsKeychainStore } from "@/infra/keychain/windows"
-
-type CapturedCall = { cmd: string[]; options: SpawnOptions | undefined }
-
-/** fakeProcess は stdout / stderr / exited を返すプロセスの偽実装を生成する。 */
-function fakeProcess(stdout: string, stderr: string, exitCode: number): SubprocessLike {
-  return {
-    stdout: new Response(stdout).body as ReadableStream<Uint8Array>,
-    stderr: new Response(stderr).body as ReadableStream<Uint8Array>,
-    exited: Promise.resolve(exitCode),
-  }
-}
-
-/** captureSpawner は呼ばれた引数を記録しつつ指定の応答を返す偽 spawner を生成する。 */
-function captureSpawner(stdout: string, stderr: string, exitCode: number) {
-  const calls: CapturedCall[] = []
-  const spawner = (cmd: string[], options?: SpawnOptions): SubprocessLike => {
-    calls.push({ cmd, options })
-    return fakeProcess(stdout, stderr, exitCode)
-  }
-  /** getCall は指定インデックスの呼び出し記録を返す。存在しない場合はエラーを throw する。 */
-  function getCall(index: number): CapturedCall {
-    const call = calls[index]
-    if (call === undefined) throw new Error(`calls[${index}] が存在しません`)
-    return call
-  }
-  return { spawner, calls, getCall }
-}
+import { captureSpawner, enoentSpawner } from "./_keychain-test-helpers"
 
 describe("WindowsKeychainStore", () => {
   describe("save", () => {
@@ -75,8 +48,6 @@ describe("WindowsKeychainStore", () => {
     it("PowerShell スクリプト本体に profile 値が文字列補間されていない", async () => {
       const { spawner, getCall } = captureSpawner("sid-abc", "", 0)
       const store = new WindowsKeychainStore(spawner)
-
-      // 通常の安全なプロファイルでも env が使われることを確認する
       await store.load("個人アカウント")
 
       const cmd = getCall(0).cmd
@@ -84,19 +55,19 @@ describe("WindowsKeychainStore", () => {
 
       // スクリプトに profile 値がハードコードされていないことを確認する
       expect(scriptArg).not.toContain("個人アカウント")
-      // 環境変数参照を使っていることを確認する
-      expect(scriptArg).toContain("$env:")
+      // 環境変数名 COS_TARGET を明示的に参照していることを確認する
+      expect(scriptArg).toContain("$env:COS_TARGET")
     })
 
-    it("profile 値が環境変数経由で spawner に渡される", async () => {
+    it("profile 値が COS_TARGET 環境変数として spawner に渡される", async () => {
       const { spawner, getCall } = captureSpawner("sid-abc", "", 0)
       const store = new WindowsKeychainStore(spawner)
       await store.load("個人アカウント")
 
-      // env に COS_TARGET が含まれ、profile 値が設定されていることを確認する
+      // env の COS_TARGET に正確な値が設定されていることを確認する
       const env = getCall(0).options?.env
       expect(env).toBeDefined()
-      expect(Object.values(env ?? {})).toContain("coscli:個人アカウント")
+      expect(env?.["COS_TARGET"]).toBe("coscli:個人アカウント")
     })
 
     it("exit code 非 0 のとき null を返す", async () => {
@@ -170,15 +141,6 @@ describe("WindowsKeychainStore", () => {
   })
 
   describe("未インストール検知 (ENOENT)", () => {
-    /** ENOENT エラーを throw する偽 spawner を生成する。 */
-    function enoentSpawner() {
-      return (_cmd: string[], _options?: SpawnOptions): SubprocessLike => {
-        const err = new Error("spawn cmdkey ENOENT") as NodeJS.ErrnoException
-        err.code = "ENOENT"
-        throw err
-      }
-    }
-
     it("save で cmdkey が見つからないとき専用エラーを throw する", async () => {
       const store = new WindowsKeychainStore(enoentSpawner())
       await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("cmdkey")

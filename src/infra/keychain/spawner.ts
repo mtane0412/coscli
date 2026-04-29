@@ -17,7 +17,7 @@ export interface SpawnOptions {
   stdin?: BodyInit
   stdout?: "pipe"
   stderr?: "pipe"
-  env?: Record<string, string>
+  env?: Record<string, string | undefined>
 }
 
 /**

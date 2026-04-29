@@ -37,7 +37,6 @@ export class MacOSKeychainStore implements TokenStore {
   }
 
   async load(profile: string): Promise<string | null> {
-    validateProfile(profile)
     const result = await this.run([
       "security",
       "find-generic-password",
@@ -52,7 +51,6 @@ export class MacOSKeychainStore implements TokenStore {
   }
 
   async delete(profile: string): Promise<void> {
-    validateProfile(profile)
     await this.run(["security", "delete-generic-password", "-s", SERVICE, "-a", profile])
     // 存在しない場合も成功扱いにする
   }
