@@ -95,14 +95,29 @@ describe("MacOSKeychainStore", () => {
 
   describe("list", () => {
     it("security dump-keychain の出力をパースして coscli のプロファイル一覧を返す", async () => {
+      // 実際の dump-keychain フォーマット: "acct" は "svce" より前に出力され、keychain: 行でエントリが区切られる
       const dumpOutput = [
         'keychain: "/Users/ユーザー/Library/Keychains/login.keychain"',
-        '    "svce"<blob>="coscli"',
+        "version: 512",
+        'class: "genp"',
+        "attributes:",
         '    "acct"<blob>="個人アカウント"',
         '    "svce"<blob>="coscli"',
+        '    "type"<uint32>=<NULL>',
+        'keychain: "/Users/ユーザー/Library/Keychains/login.keychain"',
+        "version: 512",
+        'class: "genp"',
+        "attributes:",
         '    "acct"<blob>="仕事アカウント"',
-        '    "svce"<blob>="other-app"',
+        '    "svce"<blob>="coscli"',
+        '    "type"<uint32>=<NULL>',
+        'keychain: "/Users/ユーザー/Library/Keychains/login.keychain"',
+        "version: 512",
+        'class: "genp"',
+        "attributes:",
         '    "acct"<blob>="他のアプリ"',
+        '    "svce"<blob>="other-app"',
+        '    "type"<uint32>=<NULL>',
       ].join("\n")
 
       const { spawner } = captureSpawner(dumpOutput, "", 0)
@@ -112,6 +127,27 @@ describe("MacOSKeychainStore", () => {
       expect(profiles).toContain("個人アカウント")
       expect(profiles).toContain("仕事アカウント")
       expect(profiles).not.toContain("他のアプリ")
+    })
+
+    it("非 ASCII プロファイル名が 0x 形式でエンコードされていても正しくデコードする", async () => {
+      // "山田太郎" の UTF-8 バイト列の 16 進数表現
+      const YAMADA_TARO_HEX = "E5B1B1E794B0E5A4AAE9838E"
+      const dumpOutput = [
+        'keychain: "/Users/ユーザー/Library/Keychains/login.keychain"',
+        "version: 512",
+        'class: "genp"',
+        "attributes:",
+        `    "acct"<blob>=0x${YAMADA_TARO_HEX}`,
+        '    "svce"<blob>="coscli"',
+        '    "type"<uint32>=<NULL>',
+      ].join("\n")
+
+      const { spawner } = captureSpawner(dumpOutput, "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      const profiles = await store.list()
+
+      // 検証: hex デコードされたプロファイル名が返る
+      expect(profiles).toContain("山田太郎")
     })
 
     it("exit code 非 0 のとき空配列を返す", async () => {

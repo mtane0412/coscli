@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  ci:
-    name: Lint / Type Check / Test
+  lint-typecheck:
+    name: Lint / 型チェック
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,5 +26,55 @@ jobs:
       - name: 型チェック
         run: bun run typecheck
 
-      - name: テスト実行
+  unit-test:
+    name: ユニットテスト
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      - name: ユニットテスト実行 (カバレッジあり)
         run: bun test --coverage
+
+  integration-test:
+    name: インテグレーションテスト (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      # Linux: libsecret + gnome-keyring のセットアップ
+      - name: gnome-keyring セットアップ (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y gnome-keyring dbus-x11 libsecret-tools
+          eval $(dbus-launch --sh-syntax)
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
+          echo -n "" | gnome-keyring-daemon --unlock --components=secrets
+
+      # Windows: CredentialManager PowerShell モジュールのインストール
+      - name: CredentialManager セットアップ (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module CredentialManager -Scope CurrentUser -Force
+
+      - name: インテグレーションテスト実行
+        run: bun test tests/integration/

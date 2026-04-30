@@ -2,5 +2,5 @@
 # カバレッジ設定
 coverage = true
 coverageThreshold = { line = 80, function = 80 }
-# テストファイルのパターン
-include = ["tests/**/*.test.ts", "src/**/*.test.ts"]
+# デフォルトはユニットテストのみ実行。インテグレーションテストは bun test tests/integration/ で個別実行
+include = ["tests/unit/**/*.test.ts", "src/**/*.test.ts"]
