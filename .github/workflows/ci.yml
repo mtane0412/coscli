@@ -72,6 +72,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
           eval $(dbus-launch --sh-syntax)
           eval $(echo "" | gnome-keyring-daemon --unlock --components=secrets)
+          echo "=== secret-tool search 動作確認 ==="
+          echo "test-sid" | secret-tool store --label=debug service coscli account debug-test && echo "store OK" || echo "store FAILED"
+          echo "--- search --all 出力 ---"
+          secret-tool search --all service coscli; echo "search exit: $?"
+          echo "--- search (--all なし) 出力 ---"
+          secret-tool search service coscli account debug-test; echo "search-single exit: $?"
+          echo "=================================="
           bun test tests/integration/
 
       # Windows: CredentialManager PowerShell モジュールのインストール
