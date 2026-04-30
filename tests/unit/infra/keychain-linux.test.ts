@@ -104,7 +104,40 @@ describe("LinuxKeychainStore", () => {
   })
 
   describe("list", () => {
-    it("secret-tool search --all の出力をパースしてプロファイル一覧を返す", async () => {
+    it("libsecret 0.21+ (Ubuntu 24.04): attribute.* が stderr に出力されるフォーマットをパースする", async () => {
+      // libsecret 0.21+ では attribute.* 行は stderr、その他は stdout に出力される
+      const stdoutOutput = [
+        "[/1]",
+        "label = coscli",
+        "secret = ",
+        "",
+        "created = 2024-01-01 00:00:00",
+        "modified = 2024-01-01 00:00:00",
+        "",
+        "[/2]",
+        "label = coscli",
+        "secret = ",
+        "",
+        "created = 2024-01-01 00:00:00",
+        "modified = 2024-01-01 00:00:00",
+      ].join("\n")
+      const stderrOutput = [
+        "attribute.service = coscli",
+        "attribute.account = 個人アカウント",
+        "attribute.service = coscli",
+        "attribute.account = 仕事アカウント",
+      ].join("\n")
+
+      const { spawner } = captureSpawner(stdoutOutput, stderrOutput, 0)
+      const store = new LinuxKeychainStore(spawner)
+      const profiles = await store.list()
+
+      expect(profiles).toContain("個人アカウント")
+      expect(profiles).toContain("仕事アカウント")
+    })
+
+    it("libsecret 0.20 以前: attribute.* が stdout に出力されるフォーマットもパースする", async () => {
+      // libsecret 0.20 以前 (Ubuntu 22.04 等) では attribute.* 行は stdout に出力される
       const searchOutput = [
         "[/org/freedesktop/secrets/collection/login/1]",
         "label = coscli",
