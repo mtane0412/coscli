@@ -62,13 +62,15 @@ jobs:
 
       # Linux: libsecret + gnome-keyring のセットアップとインテグレーションテストを同一ステップで実行。
       # gnome-keyring-daemon はステップ終了で停止するため、テストも同一シェルセッション内で実行する必要がある。
+      # --start: デーモンを起動して login コレクションが存在しない場合は新規作成する。
+      # --unlock では既存コレクションを前提とするため CI 環境では --start を使用する。
       - name: インテグレーションテスト実行 (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
           eval $(dbus-launch --sh-syntax)
-          echo -n "" | gnome-keyring-daemon --unlock --components=secrets
+          eval $(gnome-keyring-daemon --start --components=secrets)
           bun test tests/integration/
 
       # Windows: CredentialManager PowerShell モジュールのインストール
