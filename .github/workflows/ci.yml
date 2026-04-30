@@ -15,7 +15,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.13"
 
       - name: 依存パッケージのインストール
         run: bun install --frozen-lockfile
@@ -34,13 +34,14 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.13"
 
       - name: 依存パッケージのインストール
         run: bun install --frozen-lockfile
 
+      # 統合テストが混入しないようにテストパスを明示指定する
       - name: ユニットテスト実行 (カバレッジあり)
-        run: bun test --coverage
+        run: bun test tests/unit/ src/ --coverage
 
   integration-test:
     name: インテグレーションテスト (${{ matrix.os }})
@@ -54,19 +55,21 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.13"
 
       - name: 依存パッケージのインストール
         run: bun install --frozen-lockfile
 
-      # Linux: libsecret + gnome-keyring のセットアップ
-      - name: gnome-keyring セットアップ (Linux)
+      # Linux: libsecret + gnome-keyring のセットアップとインテグレーションテストを同一ステップで実行。
+      # gnome-keyring-daemon はステップ終了で停止するため、テストも同一シェルセッション内で実行する必要がある。
+      - name: インテグレーションテスト実行 (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install -y gnome-keyring dbus-x11 libsecret-tools
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
           eval $(dbus-launch --sh-syntax)
-          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
           echo -n "" | gnome-keyring-daemon --unlock --components=secrets
+          bun test tests/integration/
 
       # Windows: CredentialManager PowerShell モジュールのインストール
       - name: CredentialManager セットアップ (Windows)
@@ -76,5 +79,6 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module CredentialManager -Scope CurrentUser -Force
 
-      - name: インテグレーションテスト実行
+      - name: インテグレーションテスト実行 (macOS / Windows)
+        if: matrix.os != 'ubuntu-latest'
         run: bun test tests/integration/

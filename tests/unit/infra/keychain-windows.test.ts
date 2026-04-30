@@ -133,6 +133,34 @@ describe("WindowsKeychainStore", () => {
       expect(profiles).not.toContain("other")
     })
 
+    it("LegacyGeneric:target= プレフィックス付きフォーマット (Windows Server 2022 等) でも正しくパースできる", async () => {
+      // Windows 環境では cmdkey /list が "LegacyGeneric:target=<actual-target>" 形式で出力することがある
+      const listOutput = [
+        "Currently stored credentials:",
+        "",
+        "    Target: LegacyGeneric:target=coscli:個人アカウント",
+        "    Type: Generic",
+        "    User: cos",
+        "    Local machine persistence",
+        "",
+        "    Target: LegacyGeneric:target=coscli:仕事アカウント",
+        "    Type: Generic",
+        "    User: cos",
+        "",
+        "    Target: LegacyGeneric:target=other-app:other",
+        "    Type: Generic",
+      ].join("\n")
+
+      const { spawner } = captureSpawner(listOutput, "", 0)
+      const store = new WindowsKeychainStore(spawner)
+      const profiles = await store.list()
+
+      // 検証: LegacyGeneric プレフィックスが除去され正しいプロファイル名が返る
+      expect(profiles).toContain("個人アカウント")
+      expect(profiles).toContain("仕事アカウント")
+      expect(profiles).not.toContain("other")
+    })
+
     it("exit code 非 0 のとき空配列を返す", async () => {
       const { spawner } = captureSpawner("", "エラー", 1)
       const store = new WindowsKeychainStore(spawner)

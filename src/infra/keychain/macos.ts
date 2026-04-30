@@ -63,6 +63,8 @@ export class MacOSKeychainStore implements TokenStore {
     // 各ブロック内で "acct" は "svce" より前に出力されるためブロック単位でパースする。
     const profiles: string[] = []
     const blocks = result.stdout.split(/^keychain:/m)
+    // TextDecoder はループ外で 1 度だけ生成して使い回す
+    const decoder = new TextDecoder()
 
     for (const block of blocks) {
       if (!block.includes(`"svce"<blob>="${SERVICE}"`)) continue
@@ -77,10 +79,13 @@ export class MacOSKeychainStore implements TokenStore {
       // 16進数形式: "acct"<blob>=0xHEX (非 ASCII 文字列の UTF-8 バイト列表現)
       const hexMatch = block.match(/"acct"<blob>=0x([0-9A-Fa-f]+)/)
       if (hexMatch?.[1]) {
-        const pairs = hexMatch[1].match(/.{2}/g)
+        const hex = hexMatch[1]
+        // 奇数長の場合は不正な hex としてスキップ
+        if (hex.length % 2 !== 0) continue
+        const pairs = hex.match(/.{2}/g)
         if (pairs) {
           const bytes = pairs.map((h) => Number.parseInt(h, 16))
-          profiles.push(new TextDecoder().decode(new Uint8Array(bytes)))
+          profiles.push(decoder.decode(new Uint8Array(bytes)))
         }
       }
     }

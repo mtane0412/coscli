@@ -16,9 +16,11 @@ describeSuite("MacOSKeychainStore インテグレーションテスト (security
   // 他の Keychain エントリと衝突しない一意なプロファイル名を使用
   const TEST_PROFILE = "cos-integration-test-山田太郎"
   const TEST_SID = "test-session-id-abcdef123456"
-  const store = new MacOSKeychainStore()
+  // describe.skip でも callback は評価されるため、store の生成は beforeAll に移動する
+  let store: MacOSKeychainStore
 
   beforeAll(async () => {
+    store = new MacOSKeychainStore()
     // テスト前にエントリが残っていれば削除してクリーンな状態にする
     await store.delete(TEST_PROFILE)
   })

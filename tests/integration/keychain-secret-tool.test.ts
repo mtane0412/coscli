@@ -7,7 +7,7 @@
  *   - GNOME Keyring デーモンが起動済み (DBUS_SESSION_BUS_ADDRESS が設定されている)
  *
  * CI セットアップ例:
- *   sudo apt-get install -y gnome-keyring dbus-x11 libsecret-tools
+ *   sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
  *   eval $(dbus-launch --sh-syntax)
  *   echo -n "" | gnome-keyring-daemon --unlock --components=secrets
  */
@@ -22,9 +22,11 @@ describeSuite("LinuxKeychainStore インテグレーションテスト (secret-t
   // 他の Secret Service エントリと衝突しない一意なプロファイル名を使用
   const TEST_PROFILE = "cos-integration-test-山田太郎"
   const TEST_SID = "test-session-id-abcdef123456"
-  const store = new LinuxKeychainStore()
+  // describe.skip でも callback は評価されるため、store の生成は beforeAll に移動する
+  let store: LinuxKeychainStore
 
   beforeAll(async () => {
+    store = new LinuxKeychainStore()
     // テスト前にエントリが残っていれば削除してクリーンな状態にする
     await store.delete(TEST_PROFILE)
   })

@@ -23,9 +23,11 @@ describeSuite(
     // 他の Credential Manager エントリと衝突しない一意なプロファイル名を使用
     const TEST_PROFILE = "cos-integration-test-山田太郎"
     const TEST_SID = "test-session-id-abcdef123456"
-    const store = new WindowsKeychainStore()
+    // describe.skip でも callback は評価されるため、store の生成は beforeAll に移動する
+    let store: WindowsKeychainStore
 
     beforeAll(async () => {
+      store = new WindowsKeychainStore()
       // テスト前にエントリが残っていれば削除してクリーンな状態にする
       await store.delete(TEST_PROFILE)
     })
