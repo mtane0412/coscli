@@ -7,15 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  ci:
-    name: Lint / Type Check / Test
+  lint-typecheck:
+    name: Lint / 型チェック
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.13"
 
       - name: 依存パッケージのインストール
         run: bun install --frozen-lockfile
@@ -26,5 +26,62 @@ jobs:
       - name: 型チェック
         run: bun run typecheck
 
-      - name: テスト実行
-        run: bun test --coverage
+  unit-test:
+    name: ユニットテスト
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      # 統合テストが混入しないようにテストパスを明示指定する
+      - name: ユニットテスト実行 (カバレッジあり)
+        run: bun test tests/unit/ src/ --coverage
+
+  integration-test:
+    name: インテグレーションテスト (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - name: 依存パッケージのインストール
+        run: bun install --frozen-lockfile
+
+      # Linux: libsecret + gnome-keyring のセットアップとインテグレーションテストを同一ステップで実行。
+      # gnome-keyring-daemon はステップ終了で停止するため、テストも同一シェルセッション内で実行する必要がある。
+      # --unlock: stdin から空パスワードを読み込み "login" コレクションを作成・アンロックし、
+      #           GNOME_KEYRING_CONTROL 等の環境変数を stdout に出力する。eval $() で取り込む必要がある。
+      #           --start は "login" コレクションを作成しないため使用しない。
+      - name: インテグレーションテスト実行 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
+          eval $(dbus-launch --sh-syntax)
+          eval $(echo "" | gnome-keyring-daemon --unlock --components=secrets)
+          bun test tests/integration/
+
+      # Windows: CredentialManager PowerShell モジュールのインストール
+      - name: CredentialManager セットアップ (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module CredentialManager -Scope CurrentUser -Force
+
+      - name: インテグレーションテスト実行 (macOS / Windows)
+        if: matrix.os != 'ubuntu-latest'
+        run: bun test tests/integration/

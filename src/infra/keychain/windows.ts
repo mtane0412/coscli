@@ -129,7 +129,8 @@ export class WindowsKeychainStore implements TokenStore {
     const prefix = `${SERVICE}:`
     const profiles: string[] = []
     for (const line of stdout.split("\n")) {
-      const match = line.match(/Target:\s*(.+)/)
+      // Windows Server 2022 等では "LegacyGeneric:target=<actual>" 形式で出力される場合がある
+      const match = line.match(/Target:\s*(?:LegacyGeneric:target=)?(.+)/)
       if (match?.[1]) {
         const target = match[1].trim()
         if (target.startsWith(prefix)) {

@@ -56,23 +56,36 @@ export class MacOSKeychainStore implements TokenStore {
   }
 
   async list(): Promise<string[]> {
-    // security コマンドでサービス名を指定して全アカウント名を取得する
     const result = await this.run(["security", "dump-keychain"])
     if (!result.success) return []
 
-    const lines = result.stdout.split("\n")
+    // dump-keychain の出力は "keychain:" 行でエントリが区切られる。
+    // 各ブロック内で "acct" は "svce" より前に出力されるためブロック単位でパースする。
     const profiles: string[] = []
-    let inCosenseEntry = false
+    const blocks = result.stdout.split(/^keychain:/m)
+    // TextDecoder はループ外で 1 度だけ生成して使い回す
+    const decoder = new TextDecoder()
 
-    for (const line of lines) {
-      if (line.includes(`"svce"<blob>="${SERVICE}"`)) {
-        inCosenseEntry = true
+    for (const block of blocks) {
+      if (!block.includes(`"svce"<blob>="${SERVICE}"`)) continue
+
+      // ASCII 形式: "acct"<blob>="account-name"
+      const quotedMatch = block.match(/"acct"<blob>="([^"]+)"/)
+      if (quotedMatch?.[1]) {
+        profiles.push(quotedMatch[1])
+        continue
       }
-      if (inCosenseEntry && line.includes('"acct"<blob>=')) {
-        const match = line.match(/"acct"<blob>="([^"]+)"/)
-        if (match?.[1]) {
-          profiles.push(match[1])
-          inCosenseEntry = false
+
+      // 16進数形式: "acct"<blob>=0xHEX (非 ASCII 文字列の UTF-8 バイト列表現)
+      const hexMatch = block.match(/"acct"<blob>=0x([0-9A-Fa-f]+)/)
+      if (hexMatch?.[1]) {
+        const hex = hexMatch[1]
+        // 奇数長の場合は不正な hex としてスキップ
+        if (hex.length % 2 !== 0) continue
+        const pairs = hex.match(/.{2}/g)
+        if (pairs) {
+          const bytes = pairs.map((h) => Number.parseInt(h, 16))
+          profiles.push(decoder.decode(new Uint8Array(bytes)))
         }
       }
     }

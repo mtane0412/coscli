@@ -97,11 +97,17 @@ export class LinuxKeychainStore implements TokenStore {
       if (isENOENT(e)) throw new Error(SECRET_TOOL_NOT_FOUND_MESSAGE)
       throw e
     }
-    const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
+    // libsecret 0.21+ (Ubuntu 24.04) では attribute.* 行が stderr に出力される。
+    // 0.20 以前は stdout に出力されるため、後方互換性のため両方を検索する。
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
     if (exitCode !== 0) return []
 
     const profiles: string[] = []
-    for (const line of stdout.split("\n")) {
+    for (const line of `${stdout}\n${stderr}`.split("\n")) {
       const match = line.match(/attribute\.account\s*=\s*(.+)/)
       if (match?.[1]) profiles.push(match[1].trim())
     }
