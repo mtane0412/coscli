@@ -2,7 +2,7 @@
  * page/icon.test.ts — `cos page icon <title>` コマンドのテスト。
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { pageIconCommand } from "@/commands/page/icon"
 
 // process.exit をモック化してテスト終了を防ぐ
@@ -52,11 +52,9 @@ describe("pageIconCommand", () => {
     )
   })
 
-  it("--json フラグ指定時は JSON に url フィールドを含む", async () => {
-    const writeJsonSpy = mock(() => {})
+  it("--json フラグ指定時は JSON の data に icon フィールドを含む", async () => {
     process.env["COS_PROJECT"] = "myproject"
 
-    const consoleSpy = spyOn(process.stdout, "write").mockImplementation(() => true)
     await runIcon({
       title: "MyPage",
       project: "myproject",
@@ -66,10 +64,10 @@ describe("pageIconCommand", () => {
       "dry-run": false,
       quiet: false,
     })
-    // JSON 出力は stdout に書かれる
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("icon"))
-    writeJsonSpy.mockRestore()
-    consoleSpy.mockRestore()
+    // stdoutMock に書かれた JSON を解析して icon フィールドを検証する
+    const rawOutput = stdoutMock.mock.calls[0]?.[0] as string
+    expect(rawOutput).toBeDefined()
+    expect(JSON.parse(rawOutput).data).toMatchObject({ icon: expect.any(String) })
   })
 
   it("プロジェクト未指定の場合は exit 5 で終了する", async () => {

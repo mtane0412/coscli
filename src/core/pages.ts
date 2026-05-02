@@ -119,7 +119,7 @@ export async function insertIntoPage(
     project: opts.project,
     title: opts.title,
     update: (existing) => {
-      if (opts.after < 1 || opts.after > existing.length) {
+      if (!Number.isInteger(opts.after) || opts.after < 1 || opts.after > existing.length) {
         throw new Error(`--after の値が範囲外です (1〜${existing.length} の整数を指定してください)`)
       }
       const txt = existing.map((l) => l.text)

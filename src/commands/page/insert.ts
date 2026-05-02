@@ -55,26 +55,35 @@ export const pageInsertCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    // --after バリデーション (1-indexed、1以上の整数のみ許可)
-    const afterN = Number.parseInt(a.after, 10)
-    if (Number.isNaN(afterN) || afterN < 1) {
+    // --after バリデーション (1-indexed、正の整数のみ許可。"1abc" や "1.5" は弾く)
+    if (!/^[1-9]\d*$/.test(a.after)) {
       writeErrorJson(
         "VALIDATION_ERROR",
         `--after の値が無効です: "${a.after}"`,
         "1 以上の整数を指定してください (タイトル行=1)",
       )
       process.exit(5)
+      return
     }
+    const afterN = Number.parseInt(a.after, 10)
 
     let lines: string[] = []
-    if (a.line) {
+    if (a.line !== undefined) {
       lines = a.line.split("\\n")
-    } else if (a["from-file"] === "-") {
-      const content = readFileSync(0, "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
     } else if (a["from-file"]) {
-      const content = readFileSync(a["from-file"], "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      try {
+        const content =
+          a["from-file"] === "-" ? readFileSync(0, "utf-8") : readFileSync(a["from-file"], "utf-8")
+        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      } catch {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
+          "ファイルパスが正しいか確認してください",
+        )
+        process.exit(5)
+        return
+      }
     }
 
     if (lines.length === 0) {
@@ -93,11 +102,13 @@ export const pageInsertCommand = defineCommand({
     try {
       result = await insertIntoPage(writer, { project, title: a.title, after: afterN, lines })
     } catch (err) {
-      // insertIntoPage 内部の範囲外エラーをキャッチして VALIDATION_ERROR として報告
-      const message = err instanceof Error ? err.message : String(err)
-      writeErrorJson("VALIDATION_ERROR", message)
-      process.exit(5)
-      return
+      // insertIntoPage 内部の範囲外エラーのみ VALIDATION_ERROR として報告し、それ以外は再スロー
+      if (err instanceof Error && err.message.startsWith("--after の値が範囲外です")) {
+        writeErrorJson("VALIDATION_ERROR", err.message)
+        process.exit(5)
+        return
+      }
+      throw err
     }
 
     if (a.json || a["dry-run"]) {

@@ -45,14 +45,22 @@ export const pagePrependCommand = defineCommand({
     const startTime = Date.now()
 
     let lines: string[] = []
-    if (a.line) {
+    if (a.line !== undefined) {
       lines = a.line.split("\\n")
-    } else if (a["from-file"] === "-") {
-      const content = readFileSync(0, "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
     } else if (a["from-file"]) {
-      const content = readFileSync(a["from-file"], "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      try {
+        const content =
+          a["from-file"] === "-" ? readFileSync(0, "utf-8") : readFileSync(a["from-file"], "utf-8")
+        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      } catch {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
+          "ファイルパスが正しいか確認してください",
+        )
+        process.exit(5)
+        return
+      }
     }
 
     if (lines.length === 0) {
@@ -62,6 +70,7 @@ export const pagePrependCommand = defineCommand({
         "--line または --from-file でコンテンツを指定してください",
       )
       process.exit(5)
+      return
     }
 
     logger.info(`"${a.title}" の先頭に行を挿入中...`)

@@ -53,8 +53,8 @@ export const pageRenameCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    // dry-run 以外では重複チェックを行う
-    if (!a["dry-run"] && !a["force-fallback"]) {
+    // dry-run 以外かつ同名でない場合は重複チェックを行う (同名は no-op なのでスキップ)
+    if (!a["dry-run"] && !a["force-fallback"] && a["new-title"] !== a.title) {
       const client = await buildRestClient(a)
       try {
         await client.getPage(project, a["new-title"])

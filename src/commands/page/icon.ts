@@ -39,7 +39,7 @@ export const pageIconCommand = defineCommand({
     const url = buildIconUrl(project, a.title)
 
     if (a.json) {
-      writeJson({ url }, { command: "page.icon", startTime }, buildJsonOpts(a))
+      writeJson({ icon: url }, { command: "page.icon", startTime }, buildJsonOpts(a))
       return
     }
 
