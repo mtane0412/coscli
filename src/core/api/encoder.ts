@@ -25,3 +25,10 @@ export function buildPageUrl(project: string, title: string): string {
   if (!title) throw new Error("タイトルを指定してください")
   return `${BASE_URL}/${encodeURIComponent(project)}/${encodePageTitle(title)}`
 }
+
+/** buildIconUrl はページアイコン取得 URL を生成する (API 呼び出しなし)。 */
+export function buildIconUrl(project: string, title: string): string {
+  if (!project) throw new Error("プロジェクト名を指定してください")
+  if (!title) throw new Error("タイトルを指定してください")
+  return `${BASE_URL}/api/pages/${encodeURIComponent(project)}/${encodePageTitle(title)}/icon`
+}

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "bun:test"
-import { buildPageUrl, decodePageTitle, encodePageTitle } from "@/core/api/encoder"
+import { buildIconUrl, buildPageUrl, decodePageTitle, encodePageTitle } from "@/core/api/encoder"
 
 describe("encodePageTitle", () => {
   it("半角スペースをアンダースコアに変換する", () => {
@@ -77,5 +77,33 @@ describe("buildPageUrl", () => {
 
   it("タイトルが空の場合はエラーをスローする", () => {
     expect(() => buildPageUrl("myproject", "")).toThrow("タイトルを指定してください")
+  })
+})
+
+describe("buildIconUrl", () => {
+  it("プロジェクト名とタイトルからアイコン URL を生成する", () => {
+    expect(buildIconUrl("myproject", "Hello World")).toBe(
+      "https://scrapbox.io/api/pages/myproject/Hello_World/icon",
+    )
+  })
+
+  it("日本語タイトルを含むアイコン URL を生成する", () => {
+    expect(buildIconUrl("テストプロジェクト", "日本語ページ")).toBe(
+      "https://scrapbox.io/api/pages/%E3%83%86%E3%82%B9%E3%83%88%E3%83%97%E3%83%AD%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88/%E6%97%A5%E6%9C%AC%E8%AA%9E%E3%83%9A%E3%83%BC%E3%82%B8/icon",
+    )
+  })
+
+  it("半角スペースをアンダースコアに変換してアイコン URL を生成する", () => {
+    expect(buildIconUrl("my project", "my page")).toBe(
+      "https://scrapbox.io/api/pages/my%20project/my_page/icon",
+    )
+  })
+
+  it("プロジェクト名が空の場合はエラーをスローする", () => {
+    expect(() => buildIconUrl("", "ページタイトル")).toThrow("プロジェクト名を指定してください")
+  })
+
+  it("タイトルが空の場合はエラーをスローする", () => {
+    expect(() => buildIconUrl("myproject", "")).toThrow("タイトルを指定してください")
   })
 })

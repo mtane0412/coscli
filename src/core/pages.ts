@@ -78,3 +78,65 @@ export async function editPage(
 export async function deletePage(writer: ScrapboxWriter, opts: { project: string; title: string }) {
   return writer.deletePage({ project: opts.project, title: opts.title })
 }
+
+/** renamePage はページタイトルを変更する (WebSocket commit)。lines[0] を書き換えると TitleChange が自動 emit される。 */
+export async function renamePage(
+  writer: ScrapboxWriter,
+  opts: { project: string; title: string; newTitle: string },
+) {
+  return writer.patch({
+    project: opts.project,
+    title: opts.title,
+    update: (lines) => [opts.newTitle, ...lines.slice(1).map((l) => l.text)],
+  })
+}
+
+/** prependToPage はタイトル直後に行を挿入する (WebSocket commit)。 */
+export async function prependToPage(
+  writer: ScrapboxWriter,
+  opts: { project: string; title: string; lines: string[] },
+) {
+  return writer.patch({
+    project: opts.project,
+    title: opts.title,
+    update: (existing) => [
+      existing[0]?.text ?? opts.title,
+      ...opts.lines,
+      ...existing.slice(1).map((l) => l.text),
+    ],
+  })
+}
+
+/**
+ * insertIntoPage は指定行 (1-indexed) の後ろに行を挿入する (WebSocket commit)。
+ * after が範囲外の場合は update 関数内で Error を throw する。
+ */
+export async function insertIntoPage(
+  writer: ScrapboxWriter,
+  opts: { project: string; title: string; after: number; lines: string[] },
+) {
+  return writer.patch({
+    project: opts.project,
+    title: opts.title,
+    update: (existing) => {
+      if (opts.after < 1 || opts.after > existing.length) {
+        throw new Error(`--after の値が範囲外です (1〜${existing.length} の整数を指定してください)`)
+      }
+      const txt = existing.map((l) => l.text)
+      return [...txt.slice(0, opts.after), ...opts.lines, ...txt.slice(opts.after)]
+    },
+  })
+}
+
+/** pinPage はページをピン留めする (WebSocket commit)。 */
+export async function pinPage(
+  writer: ScrapboxWriter,
+  opts: { project: string; title: string; create: boolean },
+) {
+  return writer.pinPage({ project: opts.project, title: opts.title, create: opts.create })
+}
+
+/** unpinPage はピン留めを解除する (WebSocket commit)。 */
+export async function unpinPage(writer: ScrapboxWriter, opts: { project: string; title: string }) {
+  return writer.unpinPage({ project: opts.project, title: opts.title })
+}

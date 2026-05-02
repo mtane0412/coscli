@@ -16,7 +16,12 @@ import {
   getCodeBlock,
   getPage,
   getPageText,
+  insertIntoPage,
   listPages,
+  pinPage,
+  prependToPage,
+  renamePage,
+  unpinPage,
 } from "@/core/pages"
 
 /** REST クライアントのモック */
@@ -99,6 +104,8 @@ function createMockWriter(overrides: Partial<ScrapboxWriter> = {}): ScrapboxWrit
     patch: mock(async () => ({ commitId: "commit1", pageId: "page1" })),
     insertLines: mock(async () => ({ commitId: "commit1" })),
     deletePage: mock(async () => ({ title: "テストページ" })),
+    pinPage: mock(async () => ({ title: "ピン留めページ" })),
+    unpinPage: mock(async () => ({ title: "ピン解除ページ" })),
     ...overrides,
   } as unknown as ScrapboxWriter
 }
@@ -191,5 +198,175 @@ describe("deletePage", () => {
     const writer = createMockWriter()
     await deletePage(writer, { project: "proj", title: "削除ページ" })
     expect(writer.deletePage).toHaveBeenCalledWith({ project: "proj", title: "削除ページ" })
+  })
+})
+
+describe("renamePage", () => {
+  it("patch の update 関数が新タイトルを先頭にした配列を返す", async () => {
+    // update 関数の戻り値をキャプチャするためにモックを差し替える
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "rename-commit", pageId: "page1" }
+      }),
+    })
+    await renamePage(writer, { project: "proj", title: "旧タイトル", newTitle: "新タイトル" })
+    expect(writer.patch).toHaveBeenCalledTimes(1)
+
+    // update 関数を実際に呼んで戻り値を検証する
+    const existingLines = [
+      { id: "l1", text: "旧タイトル", userId: "u1", created: 0, updated: 0 },
+      { id: "l2", text: "本文1行目", userId: "u1", created: 0, updated: 0 },
+      { id: "l3", text: "本文2行目", userId: "u1", created: 0, updated: 0 },
+    ]
+    const result = await capturedUpdate?.(existingLines)
+    expect(result).toEqual(["新タイトル", "本文1行目", "本文2行目"])
+  })
+})
+
+describe("prependToPage", () => {
+  it("patch の update 関数がタイトル直後に新行を挿入した配列を返す", async () => {
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "prepend-commit", pageId: "page1" }
+      }),
+    })
+    await prependToPage(writer, {
+      project: "proj",
+      title: "既存ページ",
+      lines: ["先頭追加行1", "先頭追加行2"],
+    })
+    expect(writer.patch).toHaveBeenCalledTimes(1)
+
+    const existingLines = [
+      { id: "l1", text: "既存ページ", userId: "u1", created: 0, updated: 0 },
+      { id: "l2", text: "既存本文", userId: "u1", created: 0, updated: 0 },
+    ]
+    const result = await capturedUpdate?.(existingLines)
+    expect(result).toEqual(["既存ページ", "先頭追加行1", "先頭追加行2", "既存本文"])
+  })
+
+  it("本文が空ページでもタイトル直後に行を挿入できる", async () => {
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "prepend-commit", pageId: "page1" }
+      }),
+    })
+    await prependToPage(writer, { project: "proj", title: "空ページ", lines: ["新しい行"] })
+
+    // タイトル行のみのページ
+    const existingLines = [{ id: "l1", text: "空ページ", userId: "u1", created: 0, updated: 0 }]
+    const result = await capturedUpdate?.(existingLines)
+    expect(result).toEqual(["空ページ", "新しい行"])
+  })
+})
+
+describe("insertIntoPage", () => {
+  it("--after 2 で 2 行目の後ろに行を挿入する (1-indexed)", async () => {
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "insert-commit", pageId: "page1" }
+      }),
+    })
+    await insertIntoPage(writer, {
+      project: "proj",
+      title: "挿入ページ",
+      after: 2,
+      lines: ["挿入行"],
+    })
+    expect(writer.patch).toHaveBeenCalledTimes(1)
+
+    const existingLines = [
+      { id: "l1", text: "挿入ページ", userId: "u1", created: 0, updated: 0 },
+      { id: "l2", text: "本文1行目", userId: "u1", created: 0, updated: 0 },
+      { id: "l3", text: "本文2行目", userId: "u1", created: 0, updated: 0 },
+    ]
+    const result = await capturedUpdate?.(existingLines)
+    expect(result).toEqual(["挿入ページ", "本文1行目", "挿入行", "本文2行目"])
+  })
+
+  it("--after 0 (範囲外) の場合は update 関数が例外をスローする", async () => {
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "insert-commit", pageId: "page1" }
+      }),
+    })
+    await insertIntoPage(writer, { project: "proj", title: "ページ", after: 0, lines: ["行"] })
+
+    const existingLines = [{ id: "l1", text: "ページ", userId: "u1", created: 0, updated: 0 }]
+    expect(() => capturedUpdate?.(existingLines)).toThrow("範囲外")
+  })
+
+  it("lines 数を超える --after (範囲外) の場合は update 関数が例外をスローする", async () => {
+    let capturedUpdate:
+      | ((
+          lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+        ) => string[] | Promise<string[]>)
+      | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedUpdate = opts.update
+        return { commitId: "insert-commit", pageId: "page1" }
+      }),
+    })
+    await insertIntoPage(writer, { project: "proj", title: "ページ", after: 99, lines: ["行"] })
+
+    const existingLines = [
+      { id: "l1", text: "ページ", userId: "u1", created: 0, updated: 0 },
+      { id: "l2", text: "本文", userId: "u1", created: 0, updated: 0 },
+    ]
+    expect(() => capturedUpdate?.(existingLines)).toThrow("範囲外")
+  })
+})
+
+describe("pinPage", () => {
+  it("Writer の pinPage を正しい引数で呼ぶ", async () => {
+    const writer = createMockWriter()
+    await pinPage(writer, { project: "proj", title: "ピンページ", create: true })
+    expect(writer.pinPage).toHaveBeenCalledWith({
+      project: "proj",
+      title: "ピンページ",
+      create: true,
+    })
+  })
+})
+
+describe("unpinPage", () => {
+  it("Writer の unpinPage を正しい引数で呼ぶ", async () => {
+    const writer = createMockWriter()
+    await unpinPage(writer, { project: "proj", title: "ピン解除ページ" })
+    expect(writer.unpinPage).toHaveBeenCalledWith({
+      project: "proj",
+      title: "ピン解除ページ",
+    })
   })
 })
