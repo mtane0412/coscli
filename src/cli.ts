@@ -17,10 +17,16 @@ import { pageCodeCommand } from "@/commands/page/code"
 import { pageDeleteCommand } from "@/commands/page/delete"
 import { pageEditCommand } from "@/commands/page/edit"
 import { pageGetCommand } from "@/commands/page/get"
+import { pageIconCommand } from "@/commands/page/icon"
+import { pageInsertCommand } from "@/commands/page/insert"
 // ページコマンド
 import { pageListCommand } from "@/commands/page/list"
 import { pageNewCommand } from "@/commands/page/new"
+import { pagePinCommand } from "@/commands/page/pin"
+import { pagePrependCommand } from "@/commands/page/prepend"
+import { pageRenameCommand } from "@/commands/page/rename"
 import { pageTextCommand } from "@/commands/page/text"
+import { pageUnpinCommand } from "@/commands/page/unpin"
 import { pageUrlCommand } from "@/commands/page/url"
 
 import { projectInfoCommand } from "@/commands/project/info"
@@ -55,6 +61,13 @@ const pageCommand = defineCommand({
     edit: pageEditCommand,
     ed: pageEditCommand,
     append: pageAppendCommand,
+    prepend: pagePrependCommand,
+    insert: pageInsertCommand,
+    rename: pageRenameCommand,
+    mv: pageRenameCommand,
+    pin: pagePinCommand,
+    unpin: pageUnpinCommand,
+    icon: pageIconCommand,
     delete: pageDeleteCommand,
     rm: pageDeleteCommand,
   },

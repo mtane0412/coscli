@@ -18,6 +18,14 @@ export interface ScrapboxWriterStdClient {
     update: (lines: Line[]) => Promise<string[]>,
     options?: { sid?: string; maxRetry?: number },
   ): Promise<{ commitId: string; pageId: string } | unknown>
+
+  pin(
+    project: string,
+    title: string,
+    options?: { sid?: string; create?: boolean },
+  ): Promise<unknown>
+
+  unpin(project: string, title: string, options?: { sid?: string }): Promise<unknown>
 }
 
 /** DryRunResult は --dry-run 時に実際のコミットをしないで返す結果型。 */
@@ -50,6 +58,19 @@ export interface DeletePageOptions {
   title: string
 }
 
+/** PinPageOptions は pinPage() に渡すオプション。 */
+export interface PinPageOptions {
+  project: string
+  title: string
+  create?: boolean
+}
+
+/** UnpinPageOptions は unpinPage() に渡すオプション。 */
+export interface UnpinPageOptions {
+  project: string
+  title: string
+}
+
 /** ScrapboxWriter は Cosense への書き込み操作を抽象化する interface。 */
 export interface ScrapboxWriter {
   patch(opts: PatchOptions): Promise<{ commitId: string; pageId: string } | DryRunResult>
@@ -57,6 +78,10 @@ export interface ScrapboxWriter {
   insertLines(opts: InsertLinesOptions): Promise<{ commitId: string } | DryRunResult>
 
   deletePage(opts: DeletePageOptions): Promise<{ title: string } | DryRunResult>
+
+  pinPage(opts: PinPageOptions): Promise<{ title: string } | DryRunResult>
+
+  unpinPage(opts: UnpinPageOptions): Promise<{ title: string } | DryRunResult>
 }
 
 /** CosenseWriterOptions は CosenseWriter のオプション。 */
@@ -133,6 +158,29 @@ export class CosenseWriter implements ScrapboxWriter {
     })
     return { title: opts.title }
   }
+
+  async pinPage(opts: PinPageOptions): Promise<{ title: string } | DryRunResult> {
+    if (this.opts.dryRun) {
+      return { dryRun: true, project: opts.project, title: opts.title }
+    }
+
+    const pinOpts: { sid?: string; create?: boolean } = {}
+    if (this.opts.sid !== undefined) pinOpts.sid = this.opts.sid
+    if (opts.create !== undefined) pinOpts.create = opts.create
+    await this.stdClient.pin(opts.project, opts.title, pinOpts)
+    return { title: opts.title }
+  }
+
+  async unpinPage(opts: UnpinPageOptions): Promise<{ title: string } | DryRunResult> {
+    if (this.opts.dryRun) {
+      return { dryRun: true, project: opts.project, title: opts.title }
+    }
+
+    const unpinOpts: { sid?: string } = {}
+    if (this.opts.sid !== undefined) unpinOpts.sid = this.opts.sid
+    await this.stdClient.unpin(opts.project, opts.title, unpinOpts)
+    return { title: opts.title }
+  }
 }
 
 /**
@@ -153,6 +201,14 @@ export class DryRunWriter implements ScrapboxWriter {
   async deletePage(opts: DeletePageOptions): Promise<DryRunResult> {
     return { dryRun: true, project: opts.project, title: opts.title }
   }
+
+  async pinPage(opts: PinPageOptions): Promise<DryRunResult> {
+    return { dryRun: true, project: opts.project, title: opts.title }
+  }
+
+  async unpinPage(opts: UnpinPageOptions): Promise<DryRunResult> {
+    return { dryRun: true, project: opts.project, title: opts.title }
+  }
 }
 
 /**
@@ -169,7 +225,7 @@ export async function createScrapboxWriter(opts: {
   if (opts.dryRun) return new DryRunWriter()
 
   // @cosense/std は動的 import で読み込み (バイナリサイズ最適化)
-  const { patch } = await import("@cosense/std/websocket")
+  const { patch, pin, unpin } = await import("@cosense/std/websocket")
 
   const stdClient: ScrapboxWriterStdClient = {
     patch: (project, title, update, options) =>
@@ -182,6 +238,9 @@ export async function createScrapboxWriter(opts: {
           retry: options?.maxRetry,
         } as Parameters<typeof patch>[3],
       ),
+    pin: (project, title, options) => pin(project, title, options as Parameters<typeof pin>[2]),
+    unpin: (project, title, options) =>
+      unpin(project, title, options as Parameters<typeof unpin>[2]),
   }
 
   const writerOpts: CosenseWriterOptions = { sid: opts.sid }
