@@ -23,6 +23,13 @@ const AgentConfigSchema = z.object({
   maxChangesPerCommit: z.number().optional(),
 })
 
+/** SyncConfig はローカル同期に関する設定。 */
+const SyncConfigSchema = z.object({
+  dir: z.string().optional(),
+  format: z.enum(["txt"]).optional(),
+  retries: z.number().int().min(0).optional(),
+})
+
 /** CoscliConfig は設定ファイル全体のスキーマ。 */
 export const CoscliConfigSchema = z.object({
   defaultProject: z.string().optional(),
@@ -36,6 +43,7 @@ export const CoscliConfigSchema = z.object({
       plain: z.boolean().optional(),
     })
     .optional(),
+  sync: SyncConfigSchema.optional(),
 })
 export type CoscliConfig = z.infer<typeof CoscliConfigSchema>
 

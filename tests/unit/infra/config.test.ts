@@ -137,4 +137,27 @@ describe("setConfigValue", () => {
     // output.color は "auto"|"always"|"never" のみ許可
     expect(() => setConfigValue(config, "output.color", "invalid")).toThrow()
   })
+
+  it("sync.dir をドット区切りで設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "sync.dir", "/tmp/sync")
+    expect(updated.sync?.dir).toBe("/tmp/sync")
+  })
+
+  it("sync.format に txt を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "sync.format", "txt")
+    expect(updated.sync?.format).toBe("txt")
+  })
+
+  it("sync.retries に数値を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "sync.retries", 3)
+    expect(updated.sync?.retries).toBe(3)
+  })
+
+  it("sync.format に不正な値を設定するとエラーになる", () => {
+    const config = {}
+    expect(() => setConfigValue(config, "sync.format", "md")).toThrow()
+  })
 })

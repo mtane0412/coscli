@@ -46,6 +46,11 @@ import { configGetCommand } from "@/commands/config/get"
 import { configPathCommand } from "@/commands/config/path"
 import { configSetCommand } from "@/commands/config/set"
 
+// 同期コマンド
+import { syncDiffCommand } from "@/commands/sync/diff"
+import { syncPullCommand } from "@/commands/sync/pull"
+import { syncPushCommand } from "@/commands/sync/push"
+
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
   meta: { description: "ページ操作コマンド" },
@@ -104,6 +109,16 @@ const configCommand = defineCommand({
   },
 })
 
+/** sync サブコマンドグループ */
+const syncCommand = defineCommand({
+  meta: { description: "ローカルファイルと Cosense の同期コマンド" },
+  subCommands: {
+    pull: syncPullCommand,
+    push: syncPushCommand,
+    diff: syncDiffCommand,
+  },
+})
+
 /** ルートコマンド */
 const main = defineCommand({
   meta: {
@@ -149,6 +164,7 @@ const main = defineCommand({
     login: authLoginCommand,
     me: authWhoamiCommand,
     config: configCommand,
+    sync: syncCommand,
   },
 })
 
