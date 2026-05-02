@@ -15,18 +15,23 @@ jobs:
           - target: bun-darwin-arm64
             os: macos-latest
             output: cos-darwin-arm64
+            smoke_test: true
           - target: bun-darwin-x64
             os: macos-latest
             output: cos-darwin-x64
+            smoke_test: false
           - target: bun-linux-x64
             os: ubuntu-latest
             output: cos-linux-x64
+            smoke_test: true
           - target: bun-linux-arm64
             os: ubuntu-latest
             output: cos-linux-arm64
+            smoke_test: false
           - target: bun-windows-x64
             os: windows-latest
             output: cos-windows-x64.exe
+            smoke_test: true
 
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +45,14 @@ jobs:
 
       - name: バイナリのビルド
         run: bun build src/cli.ts --compile --target=${{ matrix.target }} --outfile dist/${{ matrix.output }} --define 'VERSION="${{ github.ref_name }}"'
+
+      # ネイティブ実行可能ターゲット (darwin-arm64 / linux-x64 / windows-x64) のみ実行する。
+      # darwin-x64 は macos-latest (ARM) で実行不可のためスキップ。linux-arm64 は ubuntu-latest (x64) で実行不可のためスキップ。
+      - name: スモークテスト (--version 出力確認)
+        if: matrix.smoke_test
+        shell: bash
+        run: |
+          ./dist/${{ matrix.output }} --version
 
       - name: アーティファクトのアップロード
         uses: actions/upload-artifact@v4
