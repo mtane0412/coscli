@@ -201,7 +201,13 @@ export const syncPushCommand = defineCommand({
 
       if (a.json || !a.plain) {
         writeJson(
-          { pushed: results.filter((r) => r.committed).length, conflicts: conflictCount, results },
+          {
+            pushed: results.filter((r) => r.committed).length,
+            conflicts: conflictCount,
+            errors: errors.length,
+            results,
+            errorDetails: errors,
+          },
           { command: "sync.push", startTime },
           buildJsonOpts(a),
         )
@@ -209,9 +215,11 @@ export const syncPushCommand = defineCommand({
         const pushed = results.filter((r) => r.committed).length
         process.stdout.write(`${pushed} ページを push しました`)
         if (conflictCount > 0) process.stdout.write(` (${conflictCount} 件の競合)`)
+        if (errors.length > 0) process.stdout.write(` (${errors.length} 件のエラー)`)
         process.stdout.write("\n")
       }
 
+      if (errors.length > 0 && conflictCount === 0) process.exit(1)
       if (conflictCount > 0) process.exit(6)
     }
   },

@@ -93,13 +93,21 @@ export const syncDiffCommand = defineCommand({
         throw err
       }
     } else {
-      // --all: プロジェクト全ページの diff
+      // --all: プロジェクト全ページの diff (ページネーションで全件取得)
       logger.info(`${project} の全ページの差分を確認中...`)
-      const pageList = await client.listPages(project, { limit: 1000 })
+      const allPages = []
+      let skip = 0
+      const pageLimit = 100
+      while (true) {
+        const pageList = await client.listPages(project, { limit: pageLimit, skip })
+        allPages.push(...pageList.pages)
+        if (allPages.length >= pageList.count) break
+        skip += pageLimit
+      }
       const results = []
       const warnings: string[] = []
 
-      for (const summary of pageList.pages) {
+      for (const summary of allPages) {
         try {
           const result = await syncDiff(client, syncDir, project, summary.title)
           results.push(result)

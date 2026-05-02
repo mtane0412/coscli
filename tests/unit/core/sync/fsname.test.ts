@@ -66,14 +66,17 @@ describe("safeFsName", () => {
   })
 
   test("FilenameInvalidError は title と reason を持つ", () => {
+    let caughtErr: unknown
     try {
       safeFsName("invalid/title")
+      expect.unreachable("FilenameInvalidError が throw されるべきです")
     } catch (err) {
-      expect(err).toBeInstanceOf(FilenameInvalidError)
-      if (err instanceof FilenameInvalidError) {
-        expect(err.title).toBe("invalid/title")
-        expect(typeof err.reason).toBe("string")
-      }
+      caughtErr = err
+    }
+    expect(caughtErr).toBeInstanceOf(FilenameInvalidError)
+    if (caughtErr instanceof FilenameInvalidError) {
+      expect(caughtErr.title).toBe("invalid/title")
+      expect(typeof caughtErr.reason).toBe("string")
     }
   })
 })

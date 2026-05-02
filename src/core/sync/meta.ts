@@ -39,10 +39,16 @@ export function writeMeta(syncDir: string, meta: SyncMeta): void {
   writeFileSync(filePath, JSON.stringify(meta, null, 2))
 }
 
-/** readMeta はメタデータをファイルから読み込む。ファイルが存在しない場合は null を返す。 */
+/** readMeta はメタデータをファイルから読み込む。ファイルが存在しない場合は null を返す。破損時は Error を throw する。 */
 export function readMeta(syncDir: string, project: string, title: string): SyncMeta | null {
   const filePath = metaFilePath(syncDir, project, title)
   if (!existsSync(filePath)) return null
-  const raw = readFileSync(filePath, "utf-8")
-  return SyncMetaSchema.parse(JSON.parse(raw) as unknown)
+  try {
+    const raw = readFileSync(filePath, "utf-8")
+    return SyncMetaSchema.parse(JSON.parse(raw) as unknown)
+  } catch (err) {
+    throw new Error(
+      `メタデータファイルの読み込みに失敗しました: ${filePath}\n${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
 }

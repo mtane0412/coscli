@@ -45,9 +45,9 @@ function defaultArgs(overrides: Record<string, unknown> = {}): Record<string, un
 beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
-  process.env["COS_PROJECT"] = undefined
-  process.env["COS_ENABLE_COMMANDS"] = undefined
-  process.env["COS_DISABLE_COMMANDS"] = undefined
+  Reflect.deleteProperty(process.env, "COS_PROJECT")
+  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
+  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
 })
 
 afterEach(() => {
@@ -65,9 +65,9 @@ describe("syncDiffCommand", () => {
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 
-  it("title も --all も未指定の場合は exit 5 で終了する", async () => {
+  it("title も --all も未指定の場合は exit 5 で終了する (TARGET_REQUIRED)", async () => {
     try {
-      await runDiff(defaultArgs({ title: undefined, all: false }))
+      await runDiff(defaultArgs({ title: undefined, all: false, dir: "/tmp/sync" }))
     } catch {
       // process.exit モック後の継続による throw は想定内
     }

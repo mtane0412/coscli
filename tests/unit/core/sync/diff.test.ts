@@ -43,7 +43,7 @@ describe("computeDiff", () => {
     expect(result.modified[0]).toMatchObject({ before: "変更前", after: "変更後" })
   })
 
-  test("全置換はすべての行が added / removed になる", () => {
+  test("全置換は LCS が空になるため modified に分類される", () => {
     const result = computeDiff(["新行1", "新行2"], ["旧行1", "旧行2"])
     expect(result.status).toBe("modified")
   })

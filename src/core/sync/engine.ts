@@ -163,11 +163,12 @@ export async function syncPush(
       return { committed: false, dryRun: true }
     }
 
-    // push 実行
+    // push 実行: maxRetry: 0 で @cosense/std の内部リトライを抑制し、上位の commitId チェックに委ねる
     const patchResult = await writer.patch({
       project,
       title,
       update: () => [title, ...localLines],
+      maxRetry: 0,
     })
 
     if ("dryRun" in patchResult) {

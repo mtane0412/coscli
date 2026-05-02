@@ -43,11 +43,6 @@ export const syncPullCommand = defineCommand({
       description: "ファイル形式 (txt のみ対応。md は v0.3 で対応予定)",
       default: "txt",
     },
-    retries: {
-      type: "string",
-      description: "楽観ロック競合時の最大リトライ回数 (デフォルト: 0)",
-      default: "0",
-    },
   },
   async run({ args }) {
     const a = args as CommonArgs & {
@@ -55,7 +50,6 @@ export const syncPullCommand = defineCommand({
       all: boolean
       dir?: string
       format: string
-      retries: string
     }
 
     checkSandbox("sync.pull", a)
@@ -122,13 +116,21 @@ export const syncPullCommand = defineCommand({
         throw err
       }
     } else {
-      // --all: プロジェクト全ページを一括 pull
+      // --all: プロジェクト全ページを一括 pull (ページネーションで全件取得)
       logger.info(`${project} の全ページを pull 中...`)
-      const pageList = await client.listPages(project, { limit: 1000 })
+      const allPages = []
+      let skip = 0
+      const pageLimit = 100
+      while (true) {
+        const pageList = await client.listPages(project, { limit: pageLimit, skip })
+        allPages.push(...pageList.pages)
+        if (allPages.length >= pageList.count) break
+        skip += pageLimit
+      }
       const results = []
       const warnings: string[] = []
 
-      for (const summary of pageList.pages) {
+      for (const summary of allPages) {
         try {
           const result = await syncPull(client, syncDir, project, summary.title, { dryRun })
           results.push(result)

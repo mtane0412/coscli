@@ -161,7 +161,7 @@ describe("syncPush", () => {
     expect(writer.patch).not.toHaveBeenCalled()
   })
 
-  test("メタが無いとき CONFLICT_NO_META エラーを返す", async () => {
+  test("メタが無いとき META_REQUIRED エラーを返す", async () => {
     writeFileSync(join(TEST_DIR, "テストページ.txt"), "本文\n", "utf-8")
     const client = makeRestClient(makePage())
     const writer = makeWriter()
