@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "bun:test"
-import { applySelect, writeErrorJson, writeJson } from "@/presenter/json"
+import { applySelect, writeErrorJson, writeJson, writeJsonLine } from "@/presenter/json"
 
 /** WritableStream の代わりに文字列を収集するモックストリーム */
 function createMockStream() {
@@ -114,6 +114,42 @@ describe("writeErrorJson", () => {
     )
     const parsed = JSON.parse(stream.output)
     expect(parsed.error.hint).toBe("`cos auth login` を実行してください")
+  })
+})
+
+describe("writeJsonLine", () => {
+  it("データを 1 行の JSON として出力する (改行終端あり)", () => {
+    const stream = createMockStream()
+    writeJsonLine(
+      { commitId: "abc123", userId: "山田太郎" },
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    // 改行で終わる 1 行 JSON であること
+    expect(stream.output.endsWith("\n")).toBe(true)
+    const line = stream.output.trim()
+    const parsed = JSON.parse(line)
+    expect(parsed.commitId).toBe("abc123")
+    expect(parsed.userId).toBe("山田太郎")
+  })
+
+  it("複数回呼ぶと NDJSON (改行区切り複数行) になる", () => {
+    const stream = createMockStream()
+    writeJsonLine({ event: "第1コミット" }, { stream: stream as unknown as NodeJS.WritableStream })
+    writeJsonLine({ event: "第2コミット" }, { stream: stream as unknown as NodeJS.WritableStream })
+    const lines = stream.output.trim().split("\n")
+    expect(lines.length).toBe(2)
+    const parsed0 = JSON.parse(lines[0] ?? "null") as { event?: string }
+    const parsed1 = JSON.parse(lines[1] ?? "null") as { event?: string }
+    expect(parsed0.event).toBe("第1コミット")
+    expect(parsed1.event).toBe("第2コミット")
+  })
+
+  it("整形 JSON (インデントなし) で出力する", () => {
+    const stream = createMockStream()
+    writeJsonLine({ key: "値" }, { stream: stream as unknown as NodeJS.WritableStream })
+    // 改行を除いた部分にインデントがないこと
+    const line = stream.output.trim()
+    expect(line).toBe('{"key":"値"}')
   })
 })
 

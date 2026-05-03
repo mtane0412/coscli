@@ -66,6 +66,17 @@ export function writeJson<T>(
   stream.write(`${JSON.stringify(output, null, 2)}\n`)
 }
 
+/**
+ * writeJsonLine はデータを 1 行の JSON (NDJSON) として stdout に書き出す。
+ *
+ * `cos page watch` のような継続ストリーミング出力に使用する。
+ * インデントなし・改行終端の 1 行 JSON を出力する。
+ */
+export function writeJsonLine(data: unknown, opts: { stream?: NodeJS.WritableStream } = {}): void {
+  const out = opts.stream ?? process.stdout
+  out.write(`${JSON.stringify(data)}\n`)
+}
+
 /** writeErrorJson はエラーを JSON として stdout に書き出す。data を渡すと envelope の data フィールドに含まれる。 */
 export function writeErrorJson(
   code: string,
