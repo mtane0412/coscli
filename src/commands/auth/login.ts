@@ -31,6 +31,7 @@ import {
   browserLogin as defaultBrowserLogin,
 } from "@/core/auth/browser-login"
 import { saveSession } from "@/core/auth/session"
+import type { TokenStore } from "@/core/auth/store"
 import { connectCdp } from "@/infra/browser/cdp"
 import { defaultBrowserFinder } from "@/infra/browser/finder"
 import { createTokenStore } from "@/infra/keychain/index"
@@ -48,6 +49,11 @@ export interface AuthLoginCommandDeps {
     deps: BrowserLoginDeps,
     opts: { browserPath?: string; port: number; timeoutMs: number; signal?: AbortSignal },
   ) => Promise<{ sid: string }>
+  /**
+   * createStore は TokenStore インスタンスを返すファクトリ。
+   * テスト時は InMemoryTokenStore 等を返すフェイクを注入して OS keychain を回避する。
+   */
+  createStore?: () => TokenStore
 }
 
 /**
@@ -56,6 +62,7 @@ export interface AuthLoginCommandDeps {
  */
 export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
   const browserLoginFn = deps.browserLogin ?? defaultBrowserLogin
+  const storeFactory = deps.createStore ?? createTokenStore
 
   return defineCommand({
     meta: { description: "Cosense に認証ログインする" },
@@ -187,18 +194,22 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           const message = (err as Error).message ?? String(err)
           if (message.includes("BROWSER_LOGIN_CANCELLED")) {
             process.exit(0)
+            return
           }
           if (message.includes("BROWSER_NOT_FOUND")) {
             writeErrorJson("BROWSER_NOT_FOUND", message)
             process.exit(5)
+            return
           }
           if (message.includes("BROWSER_LOGIN_TIMEOUT")) {
             writeErrorJson("BROWSER_LOGIN_TIMEOUT", message)
             process.exit(124)
+            return
           }
           // BROWSER_SPAWN_FAILED / CDP_CONNECT_FAILED / その他
           writeErrorJson("BROWSER_ERROR", message)
           process.exit(1)
+          return
         } finally {
           process.off("SIGINT", onSigInt)
         }
@@ -207,6 +218,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
       } else if (a["no-input"]) {
         writeErrorJson("SID_REQUIRED", "--no-input モードでは --sid フラグが必要です")
         process.exit(5)
+        return
       } else {
         // 対話入力 (ヒントを表示する)
         const { password, intro, outro, isCancel } = await import("@clack/prompts")
@@ -229,7 +241,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
       const client = new CosenseRestClient({ sid })
       const me = await client.getMe()
 
-      const store = createTokenStore()
+      const store = storeFactory()
       await saveSession(store, { profile, sid })
 
       logger.success(`${me.name} としてログインしました (プロファイル: ${profile})`)

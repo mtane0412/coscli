@@ -9,6 +9,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { createAuthLoginCommand } from "@/commands/auth/login"
 import type { BrowserLoginDeps } from "@/core/auth/browser-login"
+import { InMemoryTokenStore } from "@/core/auth/store"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 
@@ -58,8 +59,12 @@ async function runLogin(
   args: Record<string, unknown>,
   fakeBrowserLogin?: ReturnType<typeof buildFakeBrowserLogin>,
 ) {
-  // exactOptionalPropertyTypes 対応: undefined は渡さない
-  const deps = fakeBrowserLogin !== undefined ? { browserLogin: fakeBrowserLogin } : {}
+  // exactOptionalPropertyTypes 対応: undefined は渡さない。
+  // createStore は OS keychain を回避するため InMemoryTokenStore を注入する。
+  const deps =
+    fakeBrowserLogin !== undefined
+      ? { browserLogin: fakeBrowserLogin, createStore: () => new InMemoryTokenStore() }
+      : { createStore: () => new InMemoryTokenStore() }
   const command = createAuthLoginCommand(deps)
   await (command.run as (ctx: { args: unknown; cmd: never; rawArgs: string[] }) => Promise<void>)({
     args,
