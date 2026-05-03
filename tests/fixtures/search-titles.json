@@ -1,0 +1,33 @@
+[
+  {
+    "id": "page-id-hajimeni",
+    "title": "はじめに",
+    "updated": 1700000010,
+    "image": "https://scrapbox.io/files/hajimeni.png",
+    "links": ["TypeScript入門", "プログラミング基礎"]
+  },
+  {
+    "id": "page-id-typescript",
+    "title": "TypeScript入門",
+    "updated": 1700000020,
+    "links": ["はじめに", "JavaScript"]
+  },
+  {
+    "id": "page-id-programming",
+    "title": "プログラミング基礎",
+    "updated": 1700000030,
+    "links": ["アルゴリズム"]
+  },
+  {
+    "id": "page-id-algorithm",
+    "title": "アルゴリズム",
+    "updated": 1700000040,
+    "links": []
+  },
+  {
+    "id": "page-id-release",
+    "title": "リリースノート",
+    "updated": 1700000050,
+    "links": ["はじめに", "お知らせ"]
+  }
+]

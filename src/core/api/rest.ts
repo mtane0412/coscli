@@ -6,11 +6,17 @@
  */
 
 import { encodePageTitle } from "@/core/api/encoder"
-import { PageListResponseSchema, PageSchema, SearchResultSchema } from "@/schemas/page"
-import type { Page, PageListResponse, SearchResult } from "@/schemas/page"
+import {
+  PageListResponseSchema,
+  PageSchema,
+  SearchResultSchema,
+  TitleSearchResultSchema,
+} from "@/schemas/page"
+import type { Page, PageListResponse, SearchResult, TitleSearchResult } from "@/schemas/page"
 import { ProjectListResponseSchema, ProjectSchema } from "@/schemas/project"
 import type { Project, ProjectListResponse } from "@/schemas/project"
 import { type Me, MeSchema } from "@/schemas/user"
+import { z } from "zod"
 
 const BASE_URL = "https://scrapbox.io"
 
@@ -131,6 +137,23 @@ export class CosenseRestClient {
       `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/query?${params.toString()}`,
     )
     return SearchResultSchema.parse(data)
+  }
+
+  /**
+   * searchTitles は /api/pages/:project/search/titles を叩いてタイトル一覧とリンク情報を返す。
+   * ページネーションは followingId クエリパラメータと X-following-id レスポンスヘッダで行う。
+   */
+  async searchTitles(
+    project: string,
+    opts: { followingId?: string } = {},
+  ): Promise<{ pages: TitleSearchResult[]; followingId: string }> {
+    const params = opts.followingId ? `?followingId=${encodeURIComponent(opts.followingId)}` : ""
+    const response = await this.doFetch(
+      `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/titles${params}`,
+    )
+    const data = await response.json()
+    const pages = z.array(TitleSearchResultSchema).parse(data)
+    return { pages, followingId: response.headers.get("X-following-id") ?? "" }
   }
 
   /** getProject は /api/projects/:project を叩いてプロジェクト情報を返す。 */
