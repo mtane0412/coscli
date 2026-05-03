@@ -94,6 +94,7 @@ describe("writeErrorJson", () => {
       "NOT_FOUND",
       "ページが見つかりません",
       undefined,
+      undefined,
       stream as unknown as NodeJS.WritableStream,
     )
     const parsed = JSON.parse(stream.output)
@@ -108,6 +109,7 @@ describe("writeErrorJson", () => {
       "AUTH_FAILED",
       "認証に失敗しました",
       "`cos auth login` を実行してください",
+      undefined,
       stream as unknown as NodeJS.WritableStream,
     )
     const parsed = JSON.parse(stream.output)

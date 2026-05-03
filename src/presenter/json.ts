@@ -25,6 +25,7 @@ export interface ErrorEnvelope {
     message: string
     hint?: string
   }
+  data?: unknown
 }
 
 /** JsonOutputOptions は JSON 出力のオプション。 */
@@ -65,16 +66,18 @@ export function writeJson<T>(
   stream.write(`${JSON.stringify(output, null, 2)}\n`)
 }
 
-/** writeErrorJson はエラーを JSON として stdout に書き出す。 */
+/** writeErrorJson はエラーを JSON として stdout に書き出す。data を渡すと envelope の data フィールドに含まれる。 */
 export function writeErrorJson(
   code: string,
   message: string,
   hint?: string,
+  data?: unknown,
   stream?: NodeJS.WritableStream,
 ): void {
   const out = stream ?? process.stdout
   const envelope: ErrorEnvelope = {
     error: { code, message, ...(hint ? { hint } : {}) },
+    ...(data !== undefined ? { data } : {}),
   }
   out.write(`${JSON.stringify(envelope, null, 2)}\n`)
 }
