@@ -52,6 +52,9 @@ import { syncDiffCommand } from "@/commands/sync/diff"
 import { syncPullCommand } from "@/commands/sync/pull"
 import { syncPushCommand } from "@/commands/sync/push"
 
+// 変換コマンド
+import { convertCommand } from "@/commands/convert"
+
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
   meta: { description: "ページ操作コマンド" },
@@ -167,6 +170,7 @@ const main = defineCommand({
     me: authWhoamiCommand,
     config: configCommand,
     sync: syncCommand,
+    convert: convertCommand,
   },
 })
 

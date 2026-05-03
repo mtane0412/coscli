@@ -127,7 +127,56 @@ cos auth whoami   現在のログインユーザーを表示
 cos config get    設定値を取得
 cos config set    設定値を保存
 cos config path   設定ファイルのパスを表示
+
+cos convert       Scrapbox 記法と Markdown を相互変換する
 ```
+
+## Markdown 変換 (v0.3)
+
+`@progfay/scrapbox-parser` を使って Scrapbox 記法と Markdown を相互変換します。
+
+### Scrapbox → Markdown でページ取得
+
+```bash
+cos page text "ページタイトル" --format=md
+```
+
+`--bold-style` オプションで `[* ...]` などの太字記法の解釈を変えられます。
+
+| 値 | 動作 |
+|---|---|
+| `auto` (デフォルト) | 行全体が太字記法のみの場合は見出し、インラインは太字 |
+| `heading` | 常に見出しに変換 |
+| `emphasis` | 常に太字 `**text**` に変換 |
+
+```bash
+cos page text "ページタイトル" --format=md --bold-style=heading
+```
+
+### Markdown ファイルで Scrapbox ページを全置換
+
+```bash
+cos page edit "ページタイトル" --from-file page.md --input-format=md
+```
+
+### stdin/stdout 純粋変換
+
+```bash
+# Scrapbox → Markdown
+echo "[*** 大見出し]" | cos convert --from=scrapbox --to=md
+
+# Markdown → Scrapbox
+echo "## 大見出し" | cos convert --from=md --to=scrapbox
+
+# ファイルから変換
+cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
+```
+
+### 既知の制約
+
+- `[/ italic]` ↔ `*italic*` の往復では `_italic_` (Markdown 別表記) は復元できない
+- 番号付きリスト `1.` `2.` は Scrapbox でネイティブサポートされないためインデント付き行に縮約される
+- `code:filename` のファイル名情報は ` ```filename ``` ` で保持するが、一部の Markdown パーサで認識されない可能性がある
 
 ## AI エージェント向け使い方
 
