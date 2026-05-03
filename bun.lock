@@ -8,6 +8,7 @@
         "@clack/prompts": "^0.10.1",
         "@cosense/std": "npm:@jsr/cosense__std",
         "@cosense/types": "npm:@jsr/cosense__types",
+        "@progfay/scrapbox-parser": "^10.1.1",
         "citty": "^0.1.6",
         "cli-table3": "^0.6.5",
         "json5": "^2.2.3",
@@ -116,6 +117,8 @@
     "@open-draft/logger": ["@open-draft/logger@0.3.0", "", { "dependencies": { "is-node-process": "^1.2.0", "outvariant": "^1.4.0" } }, "sha512-X2g45fzhxH238HKO4xbSr7+wBS8Fvw6ixhTDuvLd5mqh6bJJCFAPwU9mPDxbcrRtfxv4u5IHCEH77BmxvXmmxQ=="],
 
     "@open-draft/until": ["@open-draft/until@2.1.0", "", {}, "sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg=="],
+
+    "@progfay/scrapbox-parser": ["@progfay/scrapbox-parser@10.1.1", "", {}, "sha512-WXmMaN3/V0VW5YRNDBBoX2hQklgtru1czumL1j8jpKMlXlBhEB7Za4w871m7PzaxUpgQ+J0c2sNdmqKmiMQf8Q=="],
 
     "@socket.io/component-emitter": ["@socket.io/component-emitter@3.1.2", "", {}, "sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA=="],
 
