@@ -123,13 +123,8 @@ export const syncPushCommand = defineCommand({
             "CONFLICT",
             `"${a.title}" の楽観ロック競合が発生しました`,
             "cos sync pull で最新を取得してから再度 push してください",
+            { localCommitId: result.localCommitId, serverCommitId: result.serverCommitId },
           )
-          // CONFLICT 付加情報を JSON に含める
-          if (a.json || !a.plain) {
-            process.stdout.write(
-              `${JSON.stringify({ data: { localCommitId: result.localCommitId, serverCommitId: result.serverCommitId } }, null, 2)}\n`,
-            )
-          }
           process.exit(6)
         }
 

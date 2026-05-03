@@ -124,6 +124,7 @@ export const syncPullCommand = defineCommand({
       while (true) {
         const pageList = await client.listPages(project, { limit: pageLimit, skip })
         allPages.push(...pageList.pages)
+        if (pageList.pages.length === 0) break
         if (allPages.length >= pageList.count) break
         skip += pageLimit
       }
