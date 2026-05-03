@@ -93,9 +93,9 @@ function convertInline(text: string): string {
   result = result.replace(/\*\*([^*]+)\*\*/g, "[* $1]")
   result = result.replace(/__([^_]+)__/g, "[* $1]")
 
-  // *italic* / _italic_
+  // *italic* / _italic_ (単語内の _ は除外: snake_case を誤変換しない)
   result = result.replace(/\*([^*]+)\*/g, "[/ $1]")
-  result = result.replace(/_([^_]+)_/g, "[/ $1]")
+  result = result.replace(/(?<!\w)_([^_]+)_(?!\w)/g, "[/ $1]")
 
   // ~~strikethrough~~
   result = result.replace(/~~([^~]+)~~/g, "[- $1]")

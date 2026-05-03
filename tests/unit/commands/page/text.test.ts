@@ -52,9 +52,9 @@ async function runText(args: Record<string, unknown>) {
 beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
-  process.env["COS_PROJECT"] = undefined
-  process.env["COS_ENABLE_COMMANDS"] = undefined
-  process.env["COS_DISABLE_COMMANDS"] = undefined
+  Reflect.deleteProperty(process.env, "COS_PROJECT")
+  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
+  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   // msw がテキストレスポンスを返せるよう connect.sid を設定 (ASCII のみ有効)
   process.env["COS_SID"] = "s%3Atest-session-id"
 })
@@ -63,7 +63,7 @@ afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   server.resetHandlers()
-  process.env["COS_SID"] = undefined
+  Reflect.deleteProperty(process.env, "COS_SID")
 })
 
 describe("pageTextCommand", () => {

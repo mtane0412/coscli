@@ -201,11 +201,9 @@ function decorationNodeToMd(node: DecorationNode, boldStyle: BoldStyle): string 
   const text = nodesToMd(node.nodes, boldStyle)
   const decos = node.decos
 
-  // boldStyle が heading でもインラインの場合は太字
+  // インライン or インデント下の装飾はスタイルに関わらず太字
   const asteriskLevel = getAsteriskLevel(decos)
   if (asteriskLevel > 0) {
-    if (boldStyle === "emphasis") return `**${text}**`
-    // auto, heading どちらでも、ここに来るのはインライン or インデント下の場合
     return `**${text}**`
   }
 
