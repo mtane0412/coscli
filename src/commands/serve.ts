@@ -52,7 +52,6 @@ const PORT_MAX = 65535
 
 /**
  * makeServeCommand は ServeDeps を受け取り、citty コマンドを返すファクトリ。
- *
  * deps を省略すると本番実装 (実際の Bun.serve 起動) を使用する。
  * テスト時は deps にモックを渡してフローを検証する。
  */
@@ -114,9 +113,15 @@ export function makeServeCommand(deps: ServeDeps = {}) {
         return
       }
 
-      // 2. --port バリデーション
-      const portNum = Number.parseInt(a.port, 10)
-      if (!Number.isFinite(portNum) || portNum < PORT_MIN || portNum > PORT_MAX) {
+      // 2. --port バリデーション（先頭数値のみ通す parseInt を避け、厳密な整数文字列を検証する）
+      const isIntegerString = /^\d+$/.test(a.port)
+      const portNum = Number(a.port)
+      if (
+        !isIntegerString ||
+        !Number.isInteger(portNum) ||
+        portNum < PORT_MIN ||
+        portNum > PORT_MAX
+      ) {
         writeErrorJson(
           "INVALID_PORT",
           `--port の値が無効です: ${a.port}`,

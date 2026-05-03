@@ -98,6 +98,30 @@ describe("createFetchHandler", () => {
       expect(body.data.projectName).toBe(TEST_PROJECT)
       expect(body.data.pages).toHaveLength(2)
     })
+
+    it("skip=10abc（先頭が数値の不正値）は 400 VALIDATION_ERROR を返す", async () => {
+      const handler = createFetchHandler(makeContext())
+      const res = await handler(new Request("http://localhost/api/pages?skip=10abc"))
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: { code: string } }
+      expect(body.error.code).toBe("VALIDATION_ERROR")
+    })
+
+    it("limit=1.5（小数）は 400 VALIDATION_ERROR を返す", async () => {
+      const handler = createFetchHandler(makeContext())
+      const res = await handler(new Request("http://localhost/api/pages?limit=1.5"))
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: { code: string } }
+      expect(body.error.code).toBe("VALIDATION_ERROR")
+    })
+
+    it("skip=abc（非数値）は 400 VALIDATION_ERROR を返す", async () => {
+      const handler = createFetchHandler(makeContext())
+      const res = await handler(new Request("http://localhost/api/pages?skip=abc"))
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: { code: string } }
+      expect(body.error.code).toBe("VALIDATION_ERROR")
+    })
   })
 
   describe("GET /api/pages/:title — getPage", () => {

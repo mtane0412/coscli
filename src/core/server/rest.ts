@@ -9,7 +9,7 @@
 import { createPage, deletePage, editPage, getPage, getPageText, listPages } from "@/core/pages"
 import { PolicyError } from "@/core/sandbox"
 import { toHttpResponse } from "@/core/server/errors"
-import { route } from "@/core/server/router"
+import { type RouteKey, route } from "@/core/server/router"
 import type { ServerContext } from "@/core/server/types"
 import { CreatePageBody, EditPageBody } from "@/core/server/types"
 
@@ -127,7 +127,8 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
       }
 
       // sandbox ポリシーチェック（ルートキーをコマンド名に変換）
-      const commandMap: Record<string, string> = {
+      // 網羅型にして新規 RouteKey 追加時のコンパイルエラーでチェック漏れを防ぐ
+      const commandMap: Record<Exclude<RouteKey, "healthz">, string> = {
         listPages: "page.list",
         getPage: "page.get",
         getPageText: "page.text",
@@ -135,11 +136,8 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
         editPage: "page.edit",
         deletePage: "page.delete",
       }
-      const commandName = commandMap[key]
-      if (commandName) {
-        const policyError = checkPolicy(ctx, commandName)
-        if (policyError) return policyError
-      }
+      const policyError = checkPolicy(ctx, commandMap[key as Exclude<RouteKey, "healthz">])
+      if (policyError) return policyError
 
       // ルートハンドラ
       if (key === "listPages") {
@@ -147,10 +145,11 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
         const limitStr = url.searchParams.get("limit")
         const sort = url.searchParams.get("sort") ?? undefined
 
-        // skip/limit は整数のみ許可（NaN 防止）
-        const skip = skipStr !== null ? Number.parseInt(skipStr, 10) : undefined
-        const limit = limitStr !== null ? Number.parseInt(limitStr, 10) : undefined
-        if (skip !== undefined && !Number.isFinite(skip)) {
+        // skip/limit は整数文字列のみ許可（parseInt は先頭数値を通すため正規表現で検証）
+        const intPattern = /^-?\d+$/
+        const skip = skipStr !== null && intPattern.test(skipStr) ? Number(skipStr) : undefined
+        const limit = limitStr !== null && intPattern.test(limitStr) ? Number(limitStr) : undefined
+        if (skipStr !== null && skip === undefined) {
           return new Response(
             JSON.stringify({
               ok: false,
@@ -159,7 +158,7 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
             { status: 400, headers: { "Content-Type": "application/json" } },
           )
         }
-        if (limit !== undefined && !Number.isFinite(limit)) {
+        if (limitStr !== null && limit === undefined) {
           return new Response(
             JSON.stringify({
               ok: false,

@@ -57,10 +57,7 @@ function buildErrorResponse(
   })
 }
 
-/**
- * toHttpResponse は任意の例外を HTTP Response に変換する。
- * ルートハンドラの catch 節から呼ぶことで統一したエラーレスポンスを返せる。
- */
+/** toHttpResponse は任意の例外を HTTP Response に変換する。ルートハンドラの catch 節から呼ぶことで統一したエラーレスポンスを返せる。 */
 export function toHttpResponse(err: unknown): Response {
   if (err instanceof AuthError) {
     return buildErrorResponse(401, "AUTH_REQUIRED", err.message)
