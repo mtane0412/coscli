@@ -164,6 +164,7 @@ describe("buildGraph", () => {
       const titles = new Set(graph.nodes.map((n) => n.title))
       for (const edge of graph.edges) {
         expect(titles.has(edge.from)).toBe(true)
+        expect(titles.has(edge.to)).toBe(true)
       }
     })
   })
@@ -276,7 +277,7 @@ describe("fetchAllLinks", () => {
     const client = new CosenseRestClient({ sid: TEST_SID })
     // limit=3 で 5 件の 1 ページ目から 3 件だけ取得
     const result = await fetchAllLinks(client, { project: TEST_PROJECT, limit: 3 })
-    expect(result.pages.length).toBeLessThanOrEqual(3)
+    expect(result.pages).toHaveLength(3)
     expect(result.truncated).toBe(true)
   })
 })

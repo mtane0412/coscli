@@ -82,6 +82,15 @@ async function runGraph(args: Record<string, unknown>) {
   })
 }
 
+/** process.exit のモック後に継続実行で throw される例外を握り潰してコマンドを実行する */
+async function runAndIgnoreExit(args: Record<string, unknown>): Promise<void> {
+  try {
+    await runGraph(args)
+  } catch {
+    // process.exit モック後の継続による throw は想定内
+  }
+}
+
 /** stdout に書き出された文字列を結合して返す */
 function captureStdout(): string {
   return (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
@@ -106,64 +115,40 @@ afterEach(() => {
 describe("projectGraphCommand", () => {
   describe("プロジェクト未指定", () => {
     it("プロジェクトが指定されていない場合は exit 5 で終了する", async () => {
-      try {
-        await runGraph(makeArgs({ project: undefined }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ project: undefined }))
       expect(exitMock).toHaveBeenCalledWith(5)
     })
   })
 
   describe("--format バリデーション", () => {
     it("不正な --format 値の場合は VALIDATION_ERROR で exit 5", async () => {
-      try {
-        await runGraph(makeArgs({ format: "xml" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ format: "xml" }))
       expect(exitMock).toHaveBeenCalledWith(5)
       const out = captureStdout()
       expect(out).toContain("VALIDATION_ERROR")
     })
 
     it("--depth に負の値を指定した場合は exit 5", async () => {
-      try {
-        await runGraph(makeArgs({ depth: "-1" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ depth: "-1" }))
       expect(exitMock).toHaveBeenCalledWith(5)
     })
 
     it("--limit に 0 を指定した場合は exit 5", async () => {
-      try {
-        await runGraph(makeArgs({ limit: "0" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ limit: "0" }))
       expect(exitMock).toHaveBeenCalledWith(5)
     })
   })
 
   describe("sandbox 拒否", () => {
     it("--disable-commands=project.graph の場合は exit 7 で終了する", async () => {
-      try {
-        await runGraph(makeArgs({ "disable-commands": "project.graph" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ "disable-commands": "project.graph" }))
       expect(exitMock).toHaveBeenCalledWith(7)
     })
   })
 
   describe("--format=json (デフォルト)", () => {
     it("envelope 形式で nodes と edges を含む JSON を出力する", async () => {
-      try {
-        await runGraph(makeArgs({ format: "json" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ format: "json" }))
       const out = captureStdout()
       const parsed = JSON.parse(out)
       expect(parsed.data).toBeDefined()
@@ -175,11 +160,7 @@ describe("projectGraphCommand", () => {
     })
 
     it("--results-only の場合は { nodes, edges } のみ出力する", async () => {
-      try {
-        await runGraph(makeArgs({ format: "json", "results-only": true }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ format: "json", "results-only": true }))
       const out = captureStdout()
       const parsed = JSON.parse(out)
       // data/meta が直接出ていないこと (nodes が top-level に存在する)
@@ -190,11 +171,7 @@ describe("projectGraphCommand", () => {
 
   describe("--format=dot", () => {
     it("digraph cosense { ... } 形式の DOT テキストを出力する", async () => {
-      try {
-        await runGraph(makeArgs({ format: "dot" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ format: "dot" }))
       const out = captureStdout()
       expect(out).toContain("digraph cosense {")
       expect(out).toContain("rankdir=LR")
@@ -203,11 +180,7 @@ describe("projectGraphCommand", () => {
 
   describe("--format=csv", () => {
     it("from_title<TAB>to_title の TSV ヘッダと行を出力する", async () => {
-      try {
-        await runGraph(makeArgs({ format: "csv" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ format: "csv" }))
       const out = captureStdout()
       expect(out).toContain("from_title\tto_title")
     })
@@ -215,14 +188,10 @@ describe("projectGraphCommand", () => {
 
   describe("--from + --depth BFS", () => {
     it("--from で起点を指定すると BFS 範囲のみのグラフを出力する", async () => {
-      try {
-        // "はじめに" は links: ["TypeScript入門", "プログラミング基礎"]
-        await runGraph(
-          makeArgs({ format: "json", "results-only": true, from: "はじめに", depth: "1" }),
-        )
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      // "はじめに" は links: ["TypeScript入門", "プログラミング基礎"]
+      await runAndIgnoreExit(
+        makeArgs({ format: "json", "results-only": true, from: "はじめに", depth: "1" }),
+      )
       const out = captureStdout()
       const parsed = JSON.parse(out)
       const titles = parsed.nodes.map((n: { title: string }) => n.title)
@@ -234,23 +203,15 @@ describe("projectGraphCommand", () => {
     })
 
     it("--from に存在しないページを指定した場合は exit 4 で終了する", async () => {
-      try {
-        await runGraph(makeArgs({ from: "存在しないページ", depth: "1" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs({ from: "存在しないページ", depth: "1" }))
       expect(exitMock).toHaveBeenCalledWith(4)
     })
   })
 
   describe("--limit サンプリング", () => {
     it("--limit 件数でサンプリング打ち切りし warnings を含める", async () => {
-      try {
-        // limit=3 で 1 ページ目の 5 件から 3 件で打ち切る
-        await runGraph(makeArgs({ format: "json", limit: "3" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      // limit=3 で 1 ページ目の 5 件から 3 件で打ち切る
+      await runAndIgnoreExit(makeArgs({ format: "json", limit: "3" }))
       const out = captureStdout()
       const parsed = JSON.parse(out)
       // サンプリング打ち切りの警告が含まれる
@@ -268,11 +229,7 @@ describe("projectGraphCommand", () => {
           return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
         }),
       )
-      try {
-        await runGraph(makeArgs())
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
+      await runAndIgnoreExit(makeArgs())
       expect(exitMock).toHaveBeenCalledWith(2)
     })
   })

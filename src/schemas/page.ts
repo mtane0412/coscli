@@ -113,6 +113,6 @@ export const TitleSearchResultSchema = z.object({
   exists: z.boolean().optional(),
   /** ページが張っている前方リンク先のタイトル一覧 */
   links: z.array(z.string()).optional(),
-  image: z.string().optional(),
+  image: z.string().nullable().optional(),
 })
 export type TitleSearchResult = z.infer<typeof TitleSearchResultSchema>

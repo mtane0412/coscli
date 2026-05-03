@@ -75,4 +75,34 @@ describe("TitleSearchResultSchema", () => {
     // @ts-expect-error 未定義フィールド
     expect(result.unknownField).toBeUndefined()
   })
+
+  it("image が null の場合も解析できる", () => {
+    const result = TitleSearchResultSchema.parse({
+      id: "page-id-7",
+      title: "画像なしページ",
+      updated: 1700000006,
+      image: null,
+    })
+    expect(result.image).toBeNull()
+  })
+
+  it("必須フィールド (id) が欠落している場合はエラーをスローする", () => {
+    expect(() =>
+      TitleSearchResultSchema.parse({
+        title: "IDなしページ",
+        updated: 1700000007,
+      }),
+    ).toThrow()
+  })
+
+  it("links の要素が文字列でない場合はエラーをスローする", () => {
+    expect(() =>
+      TitleSearchResultSchema.parse({
+        id: "page-id-8",
+        title: "不正リンクページ",
+        updated: 1700000008,
+        links: [123, "正常タイトル"],
+      }),
+    ).toThrow()
+  })
 })

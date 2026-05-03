@@ -146,14 +146,16 @@ export class CosenseRestClient {
   async searchTitles(
     project: string,
     opts: { followingId?: string } = {},
-  ): Promise<{ pages: TitleSearchResult[]; followingId: string }> {
-    const params = opts.followingId ? `?followingId=${encodeURIComponent(opts.followingId)}` : ""
+  ): Promise<{ pages: TitleSearchResult[]; followingId: string | undefined }> {
+    const params = new URLSearchParams()
+    if (opts.followingId !== undefined) params.set("followingId", opts.followingId)
+    const query = params.size > 0 ? `?${params.toString()}` : ""
     const response = await this.doFetch(
-      `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/titles${params}`,
+      `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/titles${query}`,
     )
     const data = await response.json()
     const pages = z.array(TitleSearchResultSchema).parse(data)
-    return { pages, followingId: response.headers.get("X-following-id") ?? "" }
+    return { pages, followingId: response.headers.get("X-following-id") ?? undefined }
   }
 
   /** getProject は /api/projects/:project を叩いてプロジェクト情報を返す。 */

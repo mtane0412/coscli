@@ -63,7 +63,7 @@ export async function fetchAllLinks(
         return { pages: allPages, truncated: true }
       }
     }
-    followingId = result.followingId || undefined
+    followingId = result.followingId
   } while (followingId)
 
   return { pages: allPages, truncated: false }
@@ -167,10 +167,12 @@ function buildBfsGraph(
   // キュー: [title, 現在の深さ]
   const queue: Array<[string, number]> = [[from, 0]]
 
-  while (queue.length > 0) {
-    const item = queue.shift()
-    if (!item) break
-    const [current, currentDepth] = item
+  let head = 0
+  while (head < queue.length) {
+    const entry = queue[head]
+    head++
+    if (!entry) continue
+    const [current, currentDepth] = entry
     if (currentDepth >= depth) continue
     for (const neighbor of adjacency.get(current) ?? []) {
       if (!visited.has(neighbor)) {
@@ -193,10 +195,10 @@ function buildBfsGraph(
 
   // edges: from/to が両方 visited 内に収まるもの
   const edges: GraphEdge[] = []
-  for (const from of visited) {
-    for (const to of adjacency.get(from) ?? []) {
+  for (const node of visited) {
+    for (const to of adjacency.get(node) ?? []) {
       if (visited.has(to)) {
-        edges.push({ from, to })
+        edges.push({ from: node, to })
       }
     }
   }

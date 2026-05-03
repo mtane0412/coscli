@@ -205,8 +205,8 @@ describe("CosenseRestClient", () => {
       // search-titles-page2.json に 2 件
       expect(result.pages).toHaveLength(2)
       expect(result.pages[0]?.title).toBe("お知らせ")
-      // 最終ページなので followingId は空文字
-      expect(result.followingId).toBe("")
+      // 最終ページなので followingId は undefined
+      expect(result.followingId).toBeUndefined()
     })
 
     it("全件を結合してページネーション完走できる", async () => {
@@ -218,7 +218,7 @@ describe("CosenseRestClient", () => {
         if (followingId !== undefined) searchOpts.followingId = followingId
         const result = await client.searchTitles(TEST_PROJECT, searchOpts)
         allPages.push(...result.pages)
-        followingId = result.followingId || undefined
+        followingId = result.followingId
       } while (followingId)
       // 計 7 件 (fixture page1: 5件 + page2: 2件)
       expect(allPages).toHaveLength(7)

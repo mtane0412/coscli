@@ -18,9 +18,16 @@ import {
   requireProject,
 } from "@/commands/_shared"
 import { AuthError, NotFoundError } from "@/core/api/rest"
-import { buildGraph, fetchAllLinks, graphToTsvRows, serializeDot } from "@/core/graph"
+import {
+  type GraphData,
+  buildGraph,
+  fetchAllLinks,
+  graphToTsvRows,
+  serializeDot,
+} from "@/core/graph"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { writeTsv } from "@/presenter/plain"
+import type { TitleSearchResult } from "@/schemas/page"
 import { defineCommand } from "citty"
 
 /** 許可する --format の値 */
@@ -33,7 +40,7 @@ export const projectGraphCommand = defineCommand({
     ...commonArgs,
     format: {
       type: "string",
-      description: "出力形式 (json / dot / csv)",
+      description: "出力形式 (json / dot / csv=TSV)",
       default: "json",
     },
     from: {
@@ -106,7 +113,7 @@ export const projectGraphCommand = defineCommand({
 
     const client = await buildRestClient(a)
 
-    let pages: import("@/schemas/page").TitleSearchResult[]
+    let pages: TitleSearchResult[]
     let truncated: boolean
     try {
       const fetchOpts: { project: string; limit?: number } = { project }
@@ -128,7 +135,7 @@ export const projectGraphCommand = defineCommand({
     }
 
     // グラフ構築 (--from が存在しない場合は NotFoundError)
-    let graph: import("@/core/graph").GraphData
+    let graph: GraphData
     try {
       const graphOpts: { from?: string; depth?: number } = { depth }
       if (a.from !== undefined) graphOpts.from = a.from
@@ -158,11 +165,17 @@ export const projectGraphCommand = defineCommand({
 
     // フォーマット別出力
     if (format === "dot") {
+      for (const warning of warnings) {
+        process.stderr.write(`[warning] ${warning}\n`)
+      }
       process.stdout.write(`${serializeDot(graph)}\n`)
       return
     }
 
     if (format === "csv") {
+      for (const warning of warnings) {
+        process.stderr.write(`[warning] ${warning}\n`)
+      }
       writeTsv(["from_title", "to_title"], graphToTsvRows(graph))
       return
     }
