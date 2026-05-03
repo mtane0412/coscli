@@ -55,6 +55,9 @@ import { syncPushCommand } from "@/commands/sync/push"
 // 変換コマンド
 import { convertCommand } from "@/commands/convert"
 
+// サーブコマンド
+import { serveCommand } from "@/commands/serve"
+
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
   meta: { description: "ページ操作コマンド" },
@@ -171,6 +174,7 @@ const main = defineCommand({
     config: configCommand,
     sync: syncCommand,
     convert: convertCommand,
+    serve: serveCommand,
   },
 })
 
