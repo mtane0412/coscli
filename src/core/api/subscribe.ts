@@ -143,14 +143,22 @@ export class CosenseSubscriber implements ScrapboxSubscriber {
       )
 
       // 5. reconnect 時に room:join を再送 (socket.io の自動再接続後は room 状態が失われる)
-      const handleReconnect = async () => {
-        await this.stdClient.emit(socket, "room:join", {
-          pageId: opts.pageId,
-          projectId: opts.projectId,
-          projectUpdatesStream: false,
-        })
+      // async 関数をそのまま渡すと Promise rejection が握りつぶされるため、
+      // 同期ラッパーで .catch() を付けてエラーを stderr に出力する
+      const handleReconnect = () => {
+        void this.stdClient
+          .emit(socket, "room:join", {
+            pageId: opts.pageId,
+            projectId: opts.projectId,
+            projectUpdatesStream: false,
+          })
+          .catch((err: unknown) => {
+            process.stderr.write(
+              `[warn] WebSocket 再接続後の room:join に失敗しました: ${String(err)}\n`,
+            )
+          })
       }
-      socket.on("reconnect", handleReconnect as (...args: unknown[]) => void)
+      socket.on("reconnect", handleReconnect)
 
       // 6. signal が abort されるまで待機
       await new Promise<void>((resolve) => {
@@ -161,7 +169,7 @@ export class CosenseSubscriber implements ScrapboxSubscriber {
         opts.signal.addEventListener("abort", () => resolve(), { once: true })
       })
 
-      socket.off("reconnect", handleReconnect as (...args: unknown[]) => void)
+      socket.off("reconnect", handleReconnect)
     } finally {
       // 7. 切断してリソースを解放
       await this.stdClient.disconnect(socket)

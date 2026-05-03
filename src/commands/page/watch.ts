@@ -174,7 +174,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
             signal: ac.signal,
           },
           (event) => {
-            handleCommitEvent(event, a.title, format, a.json)
+            handleCommitEvent(event, a.title, format, a.json, ac)
           },
         )
       } finally {
@@ -190,18 +190,20 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
 /**
  * handleCommitEvent は commit イベントを受け取り、フォーマットに応じて stdout に出力する。
  *
- * DeletePageChange を検出した場合は "! page deleted" を出力して ac を abort する。
+ * DeletePageChange を検出した場合は "! page deleted" を出力して controller を abort する。
+ * process.exit() を直接呼ばないことで、subscribePage の finally (ソケット切断) が確実に実行される。
  */
 function handleCommitEvent(
   event: PageCommitEvent,
   title: string,
   format: "" | "diff",
   isJson: boolean,
+  controller: AbortController,
 ): void {
   // DeletePageChange 検出: changes が [{ deleted: true }] の形式
   if (isDeletePageEvent(event)) {
     process.stdout.write("! page deleted\n")
-    process.exit(0)
+    controller.abort()
     return
   }
 

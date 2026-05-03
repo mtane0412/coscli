@@ -148,9 +148,9 @@ beforeEach(() => {
     writtenChunks.push(String(chunk))
     return true
   })
-  process.env["COS_PROJECT"] = undefined
-  process.env["COS_ENABLE_COMMANDS"] = undefined
-  process.env["COS_DISABLE_COMMANDS"] = undefined
+  Reflect.deleteProperty(process.env, "COS_PROJECT")
+  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
+  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
 })
 
 afterEach(() => {
