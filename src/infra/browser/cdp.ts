@@ -47,28 +47,39 @@ function sleep(ms: number): Promise<void> {
 /**
  * CdpSession は単一の WebSocket 接続に対して CDP JSON-RPC を送受信する。
  * 送信したコマンドの id と Promise を対応付けて非同期解決する。
+ * WS 切断・エラー時は pending な Promise をすべて reject する。
  */
 class CdpSession {
   private nextId = 1
-  private pending = new Map<number, (result: Record<string, unknown>) => void>()
+  private pending = new Map<
+    number,
+    { resolve: (result: Record<string, unknown>) => void; reject: (error: Error) => void }
+  >()
 
   constructor(private readonly ws: WebSocketLike) {
     ws.addEventListener("message", (e) => {
       const msg = e as MessageEvent
       const response = JSON.parse(msg.data as string) as CdpResponse
       if (response.id !== undefined) {
-        const resolve = this.pending.get(response.id)
-        if (resolve) {
+        const entry = this.pending.get(response.id)
+        if (entry) {
           this.pending.delete(response.id)
           if (response.error) {
-            // エラーはログのみ。呼び出し側は結果 {} で続行する
-            resolve({})
+            entry.reject(new Error(`CDP ${response.error.code}: ${response.error.message}`))
           } else {
-            resolve(response.result ?? {})
+            entry.resolve(response.result ?? {})
           }
         }
       }
     })
+
+    // WS 切断・エラー時に pending な Promise をすべて reject する
+    const failAll = (reason: string) => {
+      for (const { reject } of this.pending.values()) reject(new Error(reason))
+      this.pending.clear()
+    }
+    ws.addEventListener("close", () => failAll("CDP WebSocket が切断されました"))
+    ws.addEventListener("error", () => failAll("CDP WebSocket エラーが発生しました"))
   }
 
   /**
@@ -78,8 +89,8 @@ class CdpSession {
     const id = this.nextId++
     const req: CdpRequest = { id, method }
     if (params !== undefined) req.params = params
-    return new Promise((resolve) => {
-      this.pending.set(id, resolve)
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject })
       this.ws.send(JSON.stringify(req))
     })
   }
@@ -132,13 +143,33 @@ async function getPageWsUrl(fetcher: Fetcher, port: number): Promise<string> {
 
 /**
  * openSession は指定 WS URL に接続し、open イベント後に CdpSession を返す。
+ * connectTimeoutMs 以内に open しなければ reject する。
  */
-function openSession(wsFactory: WebSocketFactory, url: string): Promise<CdpSession> {
+function openSession(
+  wsFactory: WebSocketFactory,
+  url: string,
+  connectTimeoutMs = 5_000,
+): Promise<CdpSession> {
   return new Promise((resolve, reject) => {
     const ws = wsFactory(url)
     const session = new CdpSession(ws)
-    ws.addEventListener("open", () => resolve(session))
-    ws.addEventListener("error", (e) => reject(new Error(`CDP WS エラー: ${String(e)}`)))
+
+    const timer = setTimeout(() => {
+      reject(new Error(`CDP WS 接続タイムアウト: ${url}`))
+    }, connectTimeoutMs)
+
+    ws.addEventListener("open", () => {
+      clearTimeout(timer)
+      resolve(session)
+    })
+    ws.addEventListener("error", (e) => {
+      clearTimeout(timer)
+      reject(new Error(`CDP WS エラー: ${String(e)}`))
+    })
+    ws.addEventListener("close", () => {
+      clearTimeout(timer)
+      reject(new Error(`CDP WS が接続前に閉じました: ${url}`))
+    })
   })
 }
 

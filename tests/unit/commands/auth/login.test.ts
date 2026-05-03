@@ -17,16 +17,16 @@ import { setupServer } from "msw/node"
 // ---------------------------------------------------------------------------
 
 const BASE_URL = "https://scrapbox.io"
-const テストユーザー名 = "田中花子"
+const testUserDisplayName = "田中花子"
 // SID はHTTPヘッダーに設定されるため ASCII のみ使用する
-const テスト用SID = "s%3Atest-browser-sid-xyz987"
+const testSid = "s%3Atest-browser-sid-xyz987"
 
 const server = setupServer(
   http.get(`${BASE_URL}/api/users/me`, () => {
     return HttpResponse.json({
       id: "tanaka-hanako-id",
       name: "tanaka-hanako",
-      displayName: テストユーザー名,
+      displayName: testUserDisplayName,
       csrfToken: "test-csrf-token",
     })
   }),
@@ -39,7 +39,7 @@ afterAll(() => server.close())
 // テストヘルパー
 // ---------------------------------------------------------------------------
 
-/** フェイク browserLogin を返すヘルパー。成功時は テスト用SID を返す。 */
+/** フェイク browserLogin を返すヘルパー。成功時は testSid を返す。 */
 function buildFakeBrowserLogin(overrides?: {
   sid?: string
   error?: Error
@@ -49,7 +49,7 @@ function buildFakeBrowserLogin(overrides?: {
 ) => Promise<{ sid: string }> {
   return async (_deps, _opts) => {
     if (overrides?.error) throw overrides.error
-    return { sid: overrides?.sid ?? テスト用SID }
+    return { sid: overrides?.sid ?? testSid }
   }
 }
 
@@ -127,7 +127,7 @@ describe("authLoginCommand — 排他チェック", () => {
 
 describe("authLoginCommand — --browser フロー", () => {
   it("browserLogin が成功した場合にログイン完了メッセージを表示する", async () => {
-    const fakeBrowserLogin = buildFakeBrowserLogin({ sid: テスト用SID })
+    const fakeBrowserLogin = buildFakeBrowserLogin({ sid: testSid })
     await runLogin(
       {
         browser: true,
@@ -146,6 +146,7 @@ describe("authLoginCommand — --browser フロー", () => {
     expect(exitMock).not.toHaveBeenCalledWith(1)
     expect(exitMock).not.toHaveBeenCalledWith(2)
     expect(exitMock).not.toHaveBeenCalledWith(5)
+    expect(exitMock).not.toHaveBeenCalledWith(124)
   })
 
   it("BROWSER_NOT_FOUND エラー時は exit 5 で終了する", async () => {
@@ -215,7 +216,7 @@ describe("authLoginCommand — --browser フロー", () => {
 describe("authLoginCommand — --sid フロー (回帰)", () => {
   it("--sid 指定時は getMe で検証してログインする", async () => {
     await runLogin({
-      sid: テスト用SID,
+      sid: testSid,
       "no-input": false,
       browser: false,
       profile: "default",
@@ -228,6 +229,7 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
     expect(exitMock).not.toHaveBeenCalledWith(1)
     expect(exitMock).not.toHaveBeenCalledWith(2)
     expect(exitMock).not.toHaveBeenCalledWith(5)
+    expect(exitMock).not.toHaveBeenCalledWith(124)
   })
 
   it("--no-input かつ --sid 未指定の場合は exit 5 で終了する", async () => {

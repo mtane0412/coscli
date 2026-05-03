@@ -32,12 +32,12 @@ const existsNone = async (_path: string) => false
 describe("PlatformBrowserFinder", () => {
   describe("override オプション", () => {
     it("override パスのファイルが存在する場合はそのパスを返す", async () => {
-      const カスタムパス = "/usr/local/bin/chrome-カスタム"
+      const customPath = "/usr/local/bin/chrome-カスタム"
       const finder = new PlatformBrowserFinder({
         platform: "darwin",
-        existsChecker: existsFor(カスタムパス),
+        existsChecker: existsFor(customPath),
       })
-      expect(await finder.find({ override: カスタムパス })).toBe(カスタムパス)
+      expect(await finder.find({ override: customPath })).toBe(customPath)
     })
 
     it("override パスのファイルが存在しない場合は null を返す", async () => {

@@ -204,7 +204,7 @@ describe("CdpClient.navigate", () => {
 })
 
 describe("CdpClient.getCookies", () => {
-  const ログイン済みCookies: CdpCookie[] = [
+  const loggedInCookies: CdpCookie[] = [
     {
       name: "connect.sid",
       value: "サンプルSID-12345",
@@ -225,14 +225,14 @@ describe("CdpClient.getCookies", () => {
 
   it("Network.getCookies の結果を返す", async () => {
     const { wsFactory } = buildAutoWsFactory((method) => {
-      if (method === "Network.getCookies") return { cookies: ログイン済みCookies }
+      if (method === "Network.getCookies") return { cookies: loggedInCookies }
       return {}
     })
 
     const client = await connectCdp({ port: 9222, fetcher: buildFetcher(), wsFactory })
     const cookies = await client.getCookies()
 
-    expect(cookies).toHaveLength(2)
+    expect(cookies).toHaveLength(loggedInCookies.length)
     const firstCookie = cookies[0]
     expect(firstCookie).toBeDefined()
     expect(firstCookie?.name).toBe("connect.sid")

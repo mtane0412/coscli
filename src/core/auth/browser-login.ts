@@ -89,7 +89,7 @@ export async function browserLogin(
 
   // abort 済み signal は即 reject する
   if (opts.signal?.aborted) {
-    throw new Error("ブラウザログインがキャンセルされました")
+    throw new Error("BROWSER_LOGIN_CANCELLED: ブラウザログインがキャンセルされました")
   }
 
   // バイナリを解決する (exactOptionalPropertyTypes 対応: undefined は渡さない)
@@ -139,7 +139,7 @@ export async function browserLogin(
     const deadline = now() + timeoutMs
     while (true) {
       if (opts.signal?.aborted) {
-        throw new Error("ブラウザログインがキャンセルされました")
+        throw new Error("BROWSER_LOGIN_CANCELLED: ブラウザログインがキャンセルされました")
       }
       if (now() >= deadline) {
         throw new Error(

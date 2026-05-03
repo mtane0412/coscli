@@ -130,7 +130,25 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
       if (a.browser) {
         // ブラウザ CDP フロー
         const port = Number.parseInt(a["browser-port"], 10)
-        const timeoutMs = Number.parseInt(a["browser-timeout"], 10) * 1_000
+        const timeoutSec = Number.parseInt(a["browser-timeout"], 10)
+
+        if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+          writeErrorJson(
+            "INVALID_BROWSER_PORT",
+            "--browser-port は 1..65535 の整数を指定してください",
+          )
+          process.exit(5)
+          return
+        }
+        if (!Number.isInteger(timeoutSec) || timeoutSec <= 0) {
+          writeErrorJson(
+            "INVALID_BROWSER_TIMEOUT",
+            "--browser-timeout は 1 以上の整数秒を指定してください",
+          )
+          process.exit(5)
+          return
+        }
+        const timeoutMs = timeoutSec * 1_000
 
         logger.info("ブラウザを起動しています。Cosense にログインしてください...")
 
@@ -152,14 +170,24 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         }
 
+        const controller = new AbortController()
+        const onSigInt = () => controller.abort()
+        process.once("SIGINT", onSigInt)
         try {
           // exactOptionalPropertyTypes 対応: browserPath が undefined の場合は渡さない
-          const loginOpts: Parameters<typeof browserLoginFn>[1] = { port, timeoutMs }
+          const loginOpts: Parameters<typeof browserLoginFn>[1] = {
+            port,
+            timeoutMs,
+            signal: controller.signal,
+          }
           if (a["browser-path"] !== undefined) loginOpts.browserPath = a["browser-path"]
           const result = await browserLoginFn(browserDeps, loginOpts)
           sid = result.sid
         } catch (err) {
           const message = (err as Error).message ?? String(err)
+          if (message.includes("BROWSER_LOGIN_CANCELLED")) {
+            process.exit(0)
+          }
           if (message.includes("BROWSER_NOT_FOUND")) {
             writeErrorJson("BROWSER_NOT_FOUND", message)
             process.exit(5)
@@ -171,6 +199,8 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           // BROWSER_SPAWN_FAILED / CDP_CONNECT_FAILED / その他
           writeErrorJson("BROWSER_ERROR", message)
           process.exit(1)
+        } finally {
+          process.off("SIGINT", onSigInt)
         }
       } else if (a.sid) {
         sid = a.sid

@@ -16,11 +16,11 @@ import { fakeProcess } from "../../../unit/infra/_keychain-test-helpers"
 // テスト用フェイク
 // ---------------------------------------------------------------------------
 
-const テスト用SID = "テスト用connect.sid-abcdef12345"
-const ログイン済みCookies: CdpCookie[] = [
+const TEST_SID = "テスト用connect.sid-abcdef12345"
+const loggedInCookies: CdpCookie[] = [
   {
     name: "connect.sid",
-    value: テスト用SID,
+    value: TEST_SID,
     domain: ".scrapbox.io",
     path: "/",
     httpOnly: true,
@@ -39,7 +39,7 @@ function buildFakeCdpClient(overrides?: Partial<CdpClient>): {
 
   const client: CdpClient = {
     navigate: async (_url: string) => {},
-    getCookies: async () => ログイン済みCookies,
+    getCookies: async () => loggedInCookies,
     closeBrowser: async () => {
       closeBrowserCount++
     },
@@ -75,7 +75,7 @@ function buildDeps(overrides?: Partial<BrowserLoginDeps>): {
     overrides?.connect
       ? undefined
       : {
-          getCookies: async () => ログイン済みCookies,
+          getCookies: async () => loggedInCookies,
         },
   )
 
@@ -89,7 +89,7 @@ function buildDeps(overrides?: Partial<BrowserLoginDeps>): {
     // isAuthenticated が /api/users/me を叩くため、id を含む有効なレスポンスを返す
     fetcher: async (url) => {
       if (url.includes("/api/users/me")) {
-        return new Response(JSON.stringify({ id: "テストユーザーID", name: "テストユーザー" }))
+        return new Response(JSON.stringify({ id: "test-user-id", name: "テストユーザー" }))
       }
       return new Response("")
     },
@@ -112,7 +112,7 @@ function buildDeps(overrides?: Partial<BrowserLoginDeps>): {
   return { deps, tmpDirs, removedDirs, cdpClient, disconnectCallCount, closeBrowserCallCount }
 }
 
-const デフォルトOpts: BrowserLoginOpts = {
+const defaultOpts: BrowserLoginOpts = {
   port: 9222,
   timeoutMs: 300_000,
 }
@@ -125,8 +125,8 @@ describe("browserLogin", () => {
   describe("ハッピーパス", () => {
     it("connect.sid を取得して返す", async () => {
       const { deps } = buildDeps()
-      const result = await browserLogin(deps, デフォルトOpts)
-      expect(result.sid).toBe(テスト用SID)
+      const result = await browserLogin(deps, defaultOpts)
+      expect(result.sid).toBe(TEST_SID)
     })
 
     it("spawner にブラウザパスとフラグを渡して起動する", async () => {
@@ -138,7 +138,7 @@ describe("browserLogin", () => {
         },
       })
 
-      await browserLogin(deps, デフォルトOpts)
+      await browserLogin(deps, defaultOpts)
 
       expect(spawnedCmds).toHaveLength(1)
       const cmd = spawnedCmds[0]
@@ -154,7 +154,7 @@ describe("browserLogin", () => {
 
     it("tmp ディレクトリを作成して最終的に削除する", async () => {
       const { deps, tmpDirs, removedDirs } = buildDeps()
-      await browserLogin(deps, デフォルトOpts)
+      await browserLogin(deps, defaultOpts)
 
       expect(tmpDirs).toHaveLength(1)
       const expectedDir = tmpDirs[0]
@@ -166,7 +166,7 @@ describe("browserLogin", () => {
       const { client: cdpClient, disconnectCallCount, closeBrowserCallCount } = buildFakeCdpClient()
       const { deps } = buildDeps({ connect: async () => cdpClient })
 
-      await browserLogin(deps, デフォルトOpts)
+      await browserLogin(deps, defaultOpts)
 
       expect(disconnectCallCount()).toBe(1)
       expect(closeBrowserCallCount()).toBe(1)
@@ -180,17 +180,17 @@ describe("browserLogin", () => {
           return fakeProcess("", "", 0)
         },
       })
-      const カスタムブラウザパス = "/カスタムパス/chrome"
-      await browserLogin(deps, { ...デフォルトOpts, browserPath: カスタムブラウザパス })
+      const customBrowserPath = "/カスタムパス/chrome"
+      await browserLogin(deps, { ...defaultOpts, browserPath: customBrowserPath })
 
-      expect(spawnedCmds[0]?.[0]).toBe(カスタムブラウザパス)
+      expect(spawnedCmds[0]?.[0]).toBe(customBrowserPath)
     })
   })
 
   describe("ブラウザ未検出", () => {
     it("finder が null を返した場合は BrowserNotFoundError を throw する", async () => {
       const { deps } = buildDeps({ finder: { find: async () => null } })
-      await expect(browserLogin(deps, デフォルトOpts)).rejects.toThrow("BROWSER_NOT_FOUND")
+      await expect(browserLogin(deps, defaultOpts)).rejects.toThrow("BROWSER_NOT_FOUND")
     })
   })
 
@@ -201,7 +201,7 @@ describe("browserLogin", () => {
           throw Object.assign(new Error("spawn: ENOENT"), { code: "ENOENT" })
         },
       })
-      await expect(browserLogin(deps, デフォルトOpts)).rejects.toThrow("BROWSER_SPAWN_FAILED")
+      await expect(browserLogin(deps, defaultOpts)).rejects.toThrow("BROWSER_SPAWN_FAILED")
     })
 
     it("spawn 失敗時も tmp ディレクトリを削除する (finally)", async () => {
@@ -210,7 +210,7 @@ describe("browserLogin", () => {
           throw new Error("spawn 失敗テスト")
         },
       })
-      await expect(browserLogin(deps, デフォルトOpts)).rejects.toThrow()
+      await expect(browserLogin(deps, defaultOpts)).rejects.toThrow()
       // tmpDir が作成された場合は削除されていることを確認する
       const spawnFailDir = tmpDirs[0]
       if (spawnFailDir !== undefined) {
@@ -236,7 +236,7 @@ describe("browserLogin", () => {
         sleep: async () => {},
       })
 
-      await expect(browserLogin(deps, { ...デフォルトOpts, timeoutMs: 300_000 })).rejects.toThrow(
+      await expect(browserLogin(deps, { ...defaultOpts, timeoutMs: 300_000 })).rejects.toThrow(
         "BROWSER_LOGIN_TIMEOUT",
       )
     })
@@ -259,7 +259,7 @@ describe("browserLogin", () => {
         sleep: async () => {},
       })
 
-      await expect(browserLogin(deps, デフォルトOpts)).rejects.toThrow()
+      await expect(browserLogin(deps, defaultOpts)).rejects.toThrow()
       const timeoutCleanupDir = tmpDirs[0]
       if (timeoutCleanupDir !== undefined) {
         expect(removedDirs).toContain(timeoutCleanupDir)
@@ -276,7 +276,7 @@ describe("browserLogin", () => {
       const { deps } = buildDeps()
 
       await expect(
-        browserLogin(deps, { ...デフォルトOpts, signal: controller.signal }),
+        browserLogin(deps, { ...defaultOpts, signal: controller.signal }),
       ).rejects.toThrow()
     })
   })
