@@ -86,7 +86,13 @@ function buildDeps(overrides?: Partial<BrowserLoginDeps>): {
       find: async (opts?) => opts?.override ?? "/usr/bin/google-chrome-テスト",
     },
     connect: async () => cdpClient,
-    fetcher: async () => new Response(""),
+    // isAuthenticated が /api/users/me を叩くため、id を含む有効なレスポンスを返す
+    fetcher: async (url) => {
+      if (url.includes("/api/users/me")) {
+        return new Response(JSON.stringify({ id: "テストユーザーID", name: "テストユーザー" }))
+      }
+      return new Response("")
+    },
     wsFactory: (_url) => {
       throw new Error("wsFactory は connect 経由で使用される")
     },

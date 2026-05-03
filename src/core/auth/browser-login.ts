@@ -53,6 +53,24 @@ export interface BrowserLoginOpts {
 /** COOKIE_POLL_INTERVAL_MS は connect.sid ポーリング間隔 (ms)。 */
 const COOKIE_POLL_INTERVAL_MS = 1_000
 
+/**
+ * isAuthenticated は connect.sid で /api/users/me にアクセスし、
+ * 認証済みセッションかどうかを確認する。
+ * connect.sid は未ログイン状態でも発行されるため、ポーリング時に必ず確認する。
+ */
+async function isAuthenticated(fetcher: Fetcher, sid: string): Promise<boolean> {
+  try {
+    const res = await fetcher("https://scrapbox.io/api/users/me", {
+      headers: { Cookie: `connect.sid=${sid}` },
+    })
+    if (!res.ok) return false
+    const data = (await res.json()) as Record<string, unknown>
+    return typeof data["id"] === "string"
+  } catch {
+    return false
+  }
+}
+
 /** SCRAPBOX_LOGIN_URL は Cosense ログインページの URL。 */
 const SCRAPBOX_LOGIN_URL = "https://scrapbox.io/login"
 
@@ -132,7 +150,11 @@ export async function browserLogin(
       const cookies = await cdp.getCookies(["https://scrapbox.io"])
       const sidCookie = cookies.find((c) => c.name === "connect.sid" && c.value.length > 0)
       if (sidCookie) {
-        return { sid: sidCookie.value }
+        // connect.sid は未ログイン時も発行されるため、/api/users/me で認証済みかを確認する
+        const authenticated = await isAuthenticated(fetcher, sidCookie.value)
+        if (authenticated) {
+          return { sid: sidCookie.value }
+        }
       }
 
       await sleep(COOKIE_POLL_INTERVAL_MS)
