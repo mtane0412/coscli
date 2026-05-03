@@ -145,6 +145,11 @@ export function buildJsonOpts(args: CommonArgs): JsonOutputOptions {
 
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
 export async function requireSid(profile?: string): Promise<string> {
+  // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
+  if (!profile) {
+    const envSid = process.env["COS_SID"]
+    if (envSid) return envSid
+  }
   const store = createTokenStore()
   const sessionOpts = profile !== undefined ? { profile } : {}
   const sid = await loadSession(store, sessionOpts)

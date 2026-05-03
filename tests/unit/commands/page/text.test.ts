@@ -55,8 +55,8 @@ beforeEach(() => {
   process.env["COS_PROJECT"] = undefined
   process.env["COS_ENABLE_COMMANDS"] = undefined
   process.env["COS_DISABLE_COMMANDS"] = undefined
-  // msw がテキストレスポンスを返せるよう connect.sid を設定
-  process.env["COS_SID"] = "テスト用セッションID"
+  // msw がテキストレスポンスを返せるよう connect.sid を設定 (ASCII のみ有効)
+  process.env["COS_SID"] = "s%3Atest-session-id"
 })
 
 afterEach(() => {
