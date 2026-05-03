@@ -28,6 +28,7 @@ import { pageRenameCommand } from "@/commands/page/rename"
 import { pageTextCommand } from "@/commands/page/text"
 import { pageUnpinCommand } from "@/commands/page/unpin"
 import { pageUrlCommand } from "@/commands/page/url"
+import { pageWatchCommand } from "@/commands/page/watch"
 
 import { projectInfoCommand } from "@/commands/project/info"
 // プロジェクトコマンド
@@ -75,6 +76,7 @@ const pageCommand = defineCommand({
     icon: pageIconCommand,
     delete: pageDeleteCommand,
     rm: pageDeleteCommand,
+    watch: pageWatchCommand,
   },
 })
 
