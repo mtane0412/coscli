@@ -41,7 +41,8 @@ beforeAll(() => {
     hostname: "127.0.0.1",
     fetch: fetchHandler,
   })
-  assignedPort = server.port ?? 0
+  if (server.port === undefined) throw new Error("サーバのポートが取得できませんでした")
+  assignedPort = server.port
 })
 
 afterAll(() => {

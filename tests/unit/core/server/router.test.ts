@@ -75,17 +75,41 @@ describe("route", () => {
     })
   })
 
+  describe("HTTP メソッド大文字正規化", () => {
+    it("小文字の get もマッチする", () => {
+      const result = route("get", "/healthz")
+      expect(result).not.toBeNull()
+      expect(result?.key).toBe("healthz")
+    })
+
+    it("小文字の delete もマッチする", () => {
+      const result = route("delete", "/api/pages/my-page")
+      expect(result).not.toBeNull()
+      expect(result?.key).toBe("deletePage")
+    })
+  })
+
+  describe("malformed URL エンコード", () => {
+    it("不正なパーセントエンコードは null を返す", () => {
+      expect(route("GET", "/api/pages/%E0%A4%A")).toBeNull()
+    })
+  })
+
   describe("マッチしないケース", () => {
     it("未知のパスは null を返す", () => {
       expect(route("GET", "/unknown")).toBeNull()
     })
 
     it("正しいパスでも間違った HTTP メソッドは null を返す", () => {
-      expect(route("POST", "/api/pages/タイトル")).toBeNull()
+      expect(route("POST", "/api/pages/%E3%82%BF%E3%82%A4%E3%83%88%E3%83%AB")).toBeNull()
     })
 
     it("PATCH メソッドは定義されていないため null を返す", () => {
-      expect(route("PATCH", "/api/pages/タイトル")).toBeNull()
+      expect(route("PATCH", "/api/pages/%E3%82%BF%E3%82%A4%E3%83%88%E3%83%AB")).toBeNull()
+    })
+
+    it("trailing slash は null を返す", () => {
+      expect(route("GET", "/api/pages/")).toBeNull()
     })
   })
 })

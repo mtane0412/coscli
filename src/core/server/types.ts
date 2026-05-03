@@ -26,15 +26,21 @@ export interface ServerContext {
   allowWrite: boolean
 }
 
+/** MAX_LINES は 1 リクエストで送信できる行数の上限。 */
+const MAX_LINES = 10000
+
 /** CreatePageBody は POST /api/pages のリクエストボディスキーマ。 */
 export const CreatePageBody = z.object({
   title: z.string().min(1, "title は必須です"),
-  lines: z.array(z.string()),
+  lines: z.array(z.string()).max(MAX_LINES, `lines は ${MAX_LINES} 行以下である必要があります`),
 })
 
 /** EditPageBody は PUT /api/pages/:title のリクエストボディスキーマ。 */
 export const EditPageBody = z.object({
-  lines: z.array(z.string()).min(1, "lines は 1 行以上必要です"),
+  lines: z
+    .array(z.string())
+    .min(1, "lines は 1 行以上必要です")
+    .max(MAX_LINES, `lines は ${MAX_LINES} 行以下である必要があります`),
 })
 
 export type CreatePageBodyType = z.infer<typeof CreatePageBody>

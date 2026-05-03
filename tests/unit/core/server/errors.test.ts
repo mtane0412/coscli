@@ -86,11 +86,13 @@ describe("toHttpResponse", () => {
     expect(body.error.code).toBe("INVALID_JSON")
   })
 
-  it("未知のエラーは 500 INTERNAL_ERROR を返す", async () => {
-    const res = toHttpResponse(new Error("予期しないエラー"))
+  it("未知のエラーは 500 INTERNAL_ERROR を返し、内部詳細を漏洩しない", async () => {
+    const res = toHttpResponse(new Error("内部実装の詳細"))
     expect(res.status).toBe(500)
     const body = await parseBody(res)
     expect(body.error.code).toBe("INTERNAL_ERROR")
+    // 内部エラーメッセージをクライアントに漏洩させず汎用メッセージを返す
+    expect(body.error.message).toBe("予期しないエラーが発生しました")
   })
 
   it("非 Error オブジェクトは 500 INTERNAL_ERROR を返す", async () => {
@@ -98,6 +100,7 @@ describe("toHttpResponse", () => {
     expect(res.status).toBe(500)
     const body = await parseBody(res)
     expect(body.error.code).toBe("INTERNAL_ERROR")
+    expect(body.error.message).toBe("予期しないエラーが発生しました")
   })
 
   it("レスポンスの Content-Type は application/json", () => {

@@ -102,23 +102,23 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
       const url = new URL(req.url)
       const pathname = url.pathname
 
-      // プロキシ token 認証チェック（healthz を含むすべてのルートに適用）
-      const tokenError = checkToken(ctx, req)
-      if (tokenError) return tokenError
-
       // ルートマッチング
       const matched = route(req.method, pathname)
       if (!matched) return buildRouteNotFoundResponse(req.method, pathname)
 
       const { key, params } = matched
 
-      // healthz は sandbox・認証不要
+      // healthz は token 認証・sandbox チェックをスキップ
       if (key === "healthz") {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         })
       }
+
+      // プロキシ token 認証チェック（healthz 以外のすべてのルートに適用）
+      const tokenError = checkToken(ctx, req)
+      if (tokenError) return tokenError
 
       // 書き込み系ルートで allowWrite=false なら即座に 405
       const isWrite = key === "createPage" || key === "editPage" || key === "deletePage"
@@ -143,13 +143,36 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
 
       // ルートハンドラ
       if (key === "listPages") {
-        const skip = url.searchParams.get("skip")
-        const limit = url.searchParams.get("limit")
+        const skipStr = url.searchParams.get("skip")
+        const limitStr = url.searchParams.get("limit")
         const sort = url.searchParams.get("sort") ?? undefined
+
+        // skip/limit は整数のみ許可（NaN 防止）
+        const skip = skipStr !== null ? Number.parseInt(skipStr, 10) : undefined
+        const limit = limitStr !== null ? Number.parseInt(limitStr, 10) : undefined
+        if (skip !== undefined && !Number.isFinite(skip)) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { code: "VALIDATION_ERROR", message: "skip は整数である必要があります" },
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          )
+        }
+        if (limit !== undefined && !Number.isFinite(limit)) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { code: "VALIDATION_ERROR", message: "limit は整数である必要があります" },
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          )
+        }
+
         const result = await listPages(ctx.restClient, {
           project: ctx.project,
-          ...(skip !== null ? { skip: Number(skip) } : {}),
-          ...(limit !== null ? { limit: Number(limit) } : {}),
+          ...(skip !== undefined ? { skip } : {}),
+          ...(limit !== undefined ? { limit } : {}),
           ...(sort !== undefined ? { sort } : {}),
         })
         return buildOkResponse(result)

@@ -81,8 +81,9 @@ const ROUTES: RouteDef[] = [
  * マッチした場合は RouteMatch を、マッチしない場合は null を返す。
  */
 export function route(method: string, pathname: string): RouteMatch | null {
+  const upperMethod = method.toUpperCase()
   for (const def of ROUTES) {
-    if (def.method !== method) continue
+    if (def.method !== upperMethod) continue
     const match = def.pattern.exec(pathname)
     if (!match) continue
 
@@ -91,8 +92,12 @@ export function route(method: string, pathname: string): RouteMatch | null {
       const name = def.paramNames[i]
       const value = match[i + 1]
       if (name !== undefined && value !== undefined) {
-        // URL エンコードされたパスセグメントをデコードする
-        params[name] = decodeURIComponent(value)
+        // malformed な URL エンコードは 404 扱いにするため null を返す
+        try {
+          params[name] = decodeURIComponent(value)
+        } catch {
+          return null
+        }
       }
     }
     return { key: def.key, params }

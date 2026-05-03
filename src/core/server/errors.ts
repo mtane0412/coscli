@@ -87,6 +87,6 @@ export function toHttpResponse(err: unknown): Response {
   if (err instanceof SyntaxError) {
     return buildErrorResponse(400, "INVALID_JSON", err.message)
   }
-  const message = err instanceof Error ? err.message : "予期しないエラーが発生しました"
-  return buildErrorResponse(500, "INTERNAL_ERROR", message)
+  // 内部エラーの詳細はクライアントに漏洩させず、汎用メッセージを返す
+  return buildErrorResponse(500, "INTERNAL_ERROR", "予期しないエラーが発生しました")
 }

@@ -170,8 +170,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
       process.once("SIGINT", onSig)
       process.once("SIGTERM", onSig)
 
-      // 11. サーバ起動（startServer は signal abort で resolve）
-      // 起動完了後にログ・envelope を出力するため先にメッセージを出す
+      // 11. サーバ起動前にログ・envelope を出力（起動中であることをユーザーに示す）
       const url = `http://${a.host}:${portNum}`
       if (a.json) {
         const jsonOpts = buildJsonOpts(a)
@@ -193,10 +192,15 @@ export function makeServeCommand(deps: ServeDeps = {}) {
         logger.info(`Listening on ${url}  project=${project}${writeDisabled}${authInfo}`)
       }
 
-      await startServerFn(ctx, { port: portNum, hostname: a.host, signal: controller.signal })
+      // 12. サーバ起動（startServer は signal abort で resolve）
+      // finally でシグナルハンドラを確実にクリーンアップする
+      try {
+        await startServerFn(ctx, { port: portNum, hostname: a.host, signal: controller.signal })
+      } finally {
+        process.off("SIGINT", onSig)
+        process.off("SIGTERM", onSig)
+      }
 
-      process.off("SIGINT", onSig)
-      process.off("SIGTERM", onSig)
       process.exit(0)
     },
   })
@@ -216,6 +220,11 @@ async function startBunServer(
     hostname: opts.hostname,
     fetch: fetchHandler,
   })
+  // signal が既に abort 済みの場合は即座に停止する（race condition 対策）
+  if (opts.signal.aborted) {
+    server.stop(true)
+    return
+  }
   await new Promise<void>((resolve) => {
     opts.signal.addEventListener(
       "abort",
