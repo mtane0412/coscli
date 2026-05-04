@@ -30,6 +30,7 @@ import { pageUnpinCommand } from "@/commands/page/unpin"
 import { pageUrlCommand } from "@/commands/page/url"
 import { pageWatchCommand } from "@/commands/page/watch"
 
+import { projectGraphCommand } from "@/commands/project/graph"
 import { projectInfoCommand } from "@/commands/project/info"
 // プロジェクトコマンド
 import { projectListCommand } from "@/commands/project/list"
@@ -93,6 +94,7 @@ const projectCommand = defineCommand({
     list: projectListCommand,
     ls: projectListCommand,
     info: projectInfoCommand,
+    graph: projectGraphCommand,
   },
 })
 

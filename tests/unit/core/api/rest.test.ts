@@ -12,6 +12,8 @@ import { setupServer } from "msw/node"
 import meFixture from "../../../fixtures/me.json"
 import pageDetailFixture from "../../../fixtures/page-detail.json"
 import pageListFixture from "../../../fixtures/page-list.json"
+import searchTitlesPage2Fixture from "../../../fixtures/search-titles-page2.json"
+import searchTitlesFixture from "../../../fixtures/search-titles.json"
 
 const BASE_URL = "https://scrapbox.io"
 const TEST_PROJECT = "テストプロジェクト"
@@ -78,6 +80,29 @@ const server = setupServer(
       })
     }
     return HttpResponse.json({ message: "Not found" }, { status: 404 })
+  }),
+
+  http.get(`${BASE_URL}/api/pages/:project/search/titles`, ({ request, params }) => {
+    const cookie = request.headers.get("Cookie")
+    if (!cookie?.includes("connect.sid")) {
+      return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    if (params["project"] !== TEST_PROJECT) {
+      return HttpResponse.json({ message: "Not found" }, { status: 404 })
+    }
+    const url = new URL(request.url)
+    const followingId = url.searchParams.get("followingId")
+    // 1ページ目: X-following-id ヘッダ付きで返す
+    if (!followingId) {
+      return HttpResponse.json(searchTitlesFixture, {
+        headers: { "X-following-id": "page2-following-id" },
+      })
+    }
+    // 2ページ目: ヘッダなし (最終ページ)
+    if (followingId === "page2-following-id") {
+      return HttpResponse.json(searchTitlesPage2Fixture)
+    }
+    return HttpResponse.json([], { status: 200 })
   }),
 )
 
@@ -157,6 +182,51 @@ describe("CosenseRestClient", () => {
       const client = new CosenseRestClient({ sid: TEST_SID })
       const result = await client.searchPages(TEST_PROJECT, "存在しないキーワード")
       expect(result.pages).toHaveLength(0)
+    })
+  })
+
+  describe("searchTitles", () => {
+    it("1ページ目のタイトル一覧と followingId を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.searchTitles(TEST_PROJECT)
+      // search-titles.json に 5 件
+      expect(result.pages).toHaveLength(5)
+      expect(result.pages[0]?.title).toBe("はじめに")
+      expect(result.pages[0]?.links).toEqual(["TypeScript入門", "プログラミング基礎"])
+      // X-following-id ヘッダが設定されている
+      expect(result.followingId).toBe("page2-following-id")
+    })
+
+    it("followingId を指定すると次のページを返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.searchTitles(TEST_PROJECT, {
+        followingId: "page2-following-id",
+      })
+      // search-titles-page2.json に 2 件
+      expect(result.pages).toHaveLength(2)
+      expect(result.pages[0]?.title).toBe("お知らせ")
+      // 最終ページなので followingId は undefined
+      expect(result.followingId).toBeUndefined()
+    })
+
+    it("全件を結合してページネーション完走できる", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const allPages = []
+      let followingId: string | undefined
+      do {
+        const searchOpts: { followingId?: string } = {}
+        if (followingId !== undefined) searchOpts.followingId = followingId
+        const result = await client.searchTitles(TEST_PROJECT, searchOpts)
+        allPages.push(...result.pages)
+        followingId = result.followingId
+      } while (followingId)
+      // 計 7 件 (fixture page1: 5件 + page2: 2件)
+      expect(allPages).toHaveLength(7)
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(client.searchTitles(TEST_PROJECT)).rejects.toThrow()
     })
   })
 })
