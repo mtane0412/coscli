@@ -20,8 +20,8 @@ import searchTitlesFixture from "../../fixtures/search-titles.json"
 // テストデータ
 // -------------------------------------------------------------------
 
-/** 相互リンク・自己参照・未作成ページ参照を含む最小テスト用ページ配列 */
-const サンプルページ一覧: TitleSearchResult[] = [
+/** 相互リンク・重複リンクを含む最小テスト用ページ配列 */
+const samplePages: TitleSearchResult[] = [
   {
     id: "id-a",
     title: "ページA",
@@ -42,7 +42,8 @@ const サンプルページ一覧: TitleSearchResult[] = [
   },
 ]
 
-const 自己参照ページ一覧: TitleSearchResult[] = [
+/** 自己参照リンクを含むテスト用ページ配列 */
+const selfReferencePages: TitleSearchResult[] = [
   {
     id: "id-self",
     title: "自己参照ページ",
@@ -57,7 +58,8 @@ const 自己参照ページ一覧: TitleSearchResult[] = [
   },
 ]
 
-const 未作成参照ページ一覧: TitleSearchResult[] = [
+/** 存在しないページへの参照を含むテスト用ページ配列 */
+const nonExistentReferencePages: TitleSearchResult[] = [
   {
     id: "id-existing",
     title: "存在するページ",
@@ -73,7 +75,7 @@ const 未作成参照ページ一覧: TitleSearchResult[] = [
 describe("buildGraph", () => {
   describe("from 未指定 (全体グラフ)", () => {
     it("全ページを nodes として返す", () => {
-      const graph = buildGraph(サンプルページ一覧, {})
+      const graph = buildGraph(samplePages, {})
       const titles = graph.nodes.map((n) => n.title)
       expect(titles).toContain("ページA")
       expect(titles).toContain("ページB")
@@ -81,8 +83,8 @@ describe("buildGraph", () => {
     })
 
     it("全リンクを edges として返す (重複排除済み)", () => {
-      const graph = buildGraph(サンプルページ一覧, {})
-      // ページC → ページA は重複しているが 1 件のみ
+      const graph = buildGraph(samplePages, {})
+      // ページA → ページC は 1 件のみ存在する
       const AからC = graph.edges.filter((e) => e.from === "ページA" && e.to === "ページC")
       expect(AからC).toHaveLength(1)
       // ページC → ページA は重複 2 件 → 1 件に dedup
@@ -99,13 +101,13 @@ describe("buildGraph", () => {
 
   describe("自己参照の除外", () => {
     it("from === to の edge を除外する", () => {
-      const graph = buildGraph(自己参照ページ一覧, {})
+      const graph = buildGraph(selfReferencePages, {})
       const selfEdges = graph.edges.filter((e) => e.from === e.to)
       expect(selfEdges).toHaveLength(0)
     })
 
     it("自己参照でない edge は残る", () => {
-      const graph = buildGraph(自己参照ページ一覧, {})
+      const graph = buildGraph(selfReferencePages, {})
       const normalEdge = graph.edges.find((e) => e.from === "自己参照ページ" && e.to === "他ページ")
       expect(normalEdge).toBeDefined()
     })
@@ -113,14 +115,14 @@ describe("buildGraph", () => {
 
   describe("未作成ページの扱い", () => {
     it("リンク先の未作成ページを nodes に exists: false で含める", () => {
-      const graph = buildGraph(未作成参照ページ一覧, {})
+      const graph = buildGraph(nonExistentReferencePages, {})
       const unexisting = graph.nodes.find((n) => n.title === "存在しないページ")
       expect(unexisting).toBeDefined()
       expect(unexisting?.exists).toBe(false)
     })
 
     it("実在するページは exists: true (または省略)", () => {
-      const graph = buildGraph(未作成参照ページ一覧, {})
+      const graph = buildGraph(nonExistentReferencePages, {})
       const existing = graph.nodes.find((n) => n.title === "存在するページ")
       expect(existing).toBeDefined()
       expect(existing?.exists).not.toBe(false)
@@ -129,14 +131,14 @@ describe("buildGraph", () => {
 
   describe("from + depth 指定 (BFS フィルタ)", () => {
     it("depth=0 のとき起点ノードのみ・edges なし", () => {
-      const graph = buildGraph(サンプルページ一覧, { from: "ページA", depth: 0 })
+      const graph = buildGraph(samplePages, { from: "ページA", depth: 0 })
       expect(graph.nodes).toHaveLength(1)
       expect(graph.nodes[0]?.title).toBe("ページA")
       expect(graph.edges).toHaveLength(0)
     })
 
     it("depth=1 のとき起点から 1 hop のノードを含む", () => {
-      const graph = buildGraph(サンプルページ一覧, { from: "ページA", depth: 1 })
+      const graph = buildGraph(samplePages, { from: "ページA", depth: 1 })
       const titles = graph.nodes.map((n) => n.title)
       expect(titles).toContain("ページA")
       expect(titles).toContain("ページB")
@@ -145,7 +147,7 @@ describe("buildGraph", () => {
 
     it("depth=2 のとき 2 hop まで含む", () => {
       // ページA → ページB → ページA (循環) — ページA は既出
-      const graph = buildGraph(サンプルページ一覧, { from: "ページA", depth: 2 })
+      const graph = buildGraph(samplePages, { from: "ページA", depth: 2 })
       const titles = graph.nodes.map((n) => n.title)
       expect(titles).toContain("ページA")
       expect(titles).toContain("ページB")
@@ -153,13 +155,11 @@ describe("buildGraph", () => {
     })
 
     it("起点が pages に存在しないとき NotFoundError をスローする", () => {
-      expect(() => buildGraph(サンプルページ一覧, { from: "存在しないページ" })).toThrow(
-        NotFoundError,
-      )
+      expect(() => buildGraph(samplePages, { from: "存在しないページ" })).toThrow(NotFoundError)
     })
 
     it("from 指定時の edges は BFS 範囲内のリンクのみ", () => {
-      const graph = buildGraph(サンプルページ一覧, { from: "ページA", depth: 1 })
+      const graph = buildGraph(samplePages, { from: "ページA", depth: 1 })
       // 全 edges の from/to が BFS 到達ノード内に収まっている
       const titles = new Set(graph.nodes.map((n) => n.title))
       for (const edge of graph.edges) {
@@ -198,6 +198,16 @@ describe("serializeDot", () => {
     const graph = { nodes: [], edges: [] }
     const dot = serializeDot(graph)
     expect(dot).toMatch(/^digraph/)
+    expect(dot).not.toContain("->")
+  })
+
+  it("エッジのない孤立ノードも DOT 出力に含まれる", () => {
+    const graph = {
+      nodes: [{ id: "id-isolated", title: "孤立ページ", exists: true }],
+      edges: [],
+    }
+    const dot = serializeDot(graph)
+    expect(dot).toContain('"孤立ページ"')
     expect(dot).not.toContain("->")
   })
 })

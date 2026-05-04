@@ -74,7 +74,7 @@ export async function fetchAllLinks(
 // -------------------------------------------------------------------
 
 /**
- * buildGraph はページ配列からグラフデータを構築する。
+ * buildGraph はページ配列からグラフデータを構築して返す。
  *
  * @param opts.from - 起点ページタイトル (未指定時は全体グラフを返す)
  * @param opts.depth - BFS の深さ (from 指定時のみ有効、デフォルト 1)
@@ -216,11 +216,16 @@ function escapeDotLabel(s: string): string {
 }
 
 /**
- * serializeDot はグラフデータを Graphviz DOT 形式に変換する。
- * エッジラベルのダブルクォート・バックスラッシュ・改行をエスケープする。
+ * serializeDot はグラフデータを Graphviz DOT 形式に変換して返す。
+ * ノード宣言・エッジのラベルのダブルクォート・バックスラッシュ・改行をエスケープする。
  */
 export function serializeDot(graph: GraphData): string {
   const lines: string[] = ["digraph cosense {", "  rankdir=LR;"]
+
+  for (const node of graph.nodes) {
+    const label = escapeDotLabel(node.title)
+    lines.push(`  "${label}";`)
+  }
 
   for (const edge of graph.edges) {
     const from = escapeDotLabel(edge.from)
