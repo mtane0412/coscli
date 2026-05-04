@@ -174,6 +174,8 @@ export function requireProject(args: CommonArgs): string {
       "--project (-p) フラグか COS_PROJECT 環境変数でプロジェクトを指定してください",
     )
     process.exit(5)
+    // process.exit がモックされた場合でも後続処理を止める（テスト環境向け）
+    throw new Error("PROJECT_REQUIRED")
   }
   return project
 }

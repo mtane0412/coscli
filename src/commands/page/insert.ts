@@ -93,6 +93,7 @@ export const pageInsertCommand = defineCommand({
         "--line または --from-file でコンテンツを指定してください",
       )
       process.exit(5)
+      return
     }
 
     logger.info(`"${a.title}" の ${afterN} 行目の後ろに挿入中...`)

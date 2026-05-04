@@ -63,6 +63,7 @@ export const pageEditCommand = defineCommand({
         `有効な値: ${VALID_INPUT_FORMATS.join(", ")}`,
       )
       process.exit(5)
+      return
     }
 
     let content: string

@@ -85,25 +85,22 @@ describe("pageEditCommand", () => {
     // MD ファイルを作成
     const tmpFile = join(tmpdir(), `cos-test-edit-${Date.now()}.md`)
     writeFileSync(tmpFile, "## テスト見出し\n本文テキスト\n")
-    try {
-      await runEdit({
-        title: "テストページ",
-        "from-file": tmpFile,
-        "input-format": "md",
-        project: "テストプロジェクト",
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": false,
-        quiet: false,
-      })
-    } catch {
-      // buildWriter が認証を要求するため throw される。バリデーションは通過している
-    }
+    // --dry-run=true で実際の WebSocket 接続を発生させずに実行する
+    await runEdit({
+      title: "テストページ",
+      "from-file": tmpFile,
+      "input-format": "md",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": true,
+      quiet: false,
+    })
     // VALIDATION_ERROR が出ていないこと (MD フォーマットは有効)
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).not.toContain("VALIDATION_ERROR")
-    // exit 5 が VALIDATION_ERROR 由来でないこと (認証エラーの exit 2 などはあり得る)
+    // exit 5 が VALIDATION_ERROR 由来でないこと
     expect(exitMock).not.toHaveBeenCalledWith(5)
   })
 })
