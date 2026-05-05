@@ -29,11 +29,14 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
+  // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
+  process.env["COS_SID"] = "ダミーセッションID-テスト用"
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
+  Reflect.deleteProperty(process.env, "COS_SID")
 })
 
 describe("pageEditCommand", () => {
@@ -85,22 +88,19 @@ describe("pageEditCommand", () => {
     // MD ファイルを作成
     const tmpFile = join(tmpdir(), `cos-test-edit-${Date.now()}.md`)
     writeFileSync(tmpFile, "## テスト見出し\n本文テキスト\n")
-    // --dry-run=true で実際の WebSocket 接続を発生させずに実行する
-    try {
-      await runEdit({
-        title: "テストページ",
-        "from-file": tmpFile,
-        "input-format": "md",
-        project: "テストプロジェクト",
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": true,
-        quiet: false,
-      })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
+    // COS_SID は beforeEach でダミー値が設定済み。
+    // --dry-run=true によって DryRunWriter が使われ WS 接続なしで最後まで完走する
+    await runEdit({
+      title: "テストページ",
+      "from-file": tmpFile,
+      "input-format": "md",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": true,
+      quiet: false,
+    })
     // VALIDATION_ERROR が出ていないこと (MD フォーマットは有効)
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).not.toContain("VALIDATION_ERROR")
