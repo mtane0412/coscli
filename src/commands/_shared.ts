@@ -15,6 +15,15 @@ import { Logger } from "@/infra/logger"
 import { writeErrorJson } from "@/presenter/json"
 import type { JsonOutputOptions } from "@/presenter/json"
 
+/**
+ * exitWithError は指定コードでプロセスを終了する。
+ * process.exit がモックされたテスト環境でも後続処理を止めるため throw を続ける。
+ */
+function exitWithError(code: number, message: string): never {
+  process.exit(code)
+  throw new Error(message)
+}
+
 /** commonArgs はすべてのサブコマンドが受け取るルート共通フラグ定義。 */
 export const commonArgs = {
   project: {
@@ -129,7 +138,7 @@ export function checkSandbox(commandName: string, args: CommonArgs): void {
       `[denied] ${commandName} is disabled by policy`,
       "--enable-commands フラグで明示的に許可してください",
     )
-    process.exit(7)
+    exitWithError(7, "POLICY_DENIED")
   }
 }
 
@@ -159,7 +168,7 @@ export async function requireSid(profile?: string): Promise<string> {
       "認証情報が見つかりません",
       "`cos auth login` を実行してログインしてください",
     )
-    process.exit(2)
+    exitWithError(2, "AUTH_REQUIRED")
   }
   return sid
 }
@@ -173,9 +182,7 @@ export function requireProject(args: CommonArgs): string {
       "プロジェクト名が指定されていません",
       "--project (-p) フラグか COS_PROJECT 環境変数でプロジェクトを指定してください",
     )
-    process.exit(5)
-    // process.exit がモックされた場合でも後続処理を止める（テスト環境向け）
-    throw new Error("PROJECT_REQUIRED")
+    exitWithError(5, "PROJECT_REQUIRED")
   }
   return project
 }
