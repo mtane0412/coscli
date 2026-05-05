@@ -18,7 +18,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const configSetCommand = defineCommand({
-  meta: { description: "設定値を保存する" },
+  meta: { name: "set", description: "設定値を保存する" },
   args: {
     ...commonArgs,
     key: {

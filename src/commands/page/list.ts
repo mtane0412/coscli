@@ -20,7 +20,7 @@ import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 export const pageListCommand = defineCommand({
-  meta: { description: "ページ一覧を取得する" },
+  meta: { name: "list", description: "ページ一覧を取得する" },
   args: {
     ...commonArgs,
     limit: {

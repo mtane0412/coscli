@@ -65,7 +65,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
   const storeFactory = deps.createStore ?? createTokenStore
 
   return defineCommand({
-    meta: { description: "Cosense に認証ログインする" },
+    meta: { name: "login", description: "Cosense に認証ログインする" },
     args: {
       ...commonArgs,
       sid: {

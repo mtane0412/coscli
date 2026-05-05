@@ -20,7 +20,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageAppendCommand = defineCommand({
-  meta: { description: "ページ末尾に行を追加する" },
+  meta: { name: "append", description: "ページ末尾に行を追加する" },
   args: {
     ...commonArgs,
     title: {

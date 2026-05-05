@@ -18,7 +18,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageIconCommand = defineCommand({
-  meta: { description: "ページアイコン取得 URL を生成する (API 呼び出しなし)" },
+  meta: { name: "icon", description: "ページアイコン取得 URL を生成する (API 呼び出しなし)" },
   args: {
     ...commonArgs,
     title: {

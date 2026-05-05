@@ -19,7 +19,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageDeleteCommand = defineCommand({
-  meta: { description: "ページを削除する" },
+  meta: { name: "delete", description: "ページを削除する" },
   args: {
     ...commonArgs,
     title: {

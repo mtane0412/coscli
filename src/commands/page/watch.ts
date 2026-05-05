@@ -53,7 +53,7 @@ export interface WatchDeps {
  */
 export function makePageWatchCommand(deps: WatchDeps = {}) {
   return defineCommand({
-    meta: { description: "ページ更新をリアルタイム監視する (tail -f 風)" },
+    meta: { name: "watch", description: "ページ更新をリアルタイム監視する (tail -f 風)" },
     args: {
       ...commonArgs,
       title: {

@@ -19,7 +19,7 @@ import { writePlainTable } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 export const projectInfoCommand = defineCommand({
-  meta: { description: "プロジェクト詳細情報を取得する" },
+  meta: { name: "info", description: "プロジェクト詳細情報を取得する" },
   args: {
     ...commonArgs,
     name: {

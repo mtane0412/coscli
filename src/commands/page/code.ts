@@ -18,7 +18,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageCodeCommand = defineCommand({
-  meta: { description: "ページ内のコードブロックを取得する" },
+  meta: { name: "code", description: "ページ内のコードブロックを取得する" },
   args: {
     ...commonArgs,
     title: {

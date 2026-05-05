@@ -18,7 +18,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageUnpinCommand = defineCommand({
-  meta: { description: "ページのピン留めを解除する" },
+  meta: { name: "unpin", description: "ページのピン留めを解除する" },
   args: {
     ...commonArgs,
     title: {

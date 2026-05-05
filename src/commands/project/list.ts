@@ -17,7 +17,7 @@ import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 export const projectListCommand = defineCommand({
-  meta: { description: "参加中のプロジェクト一覧を取得する" },
+  meta: { name: "list", description: "参加中のプロジェクト一覧を取得する" },
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs

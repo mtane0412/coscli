@@ -21,7 +21,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageInsertCommand = defineCommand({
-  meta: { description: "指定行 (1-indexed) の後ろに行を挿入する" },
+  meta: { name: "insert", description: "指定行 (1-indexed) の後ろに行を挿入する" },
   args: {
     ...commonArgs,
     title: {

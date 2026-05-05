@@ -18,7 +18,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageUrlCommand = defineCommand({
-  meta: { description: "ページの URL を生成する (API 呼び出しなし)" },
+  meta: { name: "url", description: "ページの URL を生成する (API 呼び出しなし)" },
   args: {
     ...commonArgs,
     title: {
