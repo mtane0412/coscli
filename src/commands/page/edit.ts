@@ -63,6 +63,7 @@ export const pageEditCommand = defineCommand({
         `有効な値: ${VALID_INPUT_FORMATS.join(", ")}`,
       )
       process.exit(5)
+      return
     }
 
     let content: string
@@ -83,6 +84,7 @@ export const pageEditCommand = defineCommand({
     if (lines.length === 0) {
       writeErrorJson("CONTENT_REQUIRED", "新しい本文が空です")
       process.exit(5)
+      return
     }
 
     logger.info(`"${a.title}" を編集中...`)
