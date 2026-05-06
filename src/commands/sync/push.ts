@@ -22,7 +22,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const syncPushCommand = defineCommand({
-  meta: { description: "ローカル → Cosense へ push する" },
+  meta: { name: "push", description: "ローカル → Cosense へ push する" },
   args: {
     ...commonArgs,
     title: {

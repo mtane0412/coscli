@@ -20,7 +20,7 @@ import { writePlainTable } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 export const authWhoamiCommand = defineCommand({
-  meta: { description: "現在の認証ユーザー情報を取得する" },
+  meta: { name: "whoami", description: "現在の認証ユーザー情報を取得する" },
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs

@@ -25,7 +25,7 @@ import { defineCommand } from "citty"
 const VALID_INPUT_FORMATS = ["txt", "md"] as const
 
 export const pageEditCommand = defineCommand({
-  meta: { description: "ページ内容を全置換する" },
+  meta: { name: "edit", description: "ページ内容を全置換する" },
   args: {
     ...commonArgs,
     title: {

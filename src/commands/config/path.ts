@@ -17,7 +17,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const configPathCommand = defineCommand({
-  meta: { description: "設定ファイルのパスを表示する" },
+  meta: { name: "path", description: "設定ファイルのパスを表示する" },
   args: { ...commonArgs },
   run({ args }) {
     const a = args as CommonArgs

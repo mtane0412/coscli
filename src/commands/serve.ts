@@ -62,7 +62,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
   const startServerFn = deps.startServer ?? startBunServer
 
   return defineCommand({
-    meta: { description: "ローカル REST プロキシサーバーを起動する" },
+    meta: { name: "serve", description: "ローカル REST プロキシサーバーを起動する" },
     args: {
       ...commonArgs,
       rest: {

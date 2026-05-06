@@ -24,7 +24,7 @@ const VALID_FORMATS = ["txt", "md"] as const
 const VALID_BOLD_STYLES = ["auto", "heading", "emphasis"] as const
 
 export const pageTextCommand = defineCommand({
-  meta: { description: "ページのテキスト本文を取得する" },
+  meta: { name: "text", description: "ページのテキスト本文を取得する" },
   args: {
     ...commonArgs,
     title: {

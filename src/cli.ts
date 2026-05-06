@@ -7,6 +7,7 @@
  */
 
 import { initColor } from "@/infra/color"
+import { createCustomShowUsage } from "@/infra/help"
 import { defineCommand, runMain } from "citty"
 
 // bun build --define 'VERSION="x.y.z"' でビルド時に注入される
@@ -61,7 +62,7 @@ import { serveCommand } from "@/commands/serve"
 
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
-  meta: { description: "ページ操作コマンド" },
+  meta: { name: "page", description: "ページ操作コマンド" },
   subCommands: {
     list: pageListCommand,
     ls: pageListCommand,
@@ -89,7 +90,7 @@ const pageCommand = defineCommand({
 
 /** project サブコマンドグループ */
 const projectCommand = defineCommand({
-  meta: { description: "プロジェクト操作コマンド" },
+  meta: { name: "project", description: "プロジェクト操作コマンド" },
   subCommands: {
     list: projectListCommand,
     ls: projectListCommand,
@@ -100,7 +101,7 @@ const projectCommand = defineCommand({
 
 /** auth サブコマンドグループ */
 const authCommand = defineCommand({
-  meta: { description: "認証コマンド" },
+  meta: { name: "auth", description: "認証コマンド" },
   subCommands: {
     login: authLoginCommand,
     logout: authLogoutCommand,
@@ -111,7 +112,7 @@ const authCommand = defineCommand({
 
 /** config サブコマンドグループ */
 const configCommand = defineCommand({
-  meta: { description: "設定コマンド" },
+  meta: { name: "config", description: "設定コマンド" },
   subCommands: {
     get: configGetCommand,
     set: configSetCommand,
@@ -121,7 +122,7 @@ const configCommand = defineCommand({
 
 /** sync サブコマンドグループ */
 const syncCommand = defineCommand({
-  meta: { description: "ローカルファイルと Cosense の同期コマンド" },
+  meta: { name: "sync", description: "ローカルファイルと Cosense の同期コマンド" },
   subCommands: {
     pull: syncPullCommand,
     push: syncPushCommand,
@@ -180,4 +181,7 @@ const main = defineCommand({
   },
 })
 
-runMain(main)
+// main の具体的な args 型を CommandDef に広げて createCustomShowUsage に渡す
+runMain(main, {
+  showUsage: createCustomShowUsage(main as unknown as import("citty").CommandDef, "cos"),
+})

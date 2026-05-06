@@ -17,7 +17,7 @@ import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const authLogoutCommand = defineCommand({
-  meta: { description: "認証情報を削除する" },
+  meta: { name: "logout", description: "認証情報を削除する" },
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs

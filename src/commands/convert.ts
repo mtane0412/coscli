@@ -16,7 +16,7 @@ const VALID_FORMATS = ["scrapbox", "md"] as const
 const VALID_BOLD_STYLES = ["auto", "heading", "emphasis"] as const
 
 export const convertCommand = defineCommand({
-  meta: { description: "Scrapbox 記法と Markdown を相互変換する" },
+  meta: { name: "convert", description: "Scrapbox 記法と Markdown を相互変換する" },
   args: {
     ...commonArgs,
     from: {

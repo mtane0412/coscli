@@ -35,7 +35,7 @@ const VALID_FORMATS = ["json", "dot", "csv"] as const
 type GraphFormat = (typeof VALID_FORMATS)[number]
 
 export const projectGraphCommand = defineCommand({
-  meta: { description: "プロジェクトのページ間リンクをグラフとして export する" },
+  meta: { name: "graph", description: "プロジェクトのページ間リンクをグラフとして export する" },
   args: {
     ...commonArgs,
     format: {

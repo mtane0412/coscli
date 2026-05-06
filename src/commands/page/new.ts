@@ -20,7 +20,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageNewCommand = defineCommand({
-  meta: { description: "新しいページを作成する" },
+  meta: { name: "new", description: "新しいページを作成する" },
   args: {
     ...commonArgs,
     title: {

@@ -18,7 +18,7 @@ import { writePlainList, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 export const searchCommand = defineCommand({
-  meta: { description: "ページをキーワード検索する" },
+  meta: { name: "search", description: "ページをキーワード検索する" },
   args: {
     ...commonArgs,
     query: {

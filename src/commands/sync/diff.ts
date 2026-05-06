@@ -21,7 +21,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const syncDiffCommand = defineCommand({
-  meta: { description: "ローカルと Cosense の差分を表示する" },
+  meta: { name: "diff", description: "ローカルと Cosense の差分を表示する" },
   args: {
     ...commonArgs,
     title: {

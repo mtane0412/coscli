@@ -11,6 +11,7 @@
         "@progfay/scrapbox-parser": "^10.1.1",
         "citty": "^0.1.6",
         "cli-table3": "^0.6.5",
+        "consola": "^3.4.2",
         "json5": "^2.2.3",
         "picocolors": "^1.1.1",
         "zod": "^3.25.17",

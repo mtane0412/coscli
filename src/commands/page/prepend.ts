@@ -20,7 +20,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pagePrependCommand = defineCommand({
-  meta: { description: "ページ先頭 (タイトル直後) に行を挿入する" },
+  meta: { name: "prepend", description: "ページ先頭 (タイトル直後) に行を挿入する" },
   args: {
     ...commonArgs,
     title: {

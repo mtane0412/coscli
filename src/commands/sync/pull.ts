@@ -21,7 +21,7 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const syncPullCommand = defineCommand({
-  meta: { description: "Cosense → ローカルへ pull する" },
+  meta: { name: "pull", description: "Cosense → ローカルへ pull する" },
   args: {
     ...commonArgs,
     title: {
