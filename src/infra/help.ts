@@ -10,7 +10,7 @@
  */
 
 import { type showUsage as cittyShowUsage, renderUsage } from "citty"
-import type { CommandDef, Resolvable } from "citty"
+import type { ArgsDef, CommandDef, Resolvable } from "citty"
 import consola from "consola"
 
 /** resolveCommandPath の返り値 */
@@ -33,9 +33,34 @@ async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
 }
 
 /**
- * resolveCommandPath は rawArgs を辿り、どのコマンドが対象かを解決する。
+ * getStringFlagNames はコマンドの args から文字列型フラグ名のセットを返す。
+ *
+ * boolean 型と positional 型以外のフラグは値を必要とするため、セットに含める。
+ * エイリアスも含む。
+ */
+async function getStringFlagNames(cmd: CommandDef): Promise<Set<string>> {
+  if (!cmd.args) return new Set()
+  const args = await resolveValue(cmd.args as Resolvable<ArgsDef>)
+  const result = new Set<string>()
+  for (const [name, def] of Object.entries(args ?? {})) {
+    const resolved = await resolveValue(def as Resolvable<{ type?: string; alias?: string[] }>)
+    const type = resolved?.type
+    // boolean 型と positional 型以外はフラグ値を次トークンとして必要とする
+    if (type !== "boolean" && type !== "positional") {
+      result.add(name)
+      if (resolved?.alias) {
+        for (const a of resolved.alias) result.add(a)
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * resolveCommandPath は rawArgs を辿りコマンドパスを解決した ResolvedCommand を返す。
  *
  * citty の resolveSubCommand と異なり、ルートからのフルパスを pathSegments に保持する。
+ * 文字列型フラグの値トークンをスキップすることで、`--flag value subcommand` 形式にも対応する。
  * 未知のサブコマンドが現れた場合は graceful にその手前で停止し、親コマンドを返す。
  */
 export async function resolveCommandPath(
@@ -45,11 +70,27 @@ export async function resolveCommandPath(
 ): Promise<ResolvedCommand> {
   const pathSegments: string[] = [rootName]
   let currentCmd: CommandDef = rootCmd
+  let stringFlagNames = await getStringFlagNames(currentCmd)
 
-  for (let i = 0; i < rawArgs.length; i++) {
+  let i = 0
+  while (i < rawArgs.length) {
     const arg = rawArgs[i]
-    // フラグ (--, -x 形式) はスキップ
-    if (arg === undefined || arg.startsWith("-")) {
+    if (arg === undefined) {
+      i++
+      continue
+    }
+
+    if (arg.startsWith("-")) {
+      // --flag=value 形式はそのまま 1 トークンでスキップ
+      if (!arg.includes("=")) {
+        const flagName = arg.replace(/^-+/, "")
+        // 文字列型フラグなら次のトークン (値) もスキップ
+        if (stringFlagNames.has(flagName)) {
+          i += 2
+          continue
+        }
+      }
+      i++
       continue
     }
 
@@ -69,9 +110,11 @@ export async function resolveCommandPath(
     }
 
     const resolvedSubCmd = await resolveValue(subCmd)
-
     currentCmd = resolvedSubCmd
     pathSegments.push(arg)
+    // サブコマンドに進んだら、新しいコマンドのフラグセットに更新
+    stringFlagNames = await getStringFlagNames(currentCmd)
+    i++
   }
 
   return { cmd: currentCmd, pathSegments }
@@ -117,7 +160,7 @@ export async function renderUsageForArgs(
 }
 
 /**
- * createCustomShowUsage は runMain の showUsage オプションに渡せるクロージャを生成する。
+ * createCustomShowUsage は runMain の showUsage オプションに渡すクロージャを返す。
  *
  * citty の showUsage と同じシグネチャ (cmd, parent) を受け取るが、引数は無視し、
  * process.argv.slice(2) から自前でコマンドパスを再構築して正確な USAGE を表示する。

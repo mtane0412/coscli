@@ -25,6 +25,7 @@
     "@cosense/types": "npm:@jsr/cosense__types",
     "@progfay/scrapbox-parser": "^10.1.1",
     "citty": "^0.1.6",
+    "consola": "^3.4.2",
     "cli-table3": "^0.6.5",
     "json5": "^2.2.3",
     "picocolors": "^1.1.1",

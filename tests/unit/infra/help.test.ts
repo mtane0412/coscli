@@ -3,11 +3,14 @@
  *
  * resolveCommandPath: rawArgs からコマンドパスを再構築する関数
  * renderUsageForArgs: rawArgs からヘルプ文字列を生成する純関数
+ * createCustomShowUsage: runMain の showUsage オプション用クロージャを返す関数
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { renderUsageForArgs, resolveCommandPath } from "@/infra/help"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { createCustomShowUsage, renderUsageForArgs, resolveCommandPath } from "@/infra/help"
 import { defineCommand } from "citty"
+import type { CommandDef } from "citty"
+import consola from "consola"
 
 // テスト用コマンドツリーの構築
 const pageListCmd = defineCommand({
@@ -43,6 +46,17 @@ const rootCmd = defineCommand({
     page: pageCmd,
     search: searchCmd,
     find: searchCmd,
+  },
+})
+
+// --color のような文字列型ルートフラグを持つコマンドツリー (Copilot 指摘の回帰テスト用)
+const rootCmdWithStringFlag = defineCommand({
+  meta: { name: "cos", description: "Cosense CLI" },
+  args: {
+    color: { type: "string", description: "色設定" },
+  },
+  subCommands: {
+    page: pageCmd,
   },
 })
 
@@ -124,6 +138,30 @@ describe("resolveCommandPath", () => {
     expect(result.pathSegments).toEqual(["cos", "find"])
     expect(Object.is(result.cmd, searchCmd)).toBe(true)
   })
+
+  test("値付きルートフラグが先頭にある場合: フラグ値をスキップして page list を解決する", async () => {
+    // --color never のような string 型フラグの値 "never" を未知サブコマンドとして誤認しないことを確認
+    const result = await resolveCommandPath(rootCmdWithStringFlag as unknown as CommandDef, "cos", [
+      "--color",
+      "never",
+      "page",
+      "list",
+      "--help",
+    ])
+    expect(result.pathSegments).toEqual(["cos", "page", "list"])
+    expect(Object.is(result.cmd, pageListCmd)).toBe(true)
+  })
+
+  test("--flag=value 形式: = 以降を値として 1 トークンでスキップする", async () => {
+    const result = await resolveCommandPath(rootCmdWithStringFlag as unknown as CommandDef, "cos", [
+      "--color=never",
+      "page",
+      "list",
+      "--help",
+    ])
+    expect(result.pathSegments).toEqual(["cos", "page", "list"])
+    expect(Object.is(result.cmd, pageListCmd)).toBe(true)
+  })
 })
 
 describe("renderUsageForArgs", () => {
@@ -179,5 +217,53 @@ describe("renderUsageForArgs", () => {
     expect(result).toContain("cos page list")
     expect(result).not.toContain("/$bunfs/")
     expect(result).not.toContain("cos-darwin-arm64")
+  })
+
+  test("値付きルートフラグが先頭にある場合: 'cos page list' を含む", async () => {
+    // --color never の値 "never" を未知サブコマンドとして誤認しないことを確認 (回帰テスト)
+    const result = await renderUsageForArgs(rootCmdWithStringFlag as unknown as CommandDef, "cos", [
+      "--color",
+      "never",
+      "page",
+      "list",
+      "--help",
+    ])
+    expect(result).toContain("cos page list")
+    expect(result).not.toContain("/$bunfs/")
+  })
+})
+
+describe("createCustomShowUsage", () => {
+  let originalArgv: string[]
+  let logOutput: unknown
+
+  beforeEach(() => {
+    originalArgv = process.argv.slice()
+    logOutput = undefined
+    // consola の LogFn は .raw プロパティを持つ関数型のため、as でキャストする
+    spyOn(consola, "log").mockImplementation(((...args: unknown[]) => {
+      logOutput = args[0]
+    }) as unknown as typeof consola.log)
+  })
+
+  afterEach(() => {
+    process.argv.splice(0, process.argv.length, ...originalArgv)
+  })
+
+  test("process.argv から 'cos page list' を含む USAGE を出力する", async () => {
+    process.argv = ["bun", "/$bunfs/root/cos-darwin-arm64", "page", "list", "--help"]
+    const showUsageFn = createCustomShowUsage(rootCmd, "cos")
+    // citty の showUsage シグネチャに合わせて呼び出す (引数は内部で無視される)
+    await (showUsageFn as () => Promise<void>)()
+    expect(String(logOutput)).toContain("cos page list")
+    expect(String(logOutput)).not.toContain("/$bunfs/")
+  })
+
+  test("バイナリパスが露出しない: process.argv[1] が SFE パスでも安全", async () => {
+    process.argv = ["bun", "/$bunfs/root/cos-darwin-arm64", "page", "--help"]
+    const showUsageFn = createCustomShowUsage(rootCmd, "cos")
+    await (showUsageFn as () => Promise<void>)()
+    expect(String(logOutput)).toContain("cos page")
+    expect(String(logOutput)).not.toContain("/$bunfs/")
   })
 })
