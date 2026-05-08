@@ -8,3 +8,4 @@ coverage/
 .DS_Store
 *.bak
 *.bun-build
+.claude/scheduled_tasks.lock
