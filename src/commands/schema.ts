@@ -5,7 +5,7 @@
  * エージェントがコマンドを動的に探索・実行する際に使用する。
  */
 
-import { type CommonArgs, buildJsonOpts, commonArgs } from "@/commands/_shared"
+import { type CommonArgs, buildJsonOpts, checkSandbox, commonArgs } from "@/commands/_shared"
 import { getRootCommand } from "@/core/cli-root"
 import { EXIT_NOT_FOUND } from "@/core/exit-codes"
 import { buildSchema, findCommandByPath } from "@/core/schema"
@@ -18,6 +18,7 @@ export const schemaCommand = defineCommand({
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs & { _?: string[] }
+    checkSandbox("schema", a)
     // citty は positional を args 定義に書かなければ _ に残す
     const path = (a._ ?? []) as string[]
 
@@ -34,7 +35,7 @@ export const schemaCommand = defineCommand({
       const cmdPath = path.join(" ")
       writeErrorJson(
         "UNKNOWN_COMMAND",
-        `unknown command: ${cmdPath}`,
+        `不明なコマンドです: ${cmdPath}`,
         "cos schema | jq '.subCommands[].name' で利用可能なコマンドを確認できます",
       )
       process.exit(EXIT_NOT_FOUND)

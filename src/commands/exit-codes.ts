@@ -5,7 +5,7 @@
  * エージェントがエラーハンドリングを実装する際の参照情報として使用する。
  */
 
-import { type CommonArgs, buildJsonOpts, commonArgs } from "@/commands/_shared"
+import { type CommonArgs, buildJsonOpts, checkSandbox, commonArgs } from "@/commands/_shared"
 import { EXIT_CODES } from "@/core/exit-codes"
 import { writeJson } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
@@ -17,6 +17,7 @@ export const exitCodesCommand = defineCommand({
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs
+    checkSandbox("exit-codes", a)
 
     if (a.json) {
       const startTime = Date.now()
