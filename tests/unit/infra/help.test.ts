@@ -14,7 +14,8 @@ import consola from "consola"
 
 // テスト用コマンドツリーの構築
 const pageListCmd = defineCommand({
-  meta: { description: "ページ一覧を取得する" },
+  // meta.name を設定し canonical 判定を本番コマンドと同等の状態にする
+  meta: { name: "list", description: "ページ一覧を取得する" },
   args: {
     project: { type: "string", description: "プロジェクト名" },
   },
@@ -36,7 +37,8 @@ const pageCmd = defineCommand({
 })
 
 const searchCmd = defineCommand({
-  meta: { description: "ページを検索する" },
+  // meta.name を設定し canonical 判定を本番コマンドと同等の状態にする
+  meta: { name: "search", description: "ページを検索する" },
   run: () => {},
 })
 
@@ -230,6 +232,38 @@ describe("renderUsageForArgs", () => {
     ])
     expect(result).toContain("cos page list")
     expect(result).not.toContain("/$bunfs/")
+  })
+
+  describe("alias グルーピング", () => {
+    test("cos page --help: 'list (ls)' が表示され、独立した ls 行が消える", async () => {
+      // pageCmd は list と ls を同じコマンドオブジェクトで登録している
+      const result = await renderUsageForArgs(rootCmd, "cos", ["page", "--help"])
+      // canonical とエイリアスがひとつの行にまとまっていること
+      expect(result).toContain("list (ls)")
+      // ls だけの独立行がないこと ("\`ls\`" のようなバックティック形式で出ないこと)
+      expect(result).not.toMatch(/`ls`\s/)
+    })
+
+    test("cos page --help: alias なし get はそのまま表示される", async () => {
+      const result = await renderUsageForArgs(rootCmd, "cos", ["page", "--help"])
+      // alias がない get はグルーピングされずそのまま残ること
+      expect(result).toContain("get")
+      expect(result).not.toContain("get (")
+    })
+
+    test("cos --help (ルート): 'search (find)' が表示され、独立した find 行が消える", async () => {
+      // ルートに search と find が同一コマンドオブジェクトで登録されている
+      const result = await renderUsageForArgs(rootCmd, "cos", ["--help"])
+      expect(result).toContain("search (find)")
+      expect(result).not.toMatch(/`find`\s/)
+    })
+
+    test("cos page ls --help: alias 経由のナビゲーションは引き続き 'cos page ls' を表示する", async () => {
+      // alias でコマンドを指定したとき、ヘッダ行は入力パス ('cos page ls') を保持すること
+      const result = await renderUsageForArgs(rootCmd, "cos", ["page", "ls", "--help"])
+      expect(result).toContain("cos page ls")
+      expect(result).not.toContain("/$bunfs/")
+    })
   })
 })
 
