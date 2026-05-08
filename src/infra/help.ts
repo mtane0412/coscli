@@ -5,12 +5,15 @@
  * 1. cmdMeta.name 未設定時に process.argv[1] (バイナリパス) にフォールバックする
  * 2. resolveSubCommand が親を1階層しか伝播しない (3階層目でルート名を失う)
  *
+ * 加えて、subCommands に同一オブジェクト参照を複数キーで登録すると alias が
+ * 重複行として表示されてしまう問題を groupSubCommandsByAlias で解消する。
+ *
  * 本モジュールは rawArgs から完全なコマンドパスを再構築し、
  * 合成 parent を使って citty の公開 renderUsage を正しく呼び出す。
  */
 
 import { type showUsage as cittyShowUsage, renderUsage } from "citty"
-import type { ArgsDef, CommandDef, Resolvable } from "citty"
+import type { ArgsDef, CommandDef, Resolvable, SubCommandsDef } from "citty"
 import consola from "consola"
 
 /** resolveCommandPath の返り値 */
@@ -134,6 +137,62 @@ function ensureMetaName(cmd: CommandDef, name: string): CommandDef {
 }
 
 /**
+ * groupSubCommandsByAlias は同一オブジェクト参照を共有する複数のキーを
+ * `canonical (alias1, alias2)` 形式の単一キーにまとめた新しい subCommands を返す。
+ *
+ * canonical キーの判定優先順位:
+ *   1. resolved meta.name と一致するキー
+ *   2. 最初に出現したキー (フォールバック)
+ *
+ * 元の subCommands は変更しない。並び順は canonical キーの初出位置を保持する。
+ * alias を持たない場合は元のキーをそのまま使用する。
+ */
+async function groupSubCommandsByAlias(
+  subCommands: SubCommandsDef,
+): Promise<Record<string, Resolvable<CommandDef>>> {
+  // 同一参照ごとにキーをまとめる: Map<CommandDef オブジェクト, キー名リスト>
+  const refToKeys = new Map<CommandDef, string[]>()
+  // 各参照の初出順序を保持する配列
+  const refOrder: CommandDef[] = []
+
+  for (const [key, sub] of Object.entries(subCommands)) {
+    const resolved = await resolveValue(sub as Resolvable<CommandDef>)
+    if (!refToKeys.has(resolved)) {
+      refToKeys.set(resolved, [])
+      refOrder.push(resolved)
+    }
+    const keys = refToKeys.get(resolved)
+    if (keys) {
+      keys.push(key)
+    }
+  }
+
+  const result: Record<string, Resolvable<CommandDef>> = {}
+
+  for (const resolved of refOrder) {
+    const keys = refToKeys.get(resolved) ?? []
+    if (keys.length === 0) continue
+
+    const meta = resolved.meta
+      ? await resolveValue(resolved.meta as Resolvable<{ name?: string }>)
+      : null
+    const metaName = meta?.name
+
+    // canonical キーを決定する
+    const canonicalKey = (metaName && keys.includes(metaName) ? metaName : null) ?? keys[0] ?? ""
+    const aliasKeys = keys.filter((k) => k !== canonicalKey)
+
+    // alias がある場合は `canonical (alias1, alias2)` 形式、ない場合はそのまま
+    const displayKey =
+      aliasKeys.length > 0 ? `${canonicalKey} (${aliasKeys.join(", ")})` : canonicalKey
+
+    result[displayKey] = resolved
+  }
+
+  return result
+}
+
+/**
  * renderUsageForArgs は rawArgs を元にヘルプ文字列を生成して返す純関数。
  *
  * citty の公開 renderUsage を使用するが、合成 parent を介してフルパスを注入することで
@@ -155,6 +214,13 @@ export async function renderUsageForArgs(
 
   // citty の renderUsage が process.argv[1] にフォールバックしないよう meta.name を保証する
   const cmdWithName = ensureMetaName(cmd, lastSegment)
+
+  // subCommands の alias を `canonical (alias)` 形式にグルーピングする
+  if (cmdWithName.subCommands) {
+    const originalSubCommands = await resolveValue(cmdWithName.subCommands as SubCommandsDef)
+    const groupedSubCommands = await groupSubCommandsByAlias(originalSubCommands)
+    return renderUsage({ ...cmdWithName, subCommands: groupedSubCommands }, syntheticParent)
+  }
 
   return renderUsage(cmdWithName, syntheticParent)
 }
