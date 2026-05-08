@@ -12,6 +12,7 @@ import { buildSchema, findCommandByPath } from "@/core/schema"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
+/** schemaCommand はコマンド/フラグのスキーマを JSON で出力するコマンド定義を返す。 */
 export const schemaCommand = defineCommand({
   meta: { name: "schema", description: "コマンド/フラグのスキーマを JSON で出力する" },
   args: { ...commonArgs },
@@ -19,7 +20,6 @@ export const schemaCommand = defineCommand({
     const a = args as CommonArgs & { _?: string[] }
     // citty は positional を args 定義に書かなければ _ に残す
     const path = (a._ ?? []) as string[]
-    const startTime = Date.now()
 
     const rootCmd = getRootCommand()
     const schema =
@@ -27,7 +27,10 @@ export const schemaCommand = defineCommand({
         ? await buildSchema(rootCmd, "cos")
         : await findCommandByPath(rootCmd, "cos", path)
 
-    if (!schema) {
+    if (schema) {
+      const startTime = Date.now()
+      writeJson(schema, { command: "schema", startTime }, buildJsonOpts(a))
+    } else {
       const cmdPath = path.join(" ")
       writeErrorJson(
         "UNKNOWN_COMMAND",
@@ -35,9 +38,6 @@ export const schemaCommand = defineCommand({
         "cos schema | jq '.subCommands[].name' で利用可能なコマンドを確認できます",
       )
       process.exit(EXIT_NOT_FOUND)
-      return
     }
-
-    writeJson(schema, { command: "schema", startTime }, buildJsonOpts(a))
   },
 })

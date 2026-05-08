@@ -29,12 +29,21 @@ export const EXIT_CODES: readonly ExitCodeEntry[] = [
   { code: 124, name: "timeout", description: "タイムアウト" },
 ] as const
 
+/** EXIT_SUCCESS は成功を表す終了コード。 */
 export const EXIT_SUCCESS = 0
+/** EXIT_ERROR は一般エラーを表す終了コード。 */
 export const EXIT_ERROR = 1
+/** EXIT_UNAUTHORIZED は認証エラー (401) を表す終了コード。 */
 export const EXIT_UNAUTHORIZED = 2
+/** EXIT_FORBIDDEN は権限エラー (403) を表す終了コード。 */
 export const EXIT_FORBIDDEN = 3
+/** EXIT_NOT_FOUND はリソースが見つからない (404) を表す終了コード。 */
 export const EXIT_NOT_FOUND = 4
+/** EXIT_VALIDATION_ERROR はバリデーションエラーを表す終了コード。 */
 export const EXIT_VALIDATION_ERROR = 5
+/** EXIT_CONFLICT は楽観ロック競合を表す終了コード。 */
 export const EXIT_CONFLICT = 6
+/** EXIT_POLICY_DENIED は sandbox ポリシー違反を表す終了コード。 */
 export const EXIT_POLICY_DENIED = 7
+/** EXIT_TIMEOUT はタイムアウトを表す終了コード。 */
 export const EXIT_TIMEOUT = 124

@@ -11,14 +11,15 @@ import { writeJson } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
+/** exitCodesCommand は終了コード一覧を出力するコマンド定義を返す。 */
 export const exitCodesCommand = defineCommand({
   meta: { name: "exit-codes", description: "終了コード一覧を出力する" },
   args: { ...commonArgs },
   async run({ args }) {
     const a = args as CommonArgs
-    const startTime = Date.now()
 
     if (a.json) {
+      const startTime = Date.now()
       writeJson([...EXIT_CODES], { command: "exit-codes", startTime }, buildJsonOpts(a))
       return
     }

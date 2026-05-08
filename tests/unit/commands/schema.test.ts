@@ -101,7 +101,7 @@ async function runAndIgnoreExit(args: Record<string, unknown>): Promise<void> {
 }
 
 beforeEach(() => {
-  setRootCommand(testRoot)
+  setRootCommand(testRoot, true)
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
@@ -173,6 +173,15 @@ describe("schemaCommand", () => {
       const projectArg = schema.args.find((a: { name: string }) => a.name === "project")
       expect(projectArg).toBeDefined()
       expect(projectArg?.alias).toEqual(["p"])
+    })
+  })
+
+  describe("デフォルト出力（JSON なし）", () => {
+    it("JSON 指定なしでも UNKNOWN_COMMAND エラーを文字列で出力する（未知パス）", async () => {
+      await runAndIgnoreExit(makeArgs({ json: false, _: ["page", "unknown"] }))
+      const out = captureStdout()
+      // JSON 形式のエラー出力になる（writeErrorJson は常に JSON を使う）
+      expect(out).toContain("UNKNOWN_COMMAND")
     })
   })
 

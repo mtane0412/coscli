@@ -21,22 +21,13 @@ import {
 describe("EXIT_CODES 配列", () => {
   it("必須の終了コードをすべて含む", () => {
     const codes = EXIT_CODES.map((e) => e.code)
-    expect(codes).toContain(0)
-    expect(codes).toContain(1)
-    expect(codes).toContain(2)
-    expect(codes).toContain(3)
-    expect(codes).toContain(4)
-    expect(codes).toContain(5)
-    expect(codes).toContain(6)
-    expect(codes).toContain(7)
-    expect(codes).toContain(124)
+    expect(codes).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5, 6, 7, 124]))
   })
 
   it("code 昇順で並んでいる", () => {
     const codes = EXIT_CODES.map((e) => e.code)
-    for (let i = 1; i < codes.length; i++) {
-      expect(codes[i]).toBeGreaterThan(codes[i - 1] as number)
-    }
+    const sorted = [...codes].sort((a, b) => a - b)
+    expect(codes).toEqual(sorted)
   })
 
   it("code が一意である", () => {

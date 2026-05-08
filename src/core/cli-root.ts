@@ -13,8 +13,16 @@ let _rootCommand: CommandDef | null = null
 /**
  * setRootCommand はルートコマンドを登録する。
  * cli.ts の runMain 呼び出し前に呼ぶこと。
+ *
+ * @param cmd - 登録するルートコマンド
+ * @param force - true の場合は既存のルートコマンドを上書きする（テスト用）
  */
-export function setRootCommand(cmd: CommandDef): void {
+export function setRootCommand(cmd: CommandDef, force = false): void {
+  if (_rootCommand && !force) {
+    throw new Error(
+      "ルートコマンドは既に登録済みです。上書きする場合は force=true を指定してください。",
+    )
+  }
   _rootCommand = cmd
 }
 

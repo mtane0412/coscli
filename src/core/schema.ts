@@ -49,6 +49,32 @@ function normalizeAlias(alias: string | string[] | undefined): string[] {
   return typeof alias === "string" ? [alias] : alias
 }
 
+/** parseGroupKey の返り値 */
+interface ParsedGroupKey {
+  canonicalKey: string
+  aliasKeys: string[]
+}
+
+/**
+ * parseGroupKey は groupSubCommandsByAlias が返す
+ * "canonical (alias1, alias2)" 形式のキーを canonical と alias リストに分離する。
+ *
+ * groupKey のフォーマット変更に対して堅牢になるよう正規表現で検証する。
+ * 不正なフォーマットの場合は aliasKeys を空配列として安全にフォールバックする。
+ */
+function parseGroupKey(groupKey: string): ParsedGroupKey {
+  const match = /^(.+?) \((.+)\)$/.exec(groupKey)
+  if (!match) {
+    return { canonicalKey: groupKey, aliasKeys: [] }
+  }
+  const canonicalKey = match[1] ?? groupKey
+  const aliasKeys = (match[2] ?? "")
+    .split(", ")
+    .map((k) => k.trim())
+    .filter(Boolean)
+  return { canonicalKey, aliasKeys }
+}
+
 /**
  * buildArgsSchema は CommandDef の args を SchemaArg[] に変換する。
  */
@@ -109,16 +135,8 @@ export async function buildSchema(
       const grouped = await groupSubCommandsByAlias(subs)
       for (const [groupKey, subCmd] of Object.entries(grouped)) {
         const resolved = await resolveValue(subCmd)
-        // groupKey は "canonical (alias1, alias2)" 形式なので canonical と alias を分離する
-        const parenIdx = groupKey.indexOf(" (")
-        const canonicalKey = parenIdx >= 0 ? groupKey.slice(0, parenIdx) : groupKey
-        const aliasKeys =
-          parenIdx >= 0
-            ? groupKey
-                .slice(parenIdx + 2, -1)
-                .split(", ")
-                .filter(Boolean)
-            : []
+        // groupKey は groupSubCommandsByAlias が生成する "canonical (alias1, alias2)" 形式
+        const { canonicalKey, aliasKeys } = parseGroupKey(groupKey)
         const subSchema = await buildSchema(resolved, canonicalKey, aliasKeys)
         subCommandSchemas.push(subSchema)
       }

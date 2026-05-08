@@ -25,7 +25,7 @@ export type ResolvedCommand = {
 }
 
 /**
- * resolveValue は Resolvable<T> を解決する。
+ * resolveValue は Resolvable<T> を解決した値を返す。
  * citty の Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>) に対応する。
  */
 export async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
