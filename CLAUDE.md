@@ -105,6 +105,8 @@ src/
 
 ## 終了コード
 
+機械可読な一覧は `cos exit-codes --json` で取得できます（単一ソース: `src/core/exit-codes.ts`）。
+
 | code | 意味 |
 |---|---|
 | 0 | 成功 |

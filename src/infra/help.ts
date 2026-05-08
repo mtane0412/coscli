@@ -28,7 +28,7 @@ export type ResolvedCommand = {
  * resolveValue は Resolvable<T> を解決する。
  * citty の Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>) に対応する。
  */
-async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
+export async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
   if (typeof value === "function") {
     return (value as (() => T) | (() => Promise<T>))()
   }
@@ -147,7 +147,7 @@ function ensureMetaName(cmd: CommandDef, name: string): CommandDef {
  * 元の subCommands は変更しない。並び順は canonical キーの初出位置を保持する。
  * alias を持たない場合は元のキーをそのまま使用する。
  */
-async function groupSubCommandsByAlias(
+export async function groupSubCommandsByAlias(
   subCommands: SubCommandsDef,
 ): Promise<Record<string, Resolvable<CommandDef>>> {
   // 同一参照ごとにキーをまとめる: Map<CommandDef オブジェクト, キー名リスト>

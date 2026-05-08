@@ -129,6 +129,9 @@ cos config set    設定値を保存
 cos config path   設定ファイルのパスを表示
 
 cos convert       Scrapbox 記法と Markdown を相互変換する
+
+cos exit-codes    終了コード一覧を出力する (エージェント向け)
+cos schema        コマンド/フラグのスキーマを JSON で出力する (エージェント向け)
 ```
 
 ## Markdown 変換 (v0.3)
@@ -218,6 +221,8 @@ cos auth login --no-input --sid "$COS_SID"
 ```
 
 ## 終了コード
+
+機械可読な一覧は `cos exit-codes --json` で取得できます。
 
 | コード | 意味 |
 |---|---|

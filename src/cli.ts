@@ -6,6 +6,7 @@
  * sandbox (--enable-commands/--disable-commands) を一元管理する。
  */
 
+import { setRootCommand } from "@/core/cli-root"
 import { initColor } from "@/infra/color"
 import { createCustomShowUsage } from "@/infra/help"
 import { defineCommand, runMain } from "citty"
@@ -59,6 +60,10 @@ import { convertCommand } from "@/commands/convert"
 
 // サーブコマンド
 import { serveCommand } from "@/commands/serve"
+
+// エージェント向け補助コマンド
+import { exitCodesCommand } from "@/commands/exit-codes"
+import { schemaCommand } from "@/commands/schema"
 
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
@@ -178,8 +183,14 @@ const main = defineCommand({
     sync: syncCommand,
     convert: convertCommand,
     serve: serveCommand,
+    "exit-codes": exitCodesCommand,
+    schema: schemaCommand,
   },
 })
+
+// schema コマンドがルートを参照できるよう singleton に登録する
+// exactOptionalPropertyTypes のため具体的な args 型を CommandDef に広げてから渡す
+setRootCommand(main as unknown as import("citty").CommandDef)
 
 // main の具体的な args 型を CommandDef に広げて createCustomShowUsage に渡す
 runMain(main, {
