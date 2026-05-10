@@ -25,9 +25,10 @@ function exitWithError(code: number, message: string): never {
 }
 
 /**
- * commonArgs はすべてのサブコマンドが受け取るルート共通フラグ定義 (読み取り系)。
+ * commonArgs はすべてのサブコマンドが受け取るルート共通フラグ定義。
  *
- * --dry-run は含まない。書き込みコマンドは `dryRunArg` を併用すること。
+ * --dry-run を除く読み書き共通フラグ。書き込みコマンドは `dryRunArg` を追加スプレッドして
+ * `WriteCommonArgs` として扱うこと。
  */
 export const commonArgs = {
   project: {
@@ -90,7 +91,7 @@ export const dryRunArg = {
   },
 } as const
 
-/** CommonArgs は読み取り系コマンドが受け取る共通フラグの型。 */
+/** CommonArgs は --dry-run を除く読み書き共通フラグの型。WriteCommonArgs の基底型。 */
 export type CommonArgs = {
   project?: string
   profile?: string
