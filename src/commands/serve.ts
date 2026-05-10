@@ -7,11 +7,12 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
   requireSid,
 } from "@/commands/_shared"
@@ -65,6 +66,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
     meta: { name: "serve", description: "ローカル REST プロキシサーバーを起動する" },
     args: {
       ...commonArgs,
+      ...dryRunArg,
       rest: {
         type: "boolean" as const,
         description: "REST プロキシモードで起動する",
@@ -92,7 +94,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
     },
 
     async run({ args }) {
-      const a = args as CommonArgs & {
+      const a = args as WriteCommonArgs & {
         rest: boolean
         port: string
         host: string

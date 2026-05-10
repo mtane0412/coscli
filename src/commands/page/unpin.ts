@@ -5,12 +5,13 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { unpinPage } from "@/core/pages"
@@ -21,6 +22,7 @@ export const pageUnpinCommand = defineCommand({
   meta: { name: "unpin", description: "ページのピン留めを解除する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -28,7 +30,7 @@ export const pageUnpinCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string }
+    const a = args as WriteCommonArgs & { title: string }
     checkSandbox("page.unpin", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

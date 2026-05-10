@@ -9,12 +9,13 @@
 
 import { readFileSync } from "node:fs"
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { convert } from "@/core/format/index"
@@ -28,6 +29,7 @@ export const pageEditCommand = defineCommand({
   meta: { name: "edit", description: "ページ内容を全置換する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -45,7 +47,7 @@ export const pageEditCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & {
+    const a = args as WriteCommonArgs & {
       title: string
       "from-file": string
       "input-format": string

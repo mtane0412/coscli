@@ -8,12 +8,13 @@
 
 import { readFileSync } from "node:fs"
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { insertIntoPage } from "@/core/pages"
@@ -24,6 +25,7 @@ export const pageInsertCommand = defineCommand({
   meta: { name: "insert", description: "指定行 (1-indexed) の後ろに行を挿入する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -44,7 +46,7 @@ export const pageInsertCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & {
+    const a = args as WriteCommonArgs & {
       title: string
       after: string
       line?: string

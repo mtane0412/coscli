@@ -43,7 +43,6 @@ describe("pageIconCommand", () => {
       json: false,
       plain: false,
       "results-only": false,
-      "dry-run": false,
       quiet: false,
     })
 
@@ -61,7 +60,6 @@ describe("pageIconCommand", () => {
       json: true,
       plain: false,
       "results-only": false,
-      "dry-run": false,
       quiet: false,
     })
     // stdoutMock に書かれた JSON を解析して icon フィールドを検証する
@@ -79,7 +77,6 @@ describe("pageIconCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {

@@ -4,7 +4,6 @@
  * 指定したページの WebSocket room に join し、commit イベントをリアルタイムで受信する。
  * --json で JSON Lines (NDJSON)、--format=diff で簡易 unified diff 風出力、
  * Ctrl+C (SIGINT) で exit 0、--timeout 秒経過で exit 124。
- * --dry-run は非対応 (exit 5)。
  */
 
 import {
@@ -79,17 +78,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
       // 1. sandbox チェック
       checkSandbox("page.watch", a)
 
-      // 2. --dry-run 非対応
-      if (a["dry-run"]) {
-        writeErrorJson(
-          "VALIDATION_ERROR",
-          "page.watch は --dry-run に対応していません",
-          "--dry-run フラグを外してください",
-        )
-        process.exit(5)
-      }
-
-      // 3. --format バリデーション
+      // 2. --format バリデーション
       if (a.format !== "" && a.format !== "diff") {
         writeErrorJson(
           "VALIDATION_ERROR",

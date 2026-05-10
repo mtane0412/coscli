@@ -7,12 +7,13 @@
 
 import { readFileSync } from "node:fs"
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { createPage } from "@/core/pages"
@@ -23,6 +24,7 @@ export const pageNewCommand = defineCommand({
   meta: { name: "new", description: "新しいページを作成する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -38,7 +40,7 @@ export const pageNewCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string; "from-file"?: string; line?: string }
+    const a = args as WriteCommonArgs & { title: string; "from-file"?: string; line?: string }
     checkSandbox("page.new", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

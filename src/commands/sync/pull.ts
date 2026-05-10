@@ -6,12 +6,13 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { syncPull } from "@/core/sync/engine"
@@ -24,6 +25,7 @@ export const syncPullCommand = defineCommand({
   meta: { name: "pull", description: "Cosense → ローカルへ pull する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル (省略時は --all 必須)",
@@ -45,7 +47,7 @@ export const syncPullCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & {
+    const a = args as WriteCommonArgs & {
       title?: string
       all: boolean
       dir?: string
