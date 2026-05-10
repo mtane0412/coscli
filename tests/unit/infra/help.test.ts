@@ -267,6 +267,19 @@ describe("renderUsageForArgs", () => {
   })
 })
 
+describe("--dry-run フラグ表示の回帰テスト", () => {
+  test("pageListCommand の args に --dry-run が含まれない (読み取り専用)", async () => {
+    // citty が args 定義をヘルプに反映するため、args のキーが正しいことを確認する
+    const { pageListCommand } = await import("@/commands/page/list")
+    expect(Object.keys(pageListCommand.args ?? {})).not.toContain("dry-run")
+  })
+
+  test("pageEditCommand の args に --dry-run が含まれる (書き込み系)", async () => {
+    const { pageEditCommand } = await import("@/commands/page/edit")
+    expect(Object.keys(pageEditCommand.args ?? {})).toContain("dry-run")
+  })
+})
+
 describe("createCustomShowUsage", () => {
   let originalArgv: string[]
   let logOutput: unknown

@@ -6,13 +6,14 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildRestClient,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { pinPage } from "@/core/pages"
@@ -23,6 +24,7 @@ export const pagePinCommand = defineCommand({
   meta: { name: "pin", description: "ページをピン留めする" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -35,7 +37,7 @@ export const pagePinCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string; create: boolean }
+    const a = args as WriteCommonArgs & { title: string; create: boolean }
     checkSandbox("page.pin", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

@@ -6,12 +6,13 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { deletePage } from "@/core/pages"
@@ -22,6 +23,7 @@ export const pageDeleteCommand = defineCommand({
   meta: { name: "delete", description: "ページを削除する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -40,7 +42,7 @@ export const pageDeleteCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string; force: boolean; "no-input": boolean }
+    const a = args as WriteCommonArgs & { title: string; force: boolean; "no-input": boolean }
     checkSandbox("page.delete", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

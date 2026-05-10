@@ -9,13 +9,14 @@
  */
 
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildRestClient,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { renamePage } from "@/core/pages"
@@ -26,6 +27,7 @@ export const pageRenameCommand = defineCommand({
   meta: { name: "rename", description: "ページタイトルを変更する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "変更前のページタイトル",
@@ -43,7 +45,7 @@ export const pageRenameCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & {
+    const a = args as WriteCommonArgs & {
       title: string
       "new-title": string
       "force-fallback": boolean

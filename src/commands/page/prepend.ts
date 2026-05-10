@@ -7,12 +7,13 @@
 
 import { readFileSync } from "node:fs"
 import {
-  type CommonArgs,
+  type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
   buildWriter,
   checkSandbox,
   commonArgs,
+  dryRunArg,
   requireProject,
 } from "@/commands/_shared"
 import { prependToPage } from "@/core/pages"
@@ -23,6 +24,7 @@ export const pagePrependCommand = defineCommand({
   meta: { name: "prepend", description: "ページ先頭 (タイトル直後) に行を挿入する" },
   args: {
     ...commonArgs,
+    ...dryRunArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -38,7 +40,7 @@ export const pagePrependCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string; line?: string; "from-file"?: string }
+    const a = args as WriteCommonArgs & { title: string; line?: string; "from-file"?: string }
     checkSandbox("page.prepend", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

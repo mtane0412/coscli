@@ -33,7 +33,6 @@ function defaultArgs(overrides: Record<string, unknown> = {}): Record<string, un
     plain: false,
     "results-only": false,
     select: undefined,
-    "dry-run": false,
     "enable-commands": undefined,
     "disable-commands": undefined,
     verbose: undefined,

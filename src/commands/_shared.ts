@@ -24,7 +24,12 @@ function exitWithError(code: number, message: string): never {
   throw new Error(message)
 }
 
-/** commonArgs はすべてのサブコマンドが受け取るルート共通フラグ定義。 */
+/**
+ * commonArgs はすべてのサブコマンドが受け取るルート共通フラグ定義。
+ *
+ * --dry-run を除く読み書き共通フラグ。書き込みコマンドは `dryRunArg` を追加スプレッドして
+ * `WriteCommonArgs` として扱うこと。
+ */
 export const commonArgs = {
   project: {
     type: "string" as const,
@@ -56,11 +61,6 @@ export const commonArgs = {
     type: "string" as const,
     description: "出力セレクタ (例: pages[].title)",
   },
-  "dry-run": {
-    type: "boolean" as const,
-    description: "書き込み計画のみ表示して実行しない",
-    default: false,
-  },
   "enable-commands": {
     type: "string" as const,
     description: "許可するコマンドリスト (カンマ区切り)",
@@ -82,7 +82,16 @@ export const commonArgs = {
   },
 } as const
 
-/** CommonArgs はコマンドが受け取る共通フラグの型。 */
+/** dryRunArg は書き込み系コマンドが追加スプレッドする --dry-run フラグ定義。 */
+export const dryRunArg = {
+  "dry-run": {
+    type: "boolean" as const,
+    description: "書き込み計画のみ表示して実行しない",
+    default: false,
+  },
+} as const
+
+/** CommonArgs は --dry-run を除く読み書き共通フラグの型。WriteCommonArgs の基底型。 */
 export type CommonArgs = {
   project?: string
   profile?: string
@@ -90,12 +99,17 @@ export type CommonArgs = {
   plain: boolean
   "results-only": boolean
   select?: string
-  "dry-run": boolean
   "enable-commands"?: string
   "disable-commands"?: string
   verbose?: string
   quiet: boolean
 }
+
+/** DryRunArg は書き込み系コマンドが追加で受け取る --dry-run フラグの型。 */
+export type DryRunArg = { "dry-run": boolean }
+
+/** WriteCommonArgs は書き込み系コマンドが受け取る共通フラグの型。 */
+export type WriteCommonArgs = CommonArgs & DryRunArg
 
 /** buildLogger はフラグからロガーを生成する。 */
 export function buildLogger(args: CommonArgs): Logger {
@@ -194,7 +208,7 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
 }
 
 /** buildWriter は ScrapboxWriter を生成する。 */
-export async function buildWriter(args: CommonArgs) {
+export async function buildWriter(args: WriteCommonArgs) {
   const sid = await requireSid(args.profile)
   return createScrapboxWriter({ sid, dryRun: args["dry-run"] })
 }

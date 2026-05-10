@@ -61,7 +61,6 @@ function makeArgs(overrides: Record<string, unknown> = {}): Record<string, unkno
     plain: false,
     "results-only": false,
     select: undefined,
-    "dry-run": false,
     "enable-commands": undefined,
     "disable-commands": undefined,
     verbose: undefined,

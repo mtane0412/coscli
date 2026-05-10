@@ -105,7 +105,6 @@ const defaultArgs: Record<string, unknown> = {
   plain: false,
   "results-only": false,
   select: undefined,
-  "dry-run": false,
   "enable-commands": undefined,
   "disable-commands": undefined,
   verbose: undefined,
@@ -167,15 +166,6 @@ describe("makePageWatchCommand", () => {
         await runWatch({ ...defaultArgs, project: undefined }, createMockDeps())
       } catch {
         // process.exit モック後の継続による throw は想定内
-      }
-      expect(exitMock).toHaveBeenCalledWith(5)
-    })
-
-    it("--dry-run 指定時は exit 5 で終了する (page.watch は --dry-run 非対応)", async () => {
-      try {
-        await runWatch({ ...defaultArgs, "dry-run": true }, createMockDeps())
-      } catch {
-        // 想定内
       }
       expect(exitMock).toHaveBeenCalledWith(5)
     })

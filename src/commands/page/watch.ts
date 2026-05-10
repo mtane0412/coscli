@@ -4,7 +4,6 @@
  * 指定したページの WebSocket room に join し、commit イベントをリアルタイムで受信する。
  * --json で JSON Lines (NDJSON)、--format=diff で簡易 unified diff 風出力、
  * Ctrl+C (SIGINT) で exit 0、--timeout 秒経過で exit 124。
- * --dry-run は非対応 (exit 5)。
  */
 
 import {
@@ -79,17 +78,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
       // 1. sandbox チェック
       checkSandbox("page.watch", a)
 
-      // 2. --dry-run 非対応
-      if (a["dry-run"]) {
-        writeErrorJson(
-          "VALIDATION_ERROR",
-          "page.watch は --dry-run に対応していません",
-          "--dry-run フラグを外してください",
-        )
-        process.exit(5)
-      }
-
-      // 3. --format バリデーション
+      // 2. --format バリデーション
       if (a.format !== "" && a.format !== "diff") {
         writeErrorJson(
           "VALIDATION_ERROR",
@@ -100,7 +89,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
       }
       const format = a.format as "" | "diff"
 
-      // 4. --timeout バリデーション
+      // 3. --timeout バリデーション
       const timeoutSec = Number(a.timeout)
       if (Number.isNaN(timeoutSec) || timeoutSec < 0) {
         writeErrorJson(
@@ -111,18 +100,18 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
         process.exit(5)
       }
 
-      // 5. プロジェクト解決
+      // 4. プロジェクト解決
       const project = requireProject(a)
 
-      // 6. sid 取得
+      // 5. sid 取得
       const getSidFn = deps.getSid ?? requireSid
       const sid = await getSidFn(a.profile)
 
-      // 7. REST クライアント生成 (deps 未指定時は認証済みクライアントを生成)
+      // 6. REST クライアント生成 (deps 未指定時は認証済みクライアントを生成)
       const restClient: WatchRestClient =
         deps.restClient !== undefined ? deps.restClient : await buildRestClient(a)
 
-      // 8. ページ・プロジェクト情報取得 (pageId・projectId を確定)
+      // 7. ページ・プロジェクト情報取得 (pageId・projectId を確定)
       let page: Page
       let proj: Project
       try {
@@ -142,7 +131,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
         throw err
       }
 
-      // 9. AbortController と SIGINT ハンドラを設定
+      // 8. AbortController と SIGINT ハンドラを設定
       const ac = new AbortController()
       let timedOut = false
 
@@ -159,7 +148,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
         }, timeoutSec * 1000)
       }
 
-      // 10. subscriber 生成と購読開始
+      // 9. subscriber 生成と購読開始
       const createSubscriberFn = deps.createSubscriber ?? createScrapboxSubscriber
       const subscriber = await createSubscriberFn()
 

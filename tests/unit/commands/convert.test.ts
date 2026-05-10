@@ -49,7 +49,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
@@ -74,7 +73,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
@@ -96,7 +94,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
@@ -117,7 +114,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
@@ -138,7 +134,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
@@ -161,7 +156,6 @@ describe("convertCommand", () => {
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
     } catch {
