@@ -11,7 +11,8 @@ export const ProjectSchema = z.object({
   displayName: z.string(),
   publicVisible: z.boolean(),
   loginStrategies: z.array(z.string()).optional(),
-  plan: z.string().optional(),
+  // 実 API: 有料プランに未加入のプロジェクトは null を返す
+  plan: z.string().nullable().optional(),
   gyazoTeamsName: z.string().nullable().optional(),
   image: z.string().nullable().optional(),
   theme: z.string().optional(),

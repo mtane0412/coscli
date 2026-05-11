@@ -1,0 +1,17 @@
+{
+  "id": "project-id-sandbox",
+  "name": "テストサンドボックス",
+  "displayName": "テスト サンドボックス",
+  "publicVisible": true,
+  "loginStrategies": [],
+  "plan": null,
+  "gyazoTeamsName": null,
+  "image": null,
+  "theme": "default",
+  "created": 1700000000,
+  "updated": 1700100000,
+  "isMember": true,
+  "isAdmin": true,
+  "pageCount": 5,
+  "memberCount": 1
+}
