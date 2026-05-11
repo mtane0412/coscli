@@ -3,6 +3,8 @@
  *
  * @progfay/scrapbox-parser で AST に変換してから Markdown 文字列に直列化する。
  * タイトル行 (先頭行) は h1 に変換する。
+ * heading レベルはページ全体で使用されているアスタリスクレベル集合から動的に決定する
+ * (2 パス方式)。
  */
 
 import type {
@@ -24,27 +26,80 @@ export interface ScrapboxToMdOptions {
   boldStyle?: BoldStyle
 }
 
-/**
- * scrapboxToMd は Scrapbox 記法テキストを Markdown 文字列に変換する。
- *
- * @param input Scrapbox ページ本文 (先頭行がタイトル)
- * @param opts 変換オプション
- */
+/** scrapboxToMd は Scrapbox 記法テキストを Markdown 文字列として返す。 */
 export function scrapboxToMd(input: string, opts: ScrapboxToMdOptions = {}): string {
   const boldStyle = opts.boldStyle ?? "auto"
   const blocks = parse(input, { hasTitle: true })
+
+  // emphasis モードでは見出し昇格しないため第1パスをスキップ
+  const usedLevels = boldStyle === "emphasis" ? new Set<number>() : collectHeadingLevels(blocks)
+  const levelMap = buildLevelMap(usedLevels)
+  const tryHeading = makeTryHeading(levelMap)
+
   const lines: string[] = []
-
   for (const block of blocks) {
-    const converted = blockToMd(block, boldStyle)
-    lines.push(converted)
+    lines.push(blockToMd(block, boldStyle, tryHeading))
   }
-
   return lines.join("\n")
 }
 
+/**
+ * collectHeadingLevels はブロック配列から見出し候補のアスタリスクレベル集合を返す。
+ *
+ * 見出しに昇格する条件 (isHeadingCandidate) と完全一致させることで、
+ * 第1パスと第2パスの判定ロジックを同期する。
+ */
+function collectHeadingLevels(blocks: Block[]): Set<number> {
+  const used = new Set<number>()
+  for (const block of blocks) {
+    if (block.type !== "line") continue
+    if (!isHeadingCandidate(block)) continue
+    const node = block.nodes[0] as DecorationNode
+    const level = getAsteriskLevel(node.decos)
+    if (level > 0) used.add(level)
+  }
+  return used
+}
+
+/**
+ * buildLevelMap は使用レベル集合から「Scrapbox アスタリスク数 → Markdown h レベル」マップを構築する。
+ *
+ * 降順ソートして h2 から順に割り当て、5 番目以降は h6 で飽和する。
+ */
+function buildLevelMap(used: Set<number>): ReadonlyMap<number, number> {
+  const sorted = [...used].sort((a, b) => b - a)
+  const map = new Map<number, number>()
+  sorted.forEach((lv, i) => map.set(lv, Math.min(2 + i, 6)))
+  return map
+}
+
+/**
+ * makeTryHeading は levelMap を束ねた tryHeading 関数を返す。
+ *
+ * 返す関数は DecorationNode のアスタリスクレベルを levelMap で引き、
+ * 対応する Markdown h レベルを返す。マップに存在しない場合は null を返す。
+ */
+function makeTryHeading(
+  levelMap: ReadonlyMap<number, number>,
+): (deco: DecorationNode) => number | null {
+  return (deco) => {
+    const level = getAsteriskLevel(deco.decos)
+    if (level === 0) return null
+    return levelMap.get(level) ?? null
+  }
+}
+
+/** isHeadingCandidate は Line が見出し昇格条件 (インデントなし・単一 DecorationNode) を満たすかを返す。 */
+function isHeadingCandidate(line: Line): boolean {
+  return line.indent === 0 && line.nodes.length === 1 && line.nodes[0]?.type === "decoration"
+}
+
 /** blockToMd はブロックを Markdown 行(群)に変換する。 */
-function blockToMd(block: Block, boldStyle: BoldStyle): string {
+function blockToMd(
+  block: Block,
+  boldStyle: BoldStyle,
+  tryHeading: (deco: DecorationNode) => number | null,
+): string {
   switch (block.type) {
     case "title":
       return titleToMd(block)
@@ -53,7 +108,7 @@ function blockToMd(block: Block, boldStyle: BoldStyle): string {
     case "table":
       return tableToMd(block)
     case "line":
-      return lineToMd(block, boldStyle)
+      return lineToMd(block, boldStyle, tryHeading)
     default: {
       const _exhaustive: never = block
       return ""
@@ -82,18 +137,18 @@ function tableToMd(block: Table): string {
 }
 
 /** lineToMd は Line ブロックを Markdown の 1 行に変換する。 */
-function lineToMd(line: Line, boldStyle: BoldStyle): string {
+function lineToMd(
+  line: Line,
+  boldStyle: BoldStyle,
+  tryHeading: (deco: DecorationNode) => number | null,
+): string {
   if (line.nodes.length === 0) return ""
 
   const indent = line.indent
   const indentStr = "\t".repeat(indent)
 
-  // auto / heading モード: インデントなし かつ 行全体が単一の DecorationNode なら見出し
-  if (
-    (boldStyle === "auto" || boldStyle === "heading") &&
-    indent === 0 &&
-    isSingleDecoration(line)
-  ) {
+  // auto / heading モード: isHeadingCandidate を満たす行のみ見出しに昇格
+  if ((boldStyle === "auto" || boldStyle === "heading") && isHeadingCandidate(line)) {
     const deco = line.nodes[0] as DecorationNode
     const heading = tryHeading(deco)
     if (heading !== null) {
@@ -104,24 +159,6 @@ function lineToMd(line: Line, boldStyle: BoldStyle): string {
 
   const content = nodesToMd(line.nodes, boldStyle)
   return `${indentStr}${content}`
-}
-
-/** isSingleDecoration は Line の nodes が単一の DecorationNode かを判定する。 */
-function isSingleDecoration(line: Line): boolean {
-  return line.nodes.length === 1 && line.nodes[0]?.type === "decoration"
-}
-
-/**
- * tryHeading は DecorationNode が見出しに変換可能かを判定する。
- * 変換可能なら Markdown の # レベル数を返す。変換不可なら null を返す。
- */
-function tryHeading(deco: DecorationNode): number | null {
-  const level = getAsteriskLevel(deco.decos)
-  if (level === 0) return null
-  // level 1 → h4(4), level 2 → h3(3), level 3+ → h2(2)
-  if (level >= 3) return 2
-  if (level === 2) return 3
-  return 4
 }
 
 /** getAsteriskLevel は decos から "*-N" パターンを見つけて N を返す。なければ 0。 */
