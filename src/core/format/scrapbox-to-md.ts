@@ -88,18 +88,12 @@ function lineToMd(line: Line, boldStyle: BoldStyle): string {
   const indent = line.indent
   const indentStr = "\t".repeat(indent)
 
-  // auto モード: 行全体が単一の DecorationNode でインデントなしなら見出し
-  if (boldStyle === "auto" && indent === 0 && isSingleDecoration(line)) {
-    const deco = line.nodes[0] as DecorationNode
-    const heading = tryHeading(deco)
-    if (heading !== null) {
-      const text = nodesToMd(deco.nodes, boldStyle)
-      return `${"#".repeat(heading)} ${text}`
-    }
-  }
-
-  // heading モード: 行全体が単一の DecorationNode なら見出し
-  if (boldStyle === "heading" && isSingleDecoration(line)) {
+  // auto / heading モード: インデントなし かつ 行全体が単一の DecorationNode なら見出し
+  if (
+    (boldStyle === "auto" || boldStyle === "heading") &&
+    indent === 0 &&
+    isSingleDecoration(line)
+  ) {
     const deco = line.nodes[0] as DecorationNode
     const heading = tryHeading(deco)
     if (heading !== null) {
