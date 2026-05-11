@@ -36,7 +36,7 @@ export const pageNewCommand = defineCommand({
     },
     line: {
       type: "string",
-      description: "追加する行テキスト",
+      description: "追加する行テキスト (複数行は \\n で区切る)",
     },
   },
   async run({ args }) {
