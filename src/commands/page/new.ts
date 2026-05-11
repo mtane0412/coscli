@@ -55,7 +55,7 @@ export const pageNewCommand = defineCommand({
       const content = readFileSync(a["from-file"], "utf-8")
       lines = content.split("\n")
     } else if (a.line) {
-      lines = [a.line]
+      lines = a.line.split("\\n")
     }
 
     if (lines.length === 0) {
@@ -72,7 +72,7 @@ export const pageNewCommand = defineCommand({
     const writer = await buildWriter(a)
     const result = await createPage(writer, { project, title: a.title, lines })
 
-    if (a.json) {
+    if (a.json || a["dry-run"]) {
       writeJson(result, { command: "page.new", startTime }, buildJsonOpts(a))
       return
     }
