@@ -147,7 +147,7 @@ const syncCommand = defineCommand({
 const main = defineCommand({
   meta: {
     name: "cos",
-    version: VERSION,
+    version: VERSION.replace(/^v/, ""),
     description: "AI エージェント親和的 Cosense (Scrapbox) CLI",
   },
   args: {
