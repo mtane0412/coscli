@@ -62,6 +62,13 @@ describe("見出し変換 (heading モード)", () => {
     const input = "タイトル\n[* 小見出し]"
     expect(scrapboxToMd(input, { boldStyle: "heading" })).toBe("# タイトル\n\n#### 小見出し")
   })
+
+  test("インデント下の [** テキスト] → heading モードでも太字 (見出しにならない)", () => {
+    const input = "タイトル\n\t[** インデント内強調]"
+    expect(scrapboxToMd(input, { boldStyle: "heading" })).toBe(
+      "# タイトル\n\n\t**インデント内強調**",
+    )
+  })
 })
 
 // --- 見出し (boldStyle=emphasis) ---
