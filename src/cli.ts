@@ -148,7 +148,8 @@ const main = defineCommand({
   meta: {
     name: "cos",
     version: VERSION.replace(/^v/, ""),
-    description: "AI エージェント親和的 Cosense (Scrapbox) CLI",
+    description:
+      "cos is a single CLI for Cosense pages, projects, search, sync, convert, and REST proxy — built for terminals, scripts, CI, and coding agents.",
   },
   args: {
     "enable-commands": {
