@@ -11,6 +11,13 @@ AI エージェント親和的な [Cosense](https://cosen.se/) (旧 Scrapbox) CL
 
 ## インストール
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap mtane0412/coscli
+brew install coscli
+```
+
 ### バイナリをダウンロード
 
 [Releases](https://github.com/mtane0412/coscli/releases) から OS に合ったバイナリをダウンロードしてください。
