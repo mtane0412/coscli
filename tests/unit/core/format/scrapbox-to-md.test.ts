@@ -22,14 +22,14 @@ describe("見出し変換 (auto モード)", () => {
     expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 大見出し")
   })
 
-  test("[** テキスト] 行全体 → h3", () => {
+  test("[** テキスト] 単独ページ → h2（単一レベルのため最上位に昇格）", () => {
     const input = "タイトル\n[** 中見出し]"
-    expect(scrapboxToMd(input)).toBe("# タイトル\n\n### 中見出し")
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 中見出し")
   })
 
-  test("[* テキスト] 行全体 → h4", () => {
+  test("[* テキスト] 単独ページ → h2（単一レベルのため最上位に昇格）", () => {
     const input = "タイトル\n[* 小見出し]"
-    expect(scrapboxToMd(input)).toBe("# タイトル\n\n#### 小見出し")
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 小見出し")
   })
 
   test("[**** テキスト] 4 個以上は h2 頭打ち", () => {
@@ -58,9 +58,9 @@ describe("見出し変換 (heading モード)", () => {
     // NOTE: インラインの場合でも行全体が見出しになるわけではなく、AST レベルでデコレーションが見出しとして扱われる
   })
 
-  test("行全体 [* テキスト] → heading モードでも h4", () => {
+  test("行全体 [* テキスト] 単独ページ → heading モードでも h2（単一レベルのため最上位に昇格）", () => {
     const input = "タイトル\n[* 小見出し]"
-    expect(scrapboxToMd(input, { boldStyle: "heading" })).toBe("# タイトル\n\n#### 小見出し")
+    expect(scrapboxToMd(input, { boldStyle: "heading" })).toBe("# タイトル\n\n## 小見出し")
   })
 
   test("インデント下の [** テキスト] → heading モードでも太字 (見出しにならない)", () => {
@@ -83,6 +83,58 @@ describe("見出し変換 (emphasis モード)", () => {
     expect(scrapboxToMd(input, { boldStyle: "emphasis" })).toBe(
       "# タイトル\n\n**強調** と普通テキスト",
     )
+  })
+})
+
+// --- 見出し変換: 動的レベル決定 (Issue #30) ---
+describe("見出し変換: 動的レベル決定", () => {
+  test("2 レベル使用: [*** ] と [** ] → ## と ###", () => {
+    const input = "タイトル\n[*** 大見出し]\n[** 中見出し]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 大見出し\n### 中見出し")
+  })
+
+  test("2 レベル使用（低位）: [** ] と [* ] → ## と ###", () => {
+    const input = "タイトル\n[** 中見出し]\n[* 小見出し]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 中見出し\n### 小見出し")
+  })
+
+  test("3 レベル使用: [*** ], [** ], [* ] → ##, ###, ####", () => {
+    const input = "タイトル\n[*** 大見出し]\n[** 中見出し]\n[* 小見出し]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 大見出し\n### 中見出し\n#### 小見出し")
+  })
+
+  test("非連続レベル: [**** ] と [* ] のみ → ## と ###（順位ベースで段差は無視）", () => {
+    const input = "タイトル\n[**** 超大]\n[* 小]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 超大\n### 小")
+  })
+
+  test("5 レベル使用: h2 〜 h6 まで割り当て", () => {
+    const input = "タイトル\n[***** 5]\n[**** 4]\n[*** 3]\n[** 2]\n[* 1]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 5\n### 4\n#### 3\n##### 2\n###### 1")
+  })
+
+  test("6 レベル使用: 最下位 2 つが h6 に飽和", () => {
+    const input = "タイトル\n[****** 6]\n[***** 5]\n[**** 4]\n[*** 3]\n[** 2]\n[* 1]"
+    expect(scrapboxToMd(input)).toBe(
+      "# タイトル\n\n## 6\n### 5\n#### 4\n##### 3\n###### 2\n###### 1",
+    )
+  })
+
+  test("emphasis モードでは見出し収集をスキップし太字になる", () => {
+    const input = "タイトル\n[** 強調テキスト]"
+    expect(scrapboxToMd(input, { boldStyle: "emphasis" })).toBe("# タイトル\n\n**強調テキスト**")
+  })
+
+  test("インライン deco は収集対象外（行に他ノードあり）", () => {
+    // [*** 大見出し] は h2 に割り当て。[** インライン] は複数ノード行のため収集されない
+    const input = "タイトル\n[*** 大見出し]\n前置き [** インライン] 後置き"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 大見出し\n前置き **インライン** 後置き")
+  })
+
+  test("インデント下 deco は収集対象外", () => {
+    // [*** 大見出し] は h2 に割り当て。[** インデント下] はインデントあり行のため収集されない
+    const input = "タイトル\n[*** 大見出し]\n\t[** インデント下]"
+    expect(scrapboxToMd(input)).toBe("# タイトル\n\n## 大見出し\n\t**インデント下**")
   })
 })
 
