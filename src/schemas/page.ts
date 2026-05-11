@@ -25,8 +25,9 @@ export const PageSummarySchema = z.object({
   user: z
     .object({
       id: z.string(),
-      name: z.string(),
-      displayName: z.string(),
+      // 実 API では name / displayName が省略される場合がある
+      name: z.string().optional(),
+      displayName: z.string().optional(),
     })
     .optional(),
   pin: z.number().optional(),
@@ -50,14 +51,16 @@ export const PageSchema = z.object({
   user: z
     .object({
       id: z.string(),
-      name: z.string(),
-      displayName: z.string(),
+      // 実 API では name / displayName が省略される場合がある
+      name: z.string().optional(),
+      displayName: z.string().optional(),
     })
     .optional(),
   pin: z.number().optional(),
   views: z.number().optional(),
   linked: z.number().optional(),
-  commitId: z.string(),
+  // 実 API: 新規作成直後のページは commitId が無いことがある
+  commitId: z.string().optional(),
   created: z.number(),
   updated: z.number(),
   accessed: z.number().optional(),
@@ -89,7 +92,8 @@ export type PageListResponse = z.infer<typeof PageListResponseSchema>
 
 /** SearchResult は /api/pages/:project/search/query のレスポンス。 */
 export const SearchResultSchema = z.object({
-  query: z.string().optional(),
+  // 実 API (認証あり): query はオブジェクト形式 { words, excludes } を返すことがある
+  query: z.union([z.string(), z.object({}).passthrough()]).optional(),
   pages: z.array(
     z.object({
       id: z.string(),
@@ -97,6 +101,8 @@ export const SearchResultSchema = z.object({
       image: z.string().nullable().optional(),
       descriptions: z.array(z.string()).optional(),
       words: z.array(z.string()).optional(),
+      // 実 API: search/query の pages[] は lines: string[] を含む
+      lines: z.array(z.string()).optional(),
     }),
   ),
   existsSelectedProject: z.boolean().optional(),

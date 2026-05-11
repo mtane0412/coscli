@@ -49,9 +49,11 @@ export async function syncPull(
   const page = await client.getPage(project, title)
   // lines[0] はタイトル行なので除外して本文だけ取り出す
   const bodyLines = page.lines.slice(1).map((l) => l.text)
+  // commitId が欠落している場合 (新規作成直後等) は空文字列でフォールバック
+  const commitId = page.commitId ?? ""
 
   if (opts.dryRun) {
-    return { title, commitId: page.commitId, lines: bodyLines, dryRun: true }
+    return { title, commitId, lines: bodyLines, dryRun: true }
   }
 
   writeLocalContent(syncDir, title, format, bodyLines)
@@ -62,14 +64,14 @@ export async function syncPull(
     project,
     title,
     pageId: page.id,
-    commitId: page.commitId,
+    commitId,
     lastPulledAt: Date.now(),
     format,
     contentSha256: sha256(contentStr),
   }
   writeMeta(syncDir, meta)
 
-  return { title, commitId: page.commitId, lines: bodyLines }
+  return { title, commitId, lines: bodyLines }
 }
 
 /** SyncPushOptions は syncPush のオプション。 */
@@ -122,7 +124,8 @@ export async function syncPush(
   while (true) {
     const serverPage = await client.getPage(project, title)
 
-    if (meta.commitId !== serverPage.commitId) {
+    const serverCommitId = serverPage.commitId ?? ""
+    if (meta.commitId !== serverCommitId) {
       // commitId 不一致 = 競合
       const localContentStr = contentToString(localLines)
       const localUnchanged = sha256(localContentStr) === meta.contentSha256
@@ -148,7 +151,7 @@ export async function syncPush(
         committed: false,
         errorCode: "CONFLICT",
         localCommitId: meta.commitId,
-        serverCommitId: serverPage.commitId,
+        serverCommitId,
       }
     }
 
@@ -222,6 +225,8 @@ export async function syncDiff(
   const localLines = readLocalContent(syncDir, title, format)
   const meta = readMeta(syncDir, project, title)
 
+  const serverCommitId = serverPage.commitId ?? ""
+
   if (localLines === null) {
     // ローカルファイルが存在しない = リモートのみ
     return {
@@ -229,7 +234,7 @@ export async function syncDiff(
       title,
       status: "remote-only",
       local: null,
-      remote: { commitId: serverPage.commitId, lineCount: serverBodyLines.length },
+      remote: { commitId: serverCommitId, lineCount: serverBodyLines.length },
       diff: computeDiff([], serverBodyLines),
     }
   }
@@ -247,7 +252,7 @@ export async function syncDiff(
       title,
       status: "local-only",
       local: localInfo,
-      remote: { commitId: serverPage.commitId, lineCount: 0 },
+      remote: { commitId: serverCommitId, lineCount: 0 },
       diff: computeDiff(localLines, []),
     }
   }
@@ -267,7 +272,7 @@ export async function syncDiff(
     title,
     status,
     local: localInfo,
-    remote: { commitId: serverPage.commitId, lineCount: serverBodyLines.length },
+    remote: { commitId: serverCommitId, lineCount: serverBodyLines.length },
     diff: diffResult,
   }
 }

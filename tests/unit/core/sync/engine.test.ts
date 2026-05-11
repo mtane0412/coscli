@@ -35,6 +35,13 @@ function makePage(overrides: Partial<Page> = {}): Page {
   }
 }
 
+/** commitId を持たないテスト用 Page を生成するファクトリ (新規作成直後等の実 API 形を再現) */
+function makePageWithoutCommitId(): Page {
+  // exactOptionalPropertyTypes 対応: commitId プロパティを spread で除外して absent にする
+  const { commitId: _removed, ...rest } = makePage()
+  return rest as Page
+}
+
 /** モック REST クライアントを生成する */
 function makeRestClient(page: Page): CosenseRestClient {
   return {
@@ -328,5 +335,60 @@ describe("syncDiff", () => {
       ...result.diff.modified.map((m) => m.after),
     ]
     expect(allChanges.length).toBeGreaterThan(0)
+  })
+})
+
+describe("commitId が欠落した実 API レスポンスへのフォールバック", () => {
+  test("syncPull: commitId なしのページを pull すると meta.commitId が空文字列になる", async () => {
+    const page = makePageWithoutCommitId()
+    const client = makeRestClient(page)
+
+    const result = await syncPull(client, TEST_DIR, "テストプロジェクト", "テストページ")
+
+    // 戻り値の commitId が空文字列
+    expect(result.commitId).toBe("")
+
+    // メタの commitId も空文字列で保存される
+    const meta = readMeta(TEST_DIR, "テストプロジェクト", "テストページ")
+    expect(meta?.commitId).toBe("")
+  })
+
+  test("syncPush: サーバの commitId が欠落かつローカルも空文字列のとき競合なしで push できる", async () => {
+    // commitId なしページを pull → meta.commitId = ""
+    const page = makePageWithoutCommitId()
+    const pullClient = makeRestClient(page)
+    await syncPull(pullClient, TEST_DIR, "テストプロジェクト", "テストページ")
+
+    // ローカルを編集
+    writeFileSync(join(TEST_DIR, "テストページ.txt"), "変更した本文\n", "utf-8")
+
+    // サーバも commitId なしのまま (他者更新なし)
+    const pushClient = makeRestClient(page)
+    const writer = makeWriter("新コミット123")
+    const result = await syncPush(
+      pushClient,
+      writer,
+      TEST_DIR,
+      "テストプロジェクト",
+      "テストページ",
+    )
+
+    // "" === "" で競合なし → push 成功
+    expect(result.committed).toBe(true)
+    expect(result.newCommitId).toBe("新コミット123")
+  })
+
+  test("syncDiff: commitId なしページを pull した後の差分検出が正常に動作する", async () => {
+    const page = makePageWithoutCommitId()
+    const client = makeRestClient(page)
+    await syncPull(client, TEST_DIR, "テストプロジェクト", "テストページ")
+
+    // ローカルを変更
+    writeFileSync(join(TEST_DIR, "テストページ.txt"), "変更後の本文\n", "utf-8")
+
+    const result = await syncDiff(client, TEST_DIR, "テストプロジェクト", "テストページ")
+
+    // commitId が欠落していても差分検出が正常に動作する
+    expect(result.status).toBe("modified")
   })
 })
