@@ -4,8 +4,8 @@
  * citty の runMain が持つ2重エラー出力・exit code 固定の問題を回避するため、
  * runCommand を直接呼ぶ自前ラッパから使用する。
  *
- * エラークラスを分類して適切な終了コードを返す。
- * --json 指定時は writeErrorJson で envelope 形式に変換する。
+ * エラークラスを分類して適切な終了コードと JSON コードを返す。
+ * --json 時の writeErrorJson 呼び出しは cli.ts 側で行う。
  */
 
 import { AuthError, CosenseApiError, ForbiddenError, NotFoundError } from "@/core/api/rest"

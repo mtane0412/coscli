@@ -16,6 +16,7 @@ import {
 import { initColor } from "@/infra/color"
 import { createCustomShowUsage } from "@/infra/help"
 import { Logger } from "@/infra/logger"
+import { normalizeVersion } from "@/infra/version"
 import { writeErrorJson } from "@/presenter/json"
 import { defineCommand, runCommand } from "citty"
 
@@ -147,8 +148,9 @@ const syncCommand = defineCommand({
 const main = defineCommand({
   meta: {
     name: "cos",
-    version: VERSION,
-    description: "AI エージェント親和的 Cosense (Scrapbox) CLI",
+    version: VERSION.replace(/^v/, ""),
+    description:
+      "cos is a single CLI for Cosense pages, projects, search, sync, convert, and REST proxy — built for terminals, scripts, CI, and coding agents.",
   },
   args: {
     "enable-commands": {
@@ -213,7 +215,7 @@ if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
 if (rawArgs.length === 1 && rawArgs[0] === "--version") {
   const meta =
     typeof main.meta === "function" ? await main.meta() : await Promise.resolve(main.meta)
-  const version = (meta?.version ?? "").replace(/^v/, "")
+  const version = normalizeVersion(meta?.version ?? "")
   console.log(version)
   process.exit(0)
 }
