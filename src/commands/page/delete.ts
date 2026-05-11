@@ -3,6 +3,9 @@
  *
  * ページを削除する。--force なしの場合は確認プロンプトを表示する。
  * --no-input 時は --force が必須。
+ *
+ * 実装上の注意: citty は --no-X を args.X = false に自動変換するため、
+ * args 定義は `input: { default: true }` とし、--no-input で input = false になることを利用する。
  */
 
 import {
@@ -35,20 +38,21 @@ export const pageDeleteCommand = defineCommand({
       description: "確認プロンプトをスキップ",
       default: false,
     },
-    "no-input": {
+    input: {
       type: "boolean",
-      description: "対話入力を禁止 (CI/エージェント向け)",
-      default: false,
+      description:
+        "対話入力を許可 (デフォルト: true)。--no-input で禁止 (CI/エージェント向け、要 --force)",
+      default: true,
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & { title: string; force: boolean; "no-input": boolean }
+    const a = args as WriteCommonArgs & { title: string; force: boolean; input: boolean }
     checkSandbox("page.delete", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
-    if (!a.force && !a["no-input"] && !a["dry-run"]) {
+    if (!a.force && a.input && !a["dry-run"]) {
       // 対話確認 (--force または --no-input 未指定時)
       const { confirm } = await import("@clack/prompts")
       const yes = await confirm({
@@ -57,10 +61,12 @@ export const pageDeleteCommand = defineCommand({
       if (!yes) {
         logger.info("キャンセルしました")
         process.exit(0)
+        return
       }
-    } else if (!a.force && a["no-input"] && !a["dry-run"]) {
+    } else if (!a.force && !a.input && !a["dry-run"]) {
       writeErrorJson("CONFIRMATION_REQUIRED", "--no-input モードでは --force (-y) フラグが必要です")
       process.exit(5)
+      return
     }
 
     logger.info(`"${a.title}" を削除中...`)
