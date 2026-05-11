@@ -7,9 +7,12 @@
  */
 
 import { setRootCommand } from "@/core/cli-root"
+import { extractErrorMessage, extractStackTrace, resolveExitCode } from "@/infra/cli-error-handler"
 import { initColor } from "@/infra/color"
 import { createCustomShowUsage } from "@/infra/help"
-import { defineCommand, runMain } from "citty"
+import { Logger } from "@/infra/logger"
+import { writeErrorJson } from "@/presenter/json"
+import { defineCommand, runCommand } from "citty"
 
 // bun build --define 'VERSION="x.y.z"' でビルド時に注入される
 declare const VERSION: string
@@ -192,7 +195,45 @@ const main = defineCommand({
 // exactOptionalPropertyTypes のため具体的な args 型を CommandDef に広げてから渡す
 setRootCommand(main as unknown as import("citty").CommandDef)
 
-// main の具体的な args 型を CommandDef に広げて createCustomShowUsage に渡す
-runMain(main, {
-  showUsage: createCustomShowUsage(main as unknown as import("citty").CommandDef, "cos"),
-})
+const rawArgs = process.argv.slice(2)
+const showUsageFn = createCustomShowUsage(main as unknown as import("citty").CommandDef, "cos")
+
+// --help / -h: citty の showUsage を呼んで exit 0
+if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
+  await showUsageFn(main as unknown as import("citty").CommandDef, null as never)
+  process.exit(0)
+}
+
+// --version (単独): バージョンを表示して exit 0
+if (rawArgs.length === 1 && rawArgs[0] === "--version") {
+  const meta =
+    typeof main.meta === "function" ? await main.meta() : await Promise.resolve(main.meta)
+  const version = (meta?.version ?? "").replace(/^v/, "")
+  console.log(version)
+  process.exit(0)
+}
+
+// 通常コマンド実行: runCommand を直接呼び、エラーを自前で分類する
+const isJson = rawArgs.some((a) => a === "--json" || a === "-J")
+const isVerbose = rawArgs.some(
+  (a) => a === "-v" || a === "-vv" || a === "--verbose" || a.startsWith("--verbose="),
+)
+
+try {
+  await runCommand(main, { rawArgs })
+} catch (err) {
+  const exitCode = resolveExitCode(err)
+  const message = extractErrorMessage(err)
+  const stack = isVerbose ? extractStackTrace(err) : undefined
+
+  if (isJson) {
+    writeErrorJson(exitCode === 5 ? "VALIDATION_ERROR" : "ERROR", message)
+  } else {
+    const logger = new Logger()
+    logger.error(message)
+    if (stack) {
+      process.stderr.write(`${stack}\n`)
+    }
+  }
+  process.exit(exitCode)
+}
