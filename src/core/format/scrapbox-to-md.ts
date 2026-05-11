@@ -26,15 +26,7 @@ export interface ScrapboxToMdOptions {
   boldStyle?: BoldStyle
 }
 
-/**
- * scrapboxToMd は Scrapbox 記法テキストを Markdown 文字列に変換する。
- *
- * 第1パスでページ全体の見出し候補アスタリスクレベルを収集し、降順に h2 から割り当てる。
- * 5 レベル以上使用時は h6 で飽和する。
- *
- * @param input Scrapbox ページ本文 (先頭行がタイトル)
- * @param opts 変換オプション
- */
+/** scrapboxToMd は Scrapbox 記法テキストを Markdown 文字列として返す。 */
 export function scrapboxToMd(input: string, opts: ScrapboxToMdOptions = {}): string {
   const boldStyle = opts.boldStyle ?? "auto"
   const blocks = parse(input, { hasTitle: true })
