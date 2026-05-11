@@ -7,7 +7,12 @@
  */
 
 import { setRootCommand } from "@/core/cli-root"
-import { extractErrorMessage, extractStackTrace, resolveExitCode } from "@/infra/cli-error-handler"
+import {
+  extractErrorMessage,
+  extractStackTrace,
+  resolveErrorCode,
+  resolveExitCode,
+} from "@/infra/cli-error-handler"
 import { initColor } from "@/infra/color"
 import { createCustomShowUsage } from "@/infra/help"
 import { Logger } from "@/infra/logger"
@@ -227,7 +232,7 @@ try {
   const stack = isVerbose ? extractStackTrace(err) : undefined
 
   if (isJson) {
-    writeErrorJson(exitCode === 5 ? "VALIDATION_ERROR" : "ERROR", message)
+    writeErrorJson(resolveErrorCode(err), message)
   } else {
     const logger = new Logger()
     logger.error(message)

@@ -37,11 +37,30 @@ export function resolveExitCode(err: unknown): number {
 }
 
 /**
+ * resolveErrorCode はエラーの種類に応じた JSON envelope 用エラーコード文字列を返す。
+ *
+ * resolveExitCode と同じ分類粒度で文字列コードを返すことで、
+ * --json 時のエラーレスポンスで種別が判別できるようにする。
+ */
+export function resolveErrorCode(err: unknown): string {
+  if (err instanceof ZodError) return "VALIDATION_ERROR"
+  if (err instanceof AuthError) return "AUTH_REQUIRED"
+  if (err instanceof ForbiddenError) return "FORBIDDEN"
+  if (err instanceof NotFoundError) return "NOT_FOUND"
+  return "ERROR"
+}
+
+/**
  * extractErrorMessage はエラーから人間向けメッセージを取り出す。
  */
 export function extractErrorMessage(err: unknown): string {
   if (err instanceof ZodError) {
-    return `レスポンス検証エラー: ${err.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+    const parts = err.issues.map((e) => {
+      const pathStr = e.path.join(".")
+      // path が空の場合 (トップレベルの型ミスマッチ等) はパス部分を省略する
+      return pathStr ? `${pathStr}: ${e.message}` : e.message
+    })
+    return `レスポンス検証エラー: ${parts.join(", ")}`
   }
   if (err instanceof Error) return err.message
   return String(err)
