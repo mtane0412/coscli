@@ -7,11 +7,7 @@
  */
 
 import { describe, expect, it } from "bun:test"
-
-/** バージョン文字列から先頭の v-prefix を除去する (cli.ts で使用するロジックと同等)。 */
-function normalizeVersion(version: string): string {
-  return version.replace(/^v/, "")
-}
+import { normalizeVersion } from "@/infra/version"
 
 describe("normalizeVersion", () => {
   it("v-prefix 付きバージョンは prefix を除去して返す", () => {
