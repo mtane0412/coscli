@@ -169,6 +169,27 @@ const main = defineCommand({
       description: "色設定 (auto/always/never)",
       default: process.env["COS_COLOR"] ?? "auto",
     },
+    json: {
+      type: "boolean",
+      alias: "J",
+      description: "JSON 出力 (すべてのサブコマンドへ伝播)",
+      default: false,
+    },
+    plain: {
+      type: "boolean",
+      alias: "P",
+      description: "プレーンテキスト出力 (すべてのサブコマンドへ伝播)",
+      default: false,
+    },
+    "results-only": {
+      type: "boolean",
+      description: "--json 時に data のみ返す (すべてのサブコマンドへ伝播)",
+      default: false,
+    },
+    select: {
+      type: "string",
+      description: "出力セレクタ (例: pages[].title) (すべてのサブコマンドへ伝播)",
+    },
   },
   setup({ args }) {
     // 色初期化
@@ -183,6 +204,13 @@ const main = defineCommand({
     if (args["disable-commands"]) {
       process.env["COS_DISABLE_COMMANDS"] = args["disable-commands"]
     }
+
+    // 出力制御フラグを環境変数経由でサブコマンドへ伝播する
+    // buildLogger / buildJsonOpts がこれらの環境変数を参照する
+    if (args.json) process.env["COS_JSON"] = "1"
+    if (args.plain) process.env["COS_PLAIN"] = "1"
+    if (args["results-only"]) process.env["COS_RESULTS_ONLY"] = "1"
+    if (args.select) process.env["COS_SELECT"] = args.select
   },
   subCommands: {
     page: pageCommand,
