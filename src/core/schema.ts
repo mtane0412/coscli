@@ -64,6 +64,20 @@ interface ParsedGroupKey {
  * groupKey のフォーマット変更に対して堅牢になるよう正規表現で検証する。
  * 不正なフォーマットの場合は aliasKeys を空配列として安全にフォールバックする。
  */
+/** 許可された引数型のセット */
+const VALID_ARG_TYPES = new Set<SchemaArg["type"]>(["string", "boolean", "positional"])
+
+/**
+ * normalizeArgType は citty の arg type 文字列を SchemaArg["type"] に正規化する。
+ * 未知の値（例: "enum"）は安全なデフォルト "string" にフォールバックする。
+ */
+function normalizeArgType(type: string | undefined): SchemaArg["type"] {
+  if (type !== undefined && VALID_ARG_TYPES.has(type as SchemaArg["type"])) {
+    return type as SchemaArg["type"]
+  }
+  return "string"
+}
+
 function parseGroupKey(groupKey: string): ParsedGroupKey {
   const match = /^(.+?) \((.+)\)$/.exec(groupKey)
   if (!match) {
@@ -97,8 +111,8 @@ async function buildArgsSchema(cmd: CommandDef): Promise<SchemaArg[]> {
           valueHint?: string
         }>,
       )
-      // type が "positional" の場合は positional フラグを true に設定する
-      const argType = (resolved?.type ?? "string") as SchemaArg["type"]
+      // 不正な type 値が混入しないよう normalizeArgType で検証・正規化する
+      const argType = normalizeArgType(resolved?.type)
       const isPositional = argType === "positional"
       // required は常に boolean で出力する。未指定の場合は位置引数なら true、フラグなら false
       const schemaArg: SchemaArg = {
