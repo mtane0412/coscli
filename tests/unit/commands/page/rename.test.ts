@@ -1,9 +1,63 @@
 /**
  * page/rename.test.ts — `cos page rename <title> <new-title>` コマンドのテスト。
+ *
+ * 重複チェックにおける persistent フラグの判定ロジックを検証する。
+ * issue #57: persistent:false のスタブページを重複と誤判定しないよう修正。
+ *
+ * - REST getPage は msw でモックする。
+ * - WebSocket 書き込み (renamePage) は mock.module でモックして WS 接続を回避する。
  */
 
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from "bun:test"
 import { pageRenameCommand } from "@/commands/page/rename"
+import { http, HttpResponse } from "msw"
+import { setupServer } from "msw/node"
+
+// ---------------------------------------------------------------------------
+// @/core/pages の renamePage をモックして WebSocket 接続を回避する
+// Bun は mock.module をファイル先頭にホイストするため import より前に評価される
+// ---------------------------------------------------------------------------
+mock.module("@/core/pages", () => ({
+  renamePage: mock(async () => ({
+    commitId: "ダミーコミットID",
+    pageId: "ダミーページID",
+  })),
+}))
+
+const BASE_URL = "https://scrapbox.io"
+const TEST_PROJECT = "テストプロジェクト"
+
+// ---------------------------------------------------------------------------
+// msw サーバー設定
+// ---------------------------------------------------------------------------
+
+/**
+ * 基本モックハンドラ。
+ * getPage の挙動はテストごとに server.use() でオーバーライドする。
+ */
+const server = setupServer(
+  // 認証確認用
+  http.get(`${BASE_URL}/api/users/me`, () => {
+    return HttpResponse.json({ id: "テストユーザーID", name: "テストユーザー" })
+  }),
+)
+
+beforeAll(() => server.listen())
+afterAll(() => server.close())
+
+// ---------------------------------------------------------------------------
+// テスト前後処理
+// ---------------------------------------------------------------------------
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
@@ -26,15 +80,22 @@ async function runRename(args: Record<string, unknown>) {
 beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
-  process.env["COS_PROJECT"] = undefined
-  process.env["COS_ENABLE_COMMANDS"] = undefined
-  process.env["COS_DISABLE_COMMANDS"] = undefined
+  Reflect.deleteProperty(process.env, "COS_PROJECT")
+  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
+  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
+  process.env["COS_SID"] = "s%3Atest-session-id"
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
+  server.resetHandlers()
+  Reflect.deleteProperty(process.env, "COS_SID")
 })
+
+// ---------------------------------------------------------------------------
+// テストケース
+// ---------------------------------------------------------------------------
 
 describe("pageRenameCommand", () => {
   it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
@@ -54,5 +115,141 @@ describe("pageRenameCommand", () => {
       // process.exit モック後の継続による throw は想定内
     }
     expect(exitMock).toHaveBeenCalledWith(5)
+  })
+
+  it("新タイトルが persistent:false のスタブページを返す場合、重複なしとして rename が継続する (issue #57)", async () => {
+    // 前提: Cosense REST API は存在しないページに対して persistent:false のスタブとして 200 を返す。
+    // 期待: persistent:false はスタブであるため DUPLICATE_TITLE エラーにならず、rename が継続する。
+    // 検証: exit 5 が呼ばれないことと、DUPLICATE_TITLE が出力されないことを確認する。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const project = decodeURIComponent(params["project"] as string)
+        const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "存在しない新タイトル") {
+          // persistent:false のスタブページを返す (200 だが実体なし)
+          return HttpResponse.json({
+            id: "stub-page-id",
+            title: "存在しない新タイトル",
+            persistent: false,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "存在しない新タイトル",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "既存ページ",
+        "new-title": "存在しない新タイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // DUPLICATE_TITLE エラー (exit 5) が発生していないことを確認する
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
+    expect(exitMock).not.toHaveBeenCalledWith(5)
+  })
+
+  it("新タイトルが persistent:true のページを返す場合、DUPLICATE_TITLE エラー (exit 5) になる", async () => {
+    // 前提: Cosense REST API が既存の実体ページ (persistent:true) を返す。
+    // 期待: 本当の重複なので DUPLICATE_TITLE エラー (exit 5) で終了する。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const project = decodeURIComponent(params["project"] as string)
+        const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "既存ページタイトル") {
+          // persistent:true の実体ページを返す
+          return HttpResponse.json({
+            id: "existing-page-id",
+            title: "既存ページタイトル",
+            persistent: true,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "既存ページタイトル",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "変更元ページ",
+        "new-title": "既存ページタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // DUPLICATE_TITLE エラー (exit 5) が発生することを確認する
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).toContain("DUPLICATE_TITLE")
+  })
+
+  it("新タイトルが 404 NotFoundError を返す場合、重複なしとして rename が継続する", async () => {
+    // 前提: Cosense REST API が 404 を返す (真のページなし)。
+    // 期待: NotFoundError は重複なしを意味するため、rename が継続する。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, () => {
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "既存ページ",
+        "new-title": "存在しないタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // DUPLICATE_TITLE エラー (exit 5) が発生していないことを確認する
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
+    expect(exitMock).not.toHaveBeenCalledWith(5)
   })
 })
