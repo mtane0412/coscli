@@ -1,5 +1,7 @@
 /**
  * page/insert.test.ts — `cos page insert <title> --after <n>` コマンドのテスト。
+ *
+ * --from-file での stdin 読み込み (- と "" の両対応) を含む。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
@@ -9,6 +11,19 @@ import { pageInsertCommand } from "@/commands/page/insert"
 const capturedInsertCalls: { lines: string[] }[] = []
 
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
+// 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
+mock.module("node:fs", () => ({
+  readFileSync: (pathOrFd: number | string, encoding: string) => {
+    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
+    // "fs" は "node:fs" と Bun のモックレジストリ上で別エントリのためモックの影響外
+    // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
+    return (require("fs") as typeof import("node:fs")).readFileSync(
+      pathOrFd as Parameters<typeof import("node:fs").readFileSync>[0],
+      encoding as BufferEncoding,
+    )
+  },
+}))
+
 mock.module("@/core/pages", () => ({
   insertIntoPage: mock(
     async (
@@ -47,10 +62,8 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
   process.env["COS_SID"] = "s%3Atest-session-id"
-  // 各テスト前にキャプチャを初期化する
-  capturedInsertCalls.length = 0
+  capturedInsertCalls.splice(0)
 })
 
 afterEach(() => {
@@ -155,5 +168,43 @@ describe("pageInsertCommand", () => {
     // 実改行（\n）が展開され、lines が ["挿入行A", "挿入行B"] の2行になること
     expect(capturedInsertCalls).toHaveLength(1)
     expect(capturedInsertCalls[0]?.lines).toEqual(["挿入行A", "挿入行B"])
+  })
+
+  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
+    // citty が正しく "-" を渡したケース
+    await runInsert({
+      title: "テストページ",
+      after: "1",
+      "from-file": "-",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    expect(capturedInsertCalls).toHaveLength(1)
+    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行2")
+  })
+
+  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
+    // citty が --from-file - を "" に変換するバグへの対応
+    await runInsert({
+      title: "テストページ",
+      after: "1",
+      "from-file": "",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // "" もstdinとして扱われ、CONTENT_REQUIRED にならずコンテンツが渡されること
+    expect(exitMock).not.toHaveBeenCalledWith(5)
+    expect(capturedInsertCalls).toHaveLength(1)
+    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行2")
   })
 })

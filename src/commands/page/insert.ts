@@ -15,6 +15,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  isStdinPath,
   requireProject,
 } from "@/commands/_shared"
 import { insertIntoPage } from "@/core/pages"
@@ -72,10 +73,12 @@ export const pageInsertCommand = defineCommand({
     let lines: string[] = []
     if (a.line !== undefined) {
       lines = a.line.split(/\r?\n|\\n/)
-    } else if (a["from-file"]) {
+    } else if (a["from-file"] !== undefined) {
       try {
-        const content =
-          a["from-file"] === "-" ? readFileSync(0, "utf-8") : readFileSync(a["from-file"], "utf-8")
+        // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
+        const content = isStdinPath(a["from-file"])
+          ? readFileSync(0, "utf-8")
+          : readFileSync(a["from-file"], "utf-8")
         lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
       } catch {
         writeErrorJson(

@@ -1,5 +1,7 @@
 /**
  * page/prepend.test.ts — `cos page prepend <title>` コマンドのテスト。
+ *
+ * --from-file での stdin 読み込み (- と "" の両対応) を含む。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
@@ -9,6 +11,19 @@ import { pagePrependCommand } from "@/commands/page/prepend"
 const capturedPrependCalls: { lines: string[] }[] = []
 
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
+// 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
+mock.module("node:fs", () => ({
+  readFileSync: (pathOrFd: number | string, encoding: string) => {
+    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
+    // "fs" は "node:fs" と Bun のモックレジストリ上で別エントリのためモックの影響外
+    // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
+    return (require("fs") as typeof import("node:fs")).readFileSync(
+      pathOrFd as Parameters<typeof import("node:fs").readFileSync>[0],
+      encoding as BufferEncoding,
+    )
+  },
+}))
+
 mock.module("@/core/pages", () => ({
   prependToPage: mock(
     async (_writer: unknown, opts: { project: string; title: string; lines: string[] }) => {
@@ -44,10 +59,8 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
-  // 各テスト前にキャプチャを初期化する
-  capturedPrependCalls.length = 0
+  process.env["COS_SID"] = "s%3Atest-session-id"
+  capturedPrependCalls.splice(0)
 })
 
 afterEach(() => {
@@ -109,5 +122,41 @@ describe("pagePrependCommand", () => {
     // 実改行（\n）が展開され、lines が ["先頭行A", "先頭行B"] の2行になること
     expect(capturedPrependCalls).toHaveLength(1)
     expect(capturedPrependCalls[0]?.lines).toEqual(["先頭行A", "先頭行B"])
+  })
+
+  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
+    // citty が正しく "-" を渡したケース
+    await runPrepend({
+      title: "テストページ",
+      "from-file": "-",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    expect(capturedPrependCalls).toHaveLength(1)
+    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行2")
+  })
+
+  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
+    // citty が --from-file - を "" に変換するバグへの対応
+    await runPrepend({
+      title: "テストページ",
+      "from-file": "",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // "" もstdinとして扱われ、CONTENT_REQUIRED にならずコンテンツが渡されること
+    expect(exitMock).not.toHaveBeenCalledWith(5)
+    expect(capturedPrependCalls).toHaveLength(1)
+    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行2")
   })
 })

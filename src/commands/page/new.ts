@@ -14,6 +14,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  isStdinPath,
   requireProject,
 } from "@/commands/_shared"
 import { createPage } from "@/core/pages"
@@ -53,8 +54,8 @@ export const pageNewCommand = defineCommand({
     const startTime = Date.now()
 
     let lines: string[] = []
-    if (a["from-file"] === "-") {
-      // stdin から読み込む
+    if (isStdinPath(a["from-file"])) {
+      // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
       const content = readFileSync(0, "utf-8")
       lines = content.split("\n").filter((l) => l.length > 0 || content.endsWith("\n"))
     } else if (a["from-file"]) {

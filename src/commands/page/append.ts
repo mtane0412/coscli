@@ -14,6 +14,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  isStdinPath,
   requireProject,
 } from "@/commands/_shared"
 import { appendToPage } from "@/core/pages"
@@ -49,7 +50,7 @@ export const pageAppendCommand = defineCommand({
     let lines: string[] = []
     if (a.line !== undefined) {
       lines = a.line.split(/\r?\n|\\n/)
-    } else if (a["from-file"] === "-") {
+    } else if (isStdinPath(a["from-file"])) {
       const content = readFileSync(0, "utf-8")
       lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
     } else if (a["from-file"]) {

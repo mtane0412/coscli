@@ -1,7 +1,8 @@
 /**
  * page/new.test.ts — `cos page new <title>` コマンドのテスト。
  *
- * --line の \n 展開、--line 複数指定、--dry-run 時の success メッセージ抑制を検証する。
+ * --line の \n 展開、--line 複数指定、--dry-run 時の success メッセージ抑制、
+ * --from-file - / "" での stdin 読み込みを検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
@@ -11,6 +12,20 @@ import { pageNewCommand } from "@/commands/page/new"
 const capturedCreatePageCalls: { lines: string[] }[] = []
 
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
+// node:fs をモックして stdin (fd=0) から固定コンテンツを返す
+// 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
+mock.module("node:fs", () => ({
+  readFileSync: (pathOrFd: number | string, encoding: string) => {
+    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
+    // "fs" は "node:fs" と Bun のモックレジストリ上で別エントリのためモックの影響外
+    // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
+    return (require("fs") as typeof import("node:fs")).readFileSync(
+      pathOrFd as Parameters<typeof import("node:fs").readFileSync>[0],
+      encoding as BufferEncoding,
+    )
+  },
+}))
+
 mock.module("@/core/pages", () => ({
   createPage: mock(
     async (_writer: unknown, opts: { project: string; title: string; lines: string[] }) => {
@@ -47,7 +62,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
+  process.env["COS_SID"] = "s%3Atest-session-id"
   // 各テスト前にキャプチャを初期化する
   capturedCreatePageCalls.length = 0
 })
@@ -158,6 +173,42 @@ describe("pageNewCommand", () => {
     // 配列要素内の実改行（\n）も分割されること
     expect(capturedCreatePageCalls).toHaveLength(1)
     expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
+  })
+
+  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
+    // citty が正しく "-" を渡したケース
+    await runNew({
+      title: "テストページ",
+      "from-file": "-",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // stdin からコンテンツが読み込まれ createPage に渡されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedCreatePageCalls[0]?.lines).toContain("stdinの行2")
+  })
+
+  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
+    // citty が --from-file - を "" に変換するバグへの対応
+    await runNew({
+      title: "テストページ",
+      "from-file": "",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // "" もstdinとして扱われ、createPage にコンテンツが渡されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedCreatePageCalls[0]?.lines).toContain("stdinの行2")
   })
 
   it("--dry-run 時は success メッセージが stderr に出力されない", async () => {

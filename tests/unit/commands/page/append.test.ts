@@ -1,7 +1,7 @@
 /**
  * page/append.test.ts — `cos page append <title>` コマンドのテスト。
  *
- * 基本的な append 動作と --line の実改行展開を検証する。
+ * --line 指定、--from-file での stdin 読み込み (- と "" の両対応) を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
@@ -11,6 +11,19 @@ import { pageAppendCommand } from "@/commands/page/append"
 const capturedAppendCalls: { lines: string[] }[] = []
 
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
+// 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
+mock.module("node:fs", () => ({
+  readFileSync: (pathOrFd: number | string, encoding: string) => {
+    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
+    // "fs" は "node:fs" と Bun のモックレジストリ上で別エントリのためモックの影響外
+    // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
+    return (require("fs") as typeof import("node:fs")).readFileSync(
+      pathOrFd as Parameters<typeof import("node:fs").readFileSync>[0],
+      encoding as BufferEncoding,
+    )
+  },
+}))
+
 mock.module("@/core/pages", () => ({
   appendToPage: mock(
     async (_writer: unknown, opts: { project: string; title: string; lines: string[] }) => {
@@ -24,7 +37,6 @@ let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
 
-/** コマンド run ヘルパー */
 async function runAppend(args: Record<string, unknown>) {
   await (
     pageAppendCommand.run as (ctx: {
@@ -46,10 +58,8 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
-  // 各テスト前にキャプチャを初期化する
-  capturedAppendCalls.length = 0
+  process.env["COS_SID"] = "s%3Atest-session-id"
+  capturedAppendCalls.splice(0)
 })
 
 afterEach(() => {
@@ -127,5 +137,57 @@ describe("pageAppendCommand", () => {
     }
     expect(exitMock).toHaveBeenCalledWith(5)
     expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
+  })
+
+  it("--line を指定した場合は appendToPage に行が渡される", async () => {
+    await runAppend({
+      title: "テストページ",
+      line: "追加行テキスト",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // --line の内容が appendToPage に渡されること
+    expect(capturedAppendCalls).toHaveLength(1)
+    expect(capturedAppendCalls[0]?.lines).toEqual(["追加行テキスト"])
+  })
+
+  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
+    // citty が正しく "-" を渡したケース
+    await runAppend({
+      title: "テストページ",
+      "from-file": "-",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    expect(capturedAppendCalls).toHaveLength(1)
+    expect(capturedAppendCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedAppendCalls[0]?.lines).toContain("stdinの行2")
+  })
+
+  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
+    // citty が --from-file - を "" に変換するバグへの対応
+    await runAppend({
+      title: "テストページ",
+      "from-file": "",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // "" もstdinとして扱われ、CONTENT_REQUIRED にならずコンテンツが渡されること
+    expect(exitMock).not.toHaveBeenCalledWith(5)
+    expect(capturedAppendCalls).toHaveLength(1)
+    expect(capturedAppendCalls[0]?.lines).toContain("stdinの行1")
+    expect(capturedAppendCalls[0]?.lines).toContain("stdinの行2")
   })
 })

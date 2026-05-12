@@ -16,6 +16,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  isStdinPath,
   requireProject,
 } from "@/commands/_shared"
 import { convert } from "@/core/format/index"
@@ -69,7 +70,8 @@ export const pageEditCommand = defineCommand({
     }
 
     let content: string
-    if (a["from-file"] === "-") {
+    if (isStdinPath(a["from-file"])) {
+      // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
       content = readFileSync(0, "utf-8")
     } else {
       content = readFileSync(a["from-file"], "utf-8")
