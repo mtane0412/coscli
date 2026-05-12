@@ -210,6 +210,45 @@ describe("pageListCommand", () => {
       expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
     })
 
+    it("--skip abc (文字列) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: "abc",
+          sort: undefined,
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("abc"))
+    })
+
+    it("--skip 1.5 (小数) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: "1.5",
+          sort: undefined,
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+    })
+
     it("--skip 0 (ゼロ) は有効値として正常動作し API が呼び出される", async () => {
       try {
         await runList({

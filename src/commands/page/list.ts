@@ -45,10 +45,9 @@ export const pageListCommand = defineCommand({
 
     logger.info(`${project} のページ一覧を取得中...`)
 
-    const client = await buildRestClient(commonArgs)
     const listOpts: { project: string; limit?: number; skip?: number; sort?: string } = { project }
 
-    // --limit バリデーション: 1 以上の整数のみ許可
+    // --limit バリデーション: 1 以上の整数のみ許可 (認証前に弾く)
     if (commonArgs.limit !== undefined) {
       const limit = Number(commonArgs.limit)
       if (!Number.isInteger(limit) || limit < 1) {
@@ -63,7 +62,7 @@ export const pageListCommand = defineCommand({
       listOpts.limit = limit
     }
 
-    // --skip バリデーション: 0 以上の整数のみ許可 (0 はスキップなしとして有効)
+    // --skip バリデーション: 0 以上の整数のみ許可 (0 はスキップなしとして有効、認証前に弾く)
     if (commonArgs.skip !== undefined) {
       const skip = Number(commonArgs.skip)
       if (!Number.isInteger(skip) || skip < 0) {
@@ -79,6 +78,7 @@ export const pageListCommand = defineCommand({
     }
 
     if (commonArgs.sort) listOpts.sort = commonArgs.sort
+    const client = await buildRestClient(commonArgs)
     const result = await listPages(client, listOpts)
 
     if (commonArgs.json) {
