@@ -2,7 +2,10 @@
  * page/delete.ts — `cos page delete <title>` コマンド。
  *
  * ページを削除する。--force なしの場合は確認プロンプトを表示する。
- * --no-input 時は --force が必須。
+ * 以下のいずれかに該当する場合は非対話モードとみなし、--force が必須になる:
+ *   - --no-input フラグ指定
+ *   - stdin が TTY でない (CI / パイプ環境)
+ *   - 環境変数 COS_NO_INPUT=1
  *
  * 実装上の注意: citty は --no-X を args.X = false に自動変換するため、
  * args 定義は `input: { default: true }` とし、--no-input で input = false になることを利用する。
@@ -52,21 +55,31 @@ export const pageDeleteCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    if (!a.force && a.input && !a["dry-run"]) {
-      // 対話確認 (--force または --no-input 未指定時)
-      const { confirm } = await import("@clack/prompts")
-      const yes = await confirm({
-        message: `"${a.title}" を削除しますか？この操作は取り消せません。`,
-      })
-      if (!yes) {
-        logger.info("キャンセルしました")
-        process.exit(0)
+    // stdin が TTY かつ COS_NO_INPUT=1 未設定の場合のみ対話モードとする
+    const isInteractive = process.stdin.isTTY === true && process.env["COS_NO_INPUT"] !== "1"
+
+    if (!a.force && !a["dry-run"]) {
+      if (a.input && isInteractive) {
+        // 対話確認 (TTY 環境で --force / --no-input / COS_NO_INPUT が未指定の場合)
+        const { confirm } = await import("@clack/prompts")
+        const yes = await confirm({
+          message: `"${a.title}" を削除しますか？この操作は取り消せません。`,
+        })
+        if (!yes) {
+          logger.info("キャンセルしました")
+          process.exit(0)
+          return
+        }
+      } else {
+        // --no-input / non-TTY / COS_NO_INPUT=1 のいずれかの場合はエラー終了
+        writeErrorJson(
+          "CONFIRMATION_REQUIRED",
+          "非対話モードでは --force (-y) フラグが必要です",
+          "--no-input / non-TTY / COS_NO_INPUT=1 環境では --force を指定してください",
+        )
+        process.exit(5)
         return
       }
-    } else if (!a.force && !a.input && !a["dry-run"]) {
-      writeErrorJson("CONFIRMATION_REQUIRED", "--no-input モードでは --force (-y) フラグが必要です")
-      process.exit(5)
-      return
     }
 
     logger.info(`"${a.title}" を削除中...`)
