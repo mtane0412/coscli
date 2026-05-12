@@ -55,8 +55,8 @@ export const pageDeleteCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    // stdin が TTY かつ COS_NO_INPUT 未設定の場合のみ対話モードとする
-    const isInteractive = process.stdin.isTTY === true && !process.env["COS_NO_INPUT"]
+    // stdin が TTY かつ COS_NO_INPUT=1 未設定の場合のみ対話モードとする
+    const isInteractive = process.stdin.isTTY === true && process.env["COS_NO_INPUT"] !== "1"
 
     if (!a.force && !a["dry-run"]) {
       if (a.input && isInteractive) {
