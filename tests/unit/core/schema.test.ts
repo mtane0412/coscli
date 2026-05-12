@@ -125,6 +125,8 @@ describe("buildSchema", () => {
     const titleArg = newCmd?.args.find((a) => a.name === "title")
     // positional フィールドが true であること
     expect(titleArg?.positional).toBe(true)
+    // 位置引数は required が true であること
+    expect(titleArg?.required).toBe(true)
   })
 
   it("非 positional な args には positional: false が付与される", async () => {
@@ -134,6 +136,8 @@ describe("buildSchema", () => {
     const projectArg = listCmd?.args.find((a) => a.name === "project")
     // フラグ引数は positional が false であること
     expect(projectArg?.positional).toBe(false)
+    // フラグ引数は required が false であること
+    expect(projectArg?.required).toBe(false)
   })
 
   it("Resolvable<T> が関数の場合でも解決される", async () => {
