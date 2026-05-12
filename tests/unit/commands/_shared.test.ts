@@ -78,4 +78,9 @@ describe("getRawFlagValue", () => {
     // フラグだけで値がない不完全な argv
     expect(getRawFlagValue(["node", "cos", "--after"], "after")).toBe(undefined)
   })
+
+  it("同一フラグが複数回指定された場合は最後の値を返す (CLI の一般的な挙動に合わせる)", () => {
+    // --after 3 --after -1 のように複数回指定された場合、最後の -1 が優先される
+    expect(getRawFlagValue(["node", "cos", "--after", "3", "--after", "-1"], "after")).toBe("-1")
+  })
 })
