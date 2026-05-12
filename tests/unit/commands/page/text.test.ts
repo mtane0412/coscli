@@ -162,4 +162,27 @@ describe("pageTextCommand", () => {
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).toContain("[*** 大見出し]")
   })
+
+  it("--format=scrapbox のとき txt と同じ Scrapbox テキストそのまま出力される", async () => {
+    // scrapbox は txt の alias として機能することを検証する
+    try {
+      await runText({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        format: "scrapbox",
+        "bold-style": "auto",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // REST クライアント初期化中の throw は想定内
+    }
+    // exit が呼ばれていないことを確認 (VALIDATION_ERROR ではない)
+    expect(exitMock).not.toHaveBeenCalled()
+    // Scrapbox 記法のテキストがそのまま出力される
+    const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(calls).toContain("[*** 大見出し]")
+  })
 })
