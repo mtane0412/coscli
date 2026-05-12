@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:te
 import { pageEditCommand } from "@/commands/page/edit"
 
 /** editPage に渡された引数をキャプチャする */
-const capturedEditPageCalls: { lines: string[] }[] = []
+const capturedEditPageCalls: { project: string; title: string; lines: string[] }[] = []
 
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
 // 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
@@ -29,7 +29,7 @@ mock.module("node:fs", () => ({
 mock.module("@/core/pages", () => ({
   editPage: mock(
     async (_writer: unknown, opts: { project: string; title: string; lines: string[] }) => {
-      capturedEditPageCalls.push({ lines: opts.lines })
+      capturedEditPageCalls.push({ project: opts.project, title: opts.title, lines: opts.lines })
       return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
     },
   ),
@@ -57,7 +57,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   process.env["COS_SID"] = "ダミーセッションID-テスト用"
-  capturedEditPageCalls.length = 0
+  capturedEditPageCalls.splice(0)
 })
 
 afterEach(() => {
@@ -84,6 +84,8 @@ describe("pageEditCommand stdin 読み込み", () => {
     // stdin からコンテンツが読み込まれ editPage に渡されること
     expect(exitMock).not.toHaveBeenCalledWith(5)
     expect(capturedEditPageCalls).toHaveLength(1)
+    expect(capturedEditPageCalls[0]?.project).toBe("テストプロジェクト")
+    expect(capturedEditPageCalls[0]?.title).toBe("テストページ")
     expect(capturedEditPageCalls[0]?.lines).toContain("stdinの行1")
     expect(capturedEditPageCalls[0]?.lines).toContain("stdinの行2")
   })
@@ -104,6 +106,8 @@ describe("pageEditCommand stdin 読み込み", () => {
     // "" もstdinとして扱われ、ENOENT にならず editPage にコンテンツが渡されること
     expect(exitMock).not.toHaveBeenCalledWith(5)
     expect(capturedEditPageCalls).toHaveLength(1)
+    expect(capturedEditPageCalls[0]?.project).toBe("テストプロジェクト")
+    expect(capturedEditPageCalls[0]?.title).toBe("テストページ")
     expect(capturedEditPageCalls[0]?.lines).toContain("stdinの行1")
     expect(capturedEditPageCalls[0]?.lines).toContain("stdinの行2")
   })

@@ -59,7 +59,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   process.env["COS_SID"] = "ダミーセッションID-テスト用"
-  capturedAppendCalls.length = 0
+  capturedAppendCalls.splice(0)
 })
 
 afterEach(() => {
@@ -137,6 +137,22 @@ describe("pageAppendCommand", () => {
     }
     expect(exitMock).toHaveBeenCalledWith(5)
     expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
+  })
+
+  it("--line を指定した場合は appendToPage に行が渡される", async () => {
+    await runAppend({
+      title: "テストページ",
+      line: "追加行テキスト",
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // --line の内容が appendToPage に渡されること
+    expect(capturedAppendCalls).toHaveLength(1)
+    expect(capturedAppendCalls[0]?.lines).toEqual(["追加行テキスト"])
   })
 
   it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
