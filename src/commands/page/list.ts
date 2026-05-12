@@ -47,10 +47,19 @@ export const pageListCommand = defineCommand({
 
     const listOpts: { project: string; limit?: number; skip?: number; sort?: string } = { project }
 
-    // --limit バリデーション: 1 以上の整数のみ許可 (認証前に弾く)
+    // --limit バリデーション: 10進数整数のみ許可 (指数表記・16進数を除外、認証前に弾く)
     if (commonArgs.limit !== undefined) {
+      if (!/^\d+$/.test(commonArgs.limit)) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `--limit の値が無効です: "${commonArgs.limit}"`,
+          "1 以上の整数を指定してください",
+        )
+        process.exit(5)
+        return
+      }
       const limit = Number(commonArgs.limit)
-      if (!Number.isInteger(limit) || limit < 1) {
+      if (limit < 1) {
         writeErrorJson(
           "VALIDATION_ERROR",
           `--limit の値が無効です: "${commonArgs.limit}"`,
@@ -62,10 +71,9 @@ export const pageListCommand = defineCommand({
       listOpts.limit = limit
     }
 
-    // --skip バリデーション: 0 以上の整数のみ許可 (0 はスキップなしとして有効、認証前に弾く)
+    // --skip バリデーション: 10進数整数のみ許可 (0 はスキップなしとして有効、認証前に弾く)
     if (commonArgs.skip !== undefined) {
-      const skip = Number(commonArgs.skip)
-      if (!Number.isInteger(skip) || skip < 0) {
+      if (!/^\d+$/.test(commonArgs.skip)) {
         writeErrorJson(
           "VALIDATION_ERROR",
           `--skip の値が無効です: "${commonArgs.skip}"`,
@@ -74,7 +82,7 @@ export const pageListCommand = defineCommand({
         process.exit(5)
         return
       }
-      listOpts.skip = skip
+      listOpts.skip = Number(commonArgs.skip)
     }
 
     if (commonArgs.sort) listOpts.sort = commonArgs.sort
