@@ -1,11 +1,22 @@
 /**
  * keychain-file.test.ts — ファイルベース TokenStore のテスト。
+ *
+ * アトミック書き込み・ディレクトリ権限・JSON 破損時の挙動を含む。
  */
 
 import { afterEach, describe, expect, it } from "bun:test"
-import { existsSync, unlinkSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { FileTokenStore } from "@/infra/keychain/file"
 
 const tmpFile = join(tmpdir(), `coscli-test-secrets-${Date.now()}.json`)
@@ -54,5 +65,80 @@ describe("FileTokenStore", () => {
     const store = new FileTokenStore(tmpFile)
     const profiles = await store.list()
     expect(profiles).toHaveLength(0)
+  })
+
+  describe("ディレクトリ権限", () => {
+    it("新規ディレクトリを 0o700 で作成する", async () => {
+      const base = mkdtempSync(join(tmpdir(), "cos-file-test-"))
+      const storePath = join(base, "newsubdir", "secrets.json")
+      try {
+        const store = new FileTokenStore(storePath)
+        await store.save("テストプロファイル", "sid-abcdef")
+
+        if (process.platform !== "win32") {
+          const stat = statSync(join(base, "newsubdir"))
+          // 新規作成ディレクトリのパーミッションが 0o700 であることを確認する
+          expect(stat.mode & 0o777).toBe(0o700)
+        }
+      } finally {
+        rmSync(base, { recursive: true, force: true })
+      }
+    })
+
+    it("既存ディレクトリを 0o700 に絞り込む", async () => {
+      const base = mkdtempSync(join(tmpdir(), "cos-file-test-"))
+      try {
+        // 意図的に緩い権限で作成されているディレクトリを対象にする
+        chmodSync(base, 0o755)
+        const storePath = join(base, "secrets.json")
+        const store = new FileTokenStore(storePath)
+        await store.save("テストプロファイル", "sid-abcdef")
+
+        if (process.platform !== "win32") {
+          const stat = statSync(base)
+          // 既存ディレクトリのパーミッションが 0o700 に更新されることを確認する
+          expect(stat.mode & 0o777).toBe(0o700)
+        }
+      } finally {
+        rmSync(base, { recursive: true, force: true })
+      }
+    })
+  })
+
+  describe("アトミック書き込み", () => {
+    it("書き込み後に対象ファイル由来の .tmp ファイルが残らない", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await store.save("テストプロファイル", "sid-abcdef")
+
+      // tmpFile のベース名に由来する .tmp ファイルが残っていないことを確認する
+      const dir = dirname(tmpFile)
+      const base = tmpFile.split("/").pop() ?? ""
+      const tmpFiles = readdirSync(dir).filter((f) => f.startsWith(base) && f.endsWith(".tmp"))
+      expect(tmpFiles).toHaveLength(0)
+    })
+  })
+
+  describe("JSON 破損ファイルの処理", () => {
+    it("破損ファイルに対する save は throw する (上書きによるデータ消失を防ぐ)", async () => {
+      // 前提: 破損した JSON ファイルが存在する
+      writeFileSync(tmpFile, "{ invalid json {{{", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: save が throw することで上書きによる他プロファイルの消失を防ぐ
+      await expect(store.save("テストプロファイル", "sid-abcdef")).rejects.toThrow()
+    })
+
+    it("破損ファイルに対する load は null を返す", async () => {
+      writeFileSync(tmpFile, "{ invalid json {{{", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: load はエラーなく null を返す (read を試みて失敗→安全なデフォルト)
+      expect(await store.load("テストプロファイル")).toBeNull()
+    })
+
+    it("破損ファイルに対する list は空配列を返す", async () => {
+      writeFileSync(tmpFile, "{ invalid json {{{", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: list はエラーなく空配列を返す
+      expect(await store.list()).toEqual([])
+    })
   })
 })
