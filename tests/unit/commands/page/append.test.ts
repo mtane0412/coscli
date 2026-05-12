@@ -58,7 +58,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
+  process.env["COS_SID"] = "s%3Atest-session-id"
   capturedAppendCalls.splice(0)
 })
 
