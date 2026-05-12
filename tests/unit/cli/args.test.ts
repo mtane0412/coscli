@@ -95,13 +95,27 @@ describe("normalizeRootStringFlags", () => {
       expect(result).toEqual(["--color", "--json", "auth", "whoami"])
     })
 
-    it("-- セパレーター以降のトークンは干渉しない", () => {
+    it("-- セパレーター前のフラグは変換し、-- 以降はそのまま維持する", () => {
       // --color never は変換し、-- 以降はそのまま維持する
       const result = normalizeRootStringFlags(
         ["--color", "never", "--", "--json"],
         ROOT_STRING_FLAGS,
       )
       expect(result).toEqual(["--color=never", "--", "--json"])
+    })
+
+    it("-- セパレーター後に ROOT_STRING_FLAGS と同名トークンが来ても変換しない", () => {
+      // POSIX: -- 以降はすべてフラグではなく位置引数として扱う
+      const result = normalizeRootStringFlags(["--", "--color", "never"], ROOT_STRING_FLAGS)
+      expect(result).toEqual(["--", "--color", "never"])
+    })
+
+    it("-- セパレーター後の --enable-commands も変換しない", () => {
+      const result = normalizeRootStringFlags(
+        ["--", "--enable-commands", "page.list"],
+        ROOT_STRING_FLAGS,
+      )
+      expect(result).toEqual(["--", "--enable-commands", "page.list"])
     })
   })
 

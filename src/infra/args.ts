@@ -33,6 +33,13 @@ export function normalizeRootStringFlags(args: string[], stringFlags: string[]):
     const arg = args[i]
     // noUncheckedIndexedAccess: i < args.length で存在が保証されているが型上は undefined になり得る
     if (arg === undefined) break
+
+    // `--` セパレーター以降はすべてそのまま残してループを終了する (POSIX 準拠)
+    if (arg === "--") {
+      result.push(...args.slice(i))
+      break
+    }
+
     const nextArg = args[i + 1]
 
     // `--flag` 形式 (= を含まない) かつ次トークンが存在し、- で始まらない場合のみ変換する
