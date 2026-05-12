@@ -11,26 +11,53 @@ import { captureSpawner, enoentSpawner } from "./_keychain-test-helpers"
 
 describe("WindowsKeychainStore", () => {
   describe("save", () => {
-    it("cmdkey /generic:coscli:<profile> を正しい引数で呼び出す", async () => {
+    it("powershell New-StoredCredential を使って保存する (sid は argv に含めない)", async () => {
       const { spawner, calls, getCall } = captureSpawner("", "", 0)
       const store = new WindowsKeychainStore(spawner)
       await store.save("個人アカウント", "sid-test-12345")
 
       expect(calls).toHaveLength(1)
-      expect(getCall(0).cmd).toEqual([
-        "cmdkey",
-        "/generic:coscli:個人アカウント",
-        "/user:cos",
-        "/pass:sid-test-12345",
-      ])
+      // powershell を使う (cmdkey の /pass: argv に sid を乗せない)
+      expect(getCall(0).cmd[0]).toBe("powershell")
+      // sid が argv のどこにも含まれない
+      expect(getCall(0).cmd.join(" ")).not.toContain("sid-test-12345")
+    })
+
+    it("save で sid が COS_SID 環境変数経由で渡される", async () => {
+      const { spawner, getCall } = captureSpawner("", "", 0)
+      const store = new WindowsKeychainStore(spawner)
+      await store.save("個人アカウント", "sid-test-12345")
+
+      // COS_SID 環境変数に sid が設定されることを確認する
+      const env = getCall(0).options?.env
+      expect(env).toBeDefined()
+      expect(env?.["COS_SID"]).toBe("sid-test-12345")
+    })
+
+    it("save で profile が COS_TARGET 環境変数経由で渡される", async () => {
+      const { spawner, getCall } = captureSpawner("", "", 0)
+      const store = new WindowsKeychainStore(spawner)
+      await store.save("個人アカウント", "sid-test-12345")
+
+      // COS_TARGET 環境変数に profile が設定されることを確認する
+      const env = getCall(0).options?.env
+      expect(env?.["COS_TARGET"]).toBe("coscli:個人アカウント")
     })
 
     it("exit code 非 0 のときエラーを throw する", async () => {
-      const { spawner } = captureSpawner("", "cmdkey エラー", 1)
+      const { spawner } = captureSpawner("", "PowerShell エラー", 1)
       const store = new WindowsKeychainStore(spawner)
       await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow(
-        "cmdkey への保存に失敗しました",
+        "Windows Credential Manager への保存に失敗しました",
       )
+    })
+
+    it("exit code 2 のとき CredentialManager 未インストールのエラーを throw する", async () => {
+      const credManagerNotFoundStderr =
+        "CredentialManager module not found. Install it with: Install-Module CredentialManager -Scope CurrentUser"
+      const { spawner } = captureSpawner("", credManagerNotFoundStderr, 2)
+      const store = new WindowsKeychainStore(spawner)
+      await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("Install-Module")
     })
   })
 
@@ -169,9 +196,9 @@ describe("WindowsKeychainStore", () => {
   })
 
   describe("未インストール検知 (ENOENT)", () => {
-    it("save で cmdkey が見つからないとき専用エラーを throw する", async () => {
+    it("save で powershell が見つからないとき専用エラーを throw する", async () => {
       const store = new WindowsKeychainStore(enoentSpawner())
-      await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("cmdkey")
+      await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("PowerShell")
     })
 
     it("load で powershell が見つからないとき専用エラーを throw する", async () => {

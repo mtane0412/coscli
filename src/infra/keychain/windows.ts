@@ -48,20 +48,31 @@ export class WindowsKeychainStore implements TokenStore {
 
   async save(profile: string, sid: string): Promise<void> {
     validateProfile(profile)
+    // /pass: argv にトークンを乗せない。profile は COS_TARGET、sid は COS_SID 経由で渡す
+    const script = `
+      if (-not (Get-Command New-StoredCredential -ErrorAction SilentlyContinue)) {
+        Write-Error 'CredentialManager module not found. Install it with: Install-Module CredentialManager -Scope CurrentUser'
+        exit 2
+      }
+      New-StoredCredential -Target $env:${ENV_TARGET} -UserName 'cos' -Password $env:COS_SID -Type Generic -Persist LocalMachine | Out-Null
+    `
     let proc: SubprocessLike
     try {
-      proc = this.spawn(["cmdkey", `/generic:${SERVICE}:${profile}`, "/user:cos", `/pass:${sid}`], {
+      proc = this.spawn(["powershell", "-NoProfile", "-Command", script], {
         stdout: "pipe",
         stderr: "pipe",
+        env: { ...process.env, [ENV_TARGET]: `${SERVICE}:${profile}`, COS_SID: sid },
       })
     } catch (e) {
-      if (isENOENT(e)) throw new Error(CMDKEY_NOT_FOUND_MESSAGE)
+      if (isENOENT(e)) throw new Error(POWERSHELL_NOT_FOUND_MESSAGE)
       throw e
     }
-    const exitCode = await proc.exited
+    const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited])
+    if (exitCode === 2) {
+      throw new Error(`${CREDENTIAL_MANAGER_INSTALL_MESSAGE}\n詳細: ${stderr.trim()}`)
+    }
     if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text()
-      throw new Error(`cmdkey への保存に失敗しました: ${stderr}`)
+      throw new Error(`Windows Credential Manager への保存に失敗しました: ${stderr}`)
     }
   }
 

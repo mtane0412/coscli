@@ -11,23 +11,30 @@ import { captureSpawner } from "./_keychain-test-helpers"
 
 describe("MacOSKeychainStore", () => {
   describe("save", () => {
-    it("security add-generic-password -U を呼び出す", async () => {
+    it("security -i を argv に sid を含めずに呼び出す", async () => {
       const { spawner, calls, getCall } = captureSpawner("", "", 0)
       const store = new MacOSKeychainStore(spawner)
       await store.save("個人アカウント", "sid-test-12345")
 
       expect(calls).toHaveLength(1)
-      expect(getCall(0).cmd).toEqual([
-        "security",
-        "add-generic-password",
-        "-s",
-        "coscli",
-        "-a",
-        "個人アカウント",
-        "-w",
-        "sid-test-12345",
-        "-U",
-      ])
+      // argv は ["security", "-i"] のみで sid が ps に露出しない
+      expect(getCall(0).cmd).toEqual(["security", "-i"])
+      expect(getCall(0).cmd).not.toContain("sid-test-12345")
+    })
+
+    it("save で add-generic-password コマンドが stdin 経由で渡される", async () => {
+      const { spawner, getCall } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await store.save("個人アカウント", "sid-test-12345")
+
+      // stdin に add-generic-password コマンドが含まれることを確認する
+      const stdin = getCall(0).options?.stdin
+      expect(stdin).toBeInstanceOf(Uint8Array)
+      const decoded = new TextDecoder().decode(stdin as Uint8Array)
+      expect(decoded).toContain("add-generic-password")
+      expect(decoded).toContain("coscli")
+      expect(decoded).toContain("個人アカウント")
+      expect(decoded).toContain("sid-test-12345")
     })
 
     it("exit code 非 0 のときエラーを throw する", async () => {
