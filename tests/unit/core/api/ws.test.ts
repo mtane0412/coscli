@@ -60,6 +60,26 @@ describe("CosenseWriter", () => {
     expect(result).toMatchObject({ dryRun: true, project: "テストプロジェクト" })
   })
 
+  it("--dry-run モードで previewLines を渡すと DryRunResult に含まれる", async () => {
+    const writer = new CosenseWriter(
+      mockStdClient as ConstructorParameters<typeof CosenseWriter>[0],
+      { dryRun: true },
+    )
+    const result = await writer.patch({
+      project: "テストプロジェクト",
+      title: "テストページ",
+      update: async (_lines: Line[]) => ["行1", "行2"],
+      previewLines: ["プレビュー行1", "プレビュー行2"],
+    })
+    expect(mockPatch).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      dryRun: true,
+      project: "テストプロジェクト",
+      title: "テストページ",
+      previewLines: ["プレビュー行1", "プレビュー行2"],
+    })
+  })
+
   it("pinPage を呼ぶと stdClient.pin を正しい引数で呼ぶ", async () => {
     const writer = new CosenseWriter(
       mockStdClient as ConstructorParameters<typeof CosenseWriter>[0],
@@ -134,14 +154,35 @@ describe("DryRunWriter", () => {
     })
   })
 
-  it("insertLines を呼んでも何もしない", async () => {
+  it("patch に previewLines を渡すと DryRunResult に含まれる", async () => {
+    const writer = new DryRunWriter()
+    const result = await writer.patch({
+      project: "テストプロジェクト",
+      title: "テストページ",
+      update: async (_lines: Line[]) => ["行1", "行2"],
+      previewLines: ["プレビュー行1", "プレビュー行2"],
+    })
+    expect(result).toMatchObject({
+      dryRun: true,
+      project: "テストプロジェクト",
+      title: "テストページ",
+      previewLines: ["プレビュー行1", "プレビュー行2"],
+    })
+  })
+
+  it("insertLines は opts.lines を previewLines として DryRunResult に含める", async () => {
     const writer = new DryRunWriter()
     const result = await writer.insertLines({
       project: "テストプロジェクト",
       title: "テストページ",
-      lines: ["新しい行"],
+      lines: ["追加行1", "追加行2"],
     })
-    expect(result).toMatchObject({ dryRun: true })
+    expect(result).toMatchObject({
+      dryRun: true,
+      project: "テストプロジェクト",
+      title: "テストページ",
+      previewLines: ["追加行1", "追加行2"],
+    })
   })
 
   it("deletePage を呼んでも何もしない", async () => {
