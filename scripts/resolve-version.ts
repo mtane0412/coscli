@@ -19,7 +19,10 @@ export function resolveVersion(
   envVersion: string | undefined,
   pkgVersion: string | undefined,
 ): string {
-  if (envVersion) return envVersion
-  if (pkgVersion) return pkgVersion
+  // trim() で空白のみの値を無効扱いにする（設定ミス防止）
+  const trimmedEnv = envVersion?.trim()
+  if (trimmedEnv) return trimmedEnv
+  const trimmedPkg = pkgVersion?.trim()
+  if (trimmedPkg) return trimmedPkg
   return "dev"
 }

@@ -30,4 +30,14 @@ describe("resolveVersion", () => {
     // 異常系: package.json の version が取得できない場合
     expect(resolveVersion(undefined, undefined)).toBe("dev")
   })
+
+  it("環境変数 VERSION が空白のみの場合は package.json のバージョンを返す", () => {
+    // VERSION='   ' のように空白のみで渡された設定ミスのケース
+    expect(resolveVersion("   ", "0.1.1")).toBe("0.1.1")
+  })
+
+  it("package.json バージョンが空白のみの場合は dev を返す", () => {
+    // package.json の version が空白のみの場合
+    expect(resolveVersion(undefined, "   ")).toBe("dev")
+  })
 })
