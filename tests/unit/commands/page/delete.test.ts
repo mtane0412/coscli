@@ -25,6 +25,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_SID")
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
+  Reflect.deleteProperty(process.env, "COS_NO_INPUT")
 })
 
 afterEach(() => {
