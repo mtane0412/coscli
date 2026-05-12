@@ -5,7 +5,6 @@
  * --line で直接テキスト指定、- で stdin から読み込む。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -16,8 +15,10 @@ import {
   dryRunArg,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { appendToPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -26,6 +27,7 @@ export const pageAppendCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -41,7 +43,12 @@ export const pageAppendCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & { title: string; line?: string; "from-file"?: string }
+    const a = args as WriteCommonArgs & {
+      title: string
+      line?: string
+      "from-file"?: string
+      "allow-unsafe-read": boolean
+    }
     checkSandbox("page.append", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
@@ -51,11 +58,27 @@ export const pageAppendCommand = defineCommand({
     if (a.line !== undefined) {
       lines = a.line.split(/\r?\n|\\n/)
     } else if (isStdinPath(a["from-file"])) {
-      const content = readFileSync(0, "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      try {
+        const content = readStdinBounded()
+        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message)
+          process.exit(5)
+        }
+        throw err
+      }
     } else if (a["from-file"]) {
-      const content = readFileSync(a["from-file"], "utf-8")
-      lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      try {
+        const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
+        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+          process.exit(5)
+        }
+        throw err
+      }
     }
 
     if (lines.length === 0) {

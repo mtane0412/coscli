@@ -6,7 +6,6 @@
  * --after 0 以下または lines 数超の値は VALIDATION_ERROR (exit 5) で終了する。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -18,8 +17,10 @@ import {
   getRawFlagValue,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { insertIntoPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -28,6 +29,7 @@ export const pageInsertCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -53,6 +55,7 @@ export const pageInsertCommand = defineCommand({
       after: string
       line?: string
       "from-file"?: string
+      "allow-unsafe-read": boolean
     }
     checkSandbox("page.insert", a)
     const logger = buildLogger(a)
@@ -81,10 +84,15 @@ export const pageInsertCommand = defineCommand({
       try {
         // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
         const content = isStdinPath(a["from-file"])
-          ? readFileSync(0, "utf-8")
-          : readFileSync(a["from-file"], "utf-8")
+          ? readStdinBounded()
+          : readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
         lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch {
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+          process.exit(5)
+          return
+        }
         writeErrorJson(
           "VALIDATION_ERROR",
           `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,

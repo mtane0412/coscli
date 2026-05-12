@@ -5,7 +5,6 @@
  * --from-file でファイルから、- で stdin から本文を読み込む。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -16,8 +15,10 @@ import {
   dryRunArg,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { createPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -26,6 +27,7 @@ export const pageNewCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -45,6 +47,7 @@ export const pageNewCommand = defineCommand({
     const a = args as WriteCommonArgs & {
       title: string
       "from-file"?: string
+      "allow-unsafe-read": boolean
       /** citty が --line を複数回受け取ると string[] になる */
       line?: string | string[]
     }
@@ -56,11 +59,27 @@ export const pageNewCommand = defineCommand({
     let lines: string[] = []
     if (isStdinPath(a["from-file"])) {
       // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
-      const content = readFileSync(0, "utf-8")
-      lines = content.split("\n").filter((l) => l.length > 0 || content.endsWith("\n"))
+      try {
+        const content = readStdinBounded()
+        lines = content.split("\n").filter((l) => l.length > 0 || content.endsWith("\n"))
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message)
+          process.exit(5)
+        }
+        throw err
+      }
     } else if (a["from-file"]) {
-      const content = readFileSync(a["from-file"], "utf-8")
-      lines = content.split("\n")
+      try {
+        const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
+        lines = content.split("\n")
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+          process.exit(5)
+        }
+        throw err
+      }
     } else if (a.line !== undefined) {
       // citty は --line を複数回渡すと配列になるため、string と string[] の両方に対応する
       // 実改行（\n, \r\n）とエスケープシーケンス（\\n）の両方を展開する

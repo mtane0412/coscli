@@ -5,7 +5,6 @@
  * --line で直接テキスト指定、- で stdin から読み込む。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -16,8 +15,10 @@ import {
   dryRunArg,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { prependToPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -26,6 +27,7 @@ export const pagePrependCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -41,7 +43,12 @@ export const pagePrependCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & { title: string; line?: string; "from-file"?: string }
+    const a = args as WriteCommonArgs & {
+      title: string
+      line?: string
+      "from-file"?: string
+      "allow-unsafe-read": boolean
+    }
     checkSandbox("page.prepend", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
@@ -54,10 +61,15 @@ export const pagePrependCommand = defineCommand({
       try {
         // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
         const content = isStdinPath(a["from-file"])
-          ? readFileSync(0, "utf-8")
-          : readFileSync(a["from-file"], "utf-8")
+          ? readStdinBounded()
+          : readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
         lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch {
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+          process.exit(5)
+          return
+        }
         writeErrorJson(
           "VALIDATION_ERROR",
           `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,

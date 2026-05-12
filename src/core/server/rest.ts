@@ -83,13 +83,38 @@ function checkPolicy(ctx: ServerContext, command: string): Response | null {
   return null
 }
 
+/** serve が受け付けるリクエストボディの最大サイズ (5 MiB) */
+const MAX_BODY_BYTES = 5 * 1024 * 1024
+
 /**
  * parseJsonBody は JSON リクエストボディをパースする。
+ * ボディサイズが MAX_BODY_BYTES を超える場合は 413 エラーをスローする。
  * パースに失敗した場合は SyntaxError をスローし、toHttpResponse で 400 に変換される。
  */
 async function parseJsonBody(req: Request): Promise<unknown> {
-  const text = await req.text()
-  return JSON.parse(text)
+  // Content-Length ヘッダによる事前チェック
+  const contentLength = req.headers.get("content-length")
+  if (contentLength !== null) {
+    const len = Number(contentLength)
+    if (!Number.isNaN(len) && len > MAX_BODY_BYTES) {
+      const err = Object.assign(new Error("リクエストボディが大きすぎます"), {
+        code: "BODY_TOO_LARGE",
+        status: 413,
+      })
+      throw err
+    }
+  }
+
+  const buf = new Uint8Array(await req.arrayBuffer())
+  if (buf.byteLength > MAX_BODY_BYTES) {
+    const err = Object.assign(new Error("リクエストボディが大きすぎます"), {
+      code: "BODY_TOO_LARGE",
+      status: 413,
+    })
+    throw err
+  }
+
+  return JSON.parse(new TextDecoder().decode(buf))
 }
 
 /**

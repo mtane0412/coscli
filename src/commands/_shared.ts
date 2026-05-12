@@ -91,6 +91,20 @@ export const dryRunArg = {
   },
 } as const
 
+/**
+ * unsafeReadArg は --from-file を持つコマンドが追加スプレッドする安全読み込みバイパスフラグ定義。
+ *
+ * 通常はセキュリティ上の理由で禁止されているパス (.env, ~/.ssh, /etc 等) も読み込みたい
+ * 場合に明示的に指定する。
+ */
+export const unsafeReadArg = {
+  "allow-unsafe-read": {
+    type: "boolean" as const,
+    description: "--from-file のセキュリティチェックをバイパスする (危険: 注意して使用すること)",
+    default: false,
+  },
+} as const
+
 /** CommonArgs は --dry-run を除く読み書き共通フラグの型。WriteCommonArgs の基底型。 */
 export type CommonArgs = {
   project?: string
