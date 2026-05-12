@@ -7,6 +7,7 @@
  */
 
 import { setRootCommand } from "@/core/cli-root"
+import { ROOT_STRING_FLAGS, normalizeRootStringFlags } from "@/infra/args"
 import {
   extractErrorMessage,
   extractStackTrace,
@@ -202,7 +203,8 @@ const main = defineCommand({
 // exactOptionalPropertyTypes のため具体的な args 型を CommandDef に広げてから渡す
 setRootCommand(main as unknown as import("citty").CommandDef)
 
-const rawArgs = process.argv.slice(2)
+// citty がスペース区切りの string フラグ値をサブコマンドと誤認識する問題を回避する
+const rawArgs = normalizeRootStringFlags(process.argv.slice(2), ROOT_STRING_FLAGS)
 const showUsageFn = createCustomShowUsage(main as unknown as import("citty").CommandDef, "cos")
 
 // --help / -h: citty の showUsage を呼んで exit 0
