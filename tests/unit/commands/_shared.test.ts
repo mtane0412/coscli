@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "bun:test"
-import { commonArgs, dryRunArg, isStdinPath } from "@/commands/_shared"
+import { commonArgs, dryRunArg, getRawFlagValue, isStdinPath } from "@/commands/_shared"
 
 describe("commonArgs", () => {
   it("--dry-run キーを含まない (読み取り専用コマンド向け)", () => {
@@ -53,5 +53,34 @@ describe("isStdinPath", () => {
 
   it("undefined はstdinパスとして認識されない", () => {
     expect(isStdinPath(undefined)).toBe(false)
+  })
+})
+
+describe("getRawFlagValue", () => {
+  it('"--after -1" 形式でフラグ直後の負値を取得できる', () => {
+    // citty が --after -1 を "" に変換するバグへの回避策として process.argv から実値を取得する
+    expect(getRawFlagValue(["node", "cos", "--after", "-1"], "after")).toBe("-1")
+  })
+
+  it('"--after=5" 形式でイコール区切りの値を取得できる', () => {
+    expect(getRawFlagValue(["node", "cos", "--after=5"], "after")).toBe("5")
+  })
+
+  it("対象フラグが存在しない場合は undefined を返す", () => {
+    expect(getRawFlagValue(["node", "cos", "--other", "value"], "after")).toBe(undefined)
+  })
+
+  it("argv が空の場合は undefined を返す", () => {
+    expect(getRawFlagValue([], "after")).toBe(undefined)
+  })
+
+  it('"--after" の後に続く要素がない場合は undefined を返す', () => {
+    // フラグだけで値がない不完全な argv
+    expect(getRawFlagValue(["node", "cos", "--after"], "after")).toBe(undefined)
+  })
+
+  it("同一フラグが複数回指定された場合は最後の値を返す (CLI の一般的な挙動に合わせる)", () => {
+    // --after 3 --after -1 のように複数回指定された場合、最後の -1 が優先される
+    expect(getRawFlagValue(["node", "cos", "--after", "3", "--after", "-1"], "after")).toBe("-1")
   })
 })

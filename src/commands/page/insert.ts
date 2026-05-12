@@ -15,6 +15,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  getRawFlagValue,
   isStdinPath,
   requireProject,
 } from "@/commands/_shared"
@@ -59,16 +60,19 @@ export const pageInsertCommand = defineCommand({
     const startTime = Date.now()
 
     // --after バリデーション (1-indexed、正の整数のみ許可。"1abc" や "1.5" は弾く)
-    if (!/^[1-9]\d*$/.test(a.after)) {
+    // citty が負数引数をフラグとして解析し a.after が "" になるバグに対応するため、
+    // process.argv から実値を取得してエラーメッセージに表示する
+    const rawAfter = a.after !== "" ? a.after : (getRawFlagValue(process.argv, "after") ?? "")
+    if (!/^[1-9]\d*$/.test(rawAfter)) {
       writeErrorJson(
         "VALIDATION_ERROR",
-        `--after の値が無効です: "${a.after}"`,
+        `--after の値が無効です: "${rawAfter}"`,
         "1 以上の整数を指定してください (タイトル行=1)",
       )
       process.exit(5)
       return
     }
-    const afterN = Number.parseInt(a.after, 10)
+    const afterN = Number.parseInt(rawAfter, 10)
 
     let lines: string[] = []
     if (a.line !== undefined) {
