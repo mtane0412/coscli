@@ -1,6 +1,8 @@
 # coscli
 
-AI エージェント親和的な [Cosense](https://cosen.se/) (旧 Scrapbox) CLI。バイナリ名 `cos`。
+**Cosense in your terminal.**
+
+[Cosense](https://cosen.se/) (旧 Scrapbox) を端末・スクリプト・AI エージェントから操作するための CLI。バイナリ名 `cos`。
 
 ## 特徴
 
@@ -258,6 +260,10 @@ cos auth login --no-input --sid "$COS_SID"
 | 6 | 楽観ロック競合 |
 | 7 | sandbox 違反 |
 | 124 | タイムアウト |
+
+## Credits
+
+Inspired by [gogcli](https://github.com/openclaw/gogcli) — Google Workspace in your terminal.
 
 ## ライセンス
 
