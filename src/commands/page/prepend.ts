@@ -48,7 +48,7 @@ export const pagePrependCommand = defineCommand({
 
     let lines: string[] = []
     if (a.line !== undefined) {
-      lines = a.line.split("\\n")
+      lines = a.line.split(/\r?\n|\\n/)
     } else if (a["from-file"]) {
       try {
         const content =

@@ -48,7 +48,7 @@ export const pageAppendCommand = defineCommand({
 
     let lines: string[] = []
     if (a.line) {
-      lines = a.line.split("\\n")
+      lines = a.line.split(/\r?\n|\\n/)
     } else if (a["from-file"] === "-") {
       const content = readFileSync(0, "utf-8")
       lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
