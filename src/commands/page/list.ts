@@ -15,7 +15,7 @@ import {
   requireProject,
 } from "@/commands/_shared"
 import { listPages } from "@/core/pages"
-import { writeJson } from "@/presenter/json"
+import { writeErrorJson, writeJson } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
@@ -45,11 +45,48 @@ export const pageListCommand = defineCommand({
 
     logger.info(`${project} のページ一覧を取得中...`)
 
-    const client = await buildRestClient(commonArgs)
     const listOpts: { project: string; limit?: number; skip?: number; sort?: string } = { project }
-    if (commonArgs.limit) listOpts.limit = Number(commonArgs.limit)
-    if (commonArgs.skip) listOpts.skip = Number(commonArgs.skip)
+
+    // --limit バリデーション: 10進数整数のみ許可 (指数表記・16進数を除外、認証前に弾く)
+    if (commonArgs.limit !== undefined) {
+      if (!/^\d+$/.test(commonArgs.limit)) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `--limit の値が無効です: "${commonArgs.limit}"`,
+          "1 以上の整数を指定してください",
+        )
+        process.exit(5)
+        return
+      }
+      const limit = Number(commonArgs.limit)
+      if (limit < 1) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `--limit の値が無効です: "${commonArgs.limit}"`,
+          "1 以上の整数を指定してください",
+        )
+        process.exit(5)
+        return
+      }
+      listOpts.limit = limit
+    }
+
+    // --skip バリデーション: 10進数整数のみ許可 (0 はスキップなしとして有効、認証前に弾く)
+    if (commonArgs.skip !== undefined) {
+      if (!/^\d+$/.test(commonArgs.skip)) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `--skip の値が無効です: "${commonArgs.skip}"`,
+          "0 以上の整数を指定してください",
+        )
+        process.exit(5)
+        return
+      }
+      listOpts.skip = Number(commonArgs.skip)
+    }
+
     if (commonArgs.sort) listOpts.sort = commonArgs.sort
+    const client = await buildRestClient(commonArgs)
     const result = await listPages(client, listOpts)
 
     if (commonArgs.json) {
