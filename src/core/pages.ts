@@ -47,6 +47,7 @@ export async function createPage(
     project: opts.project,
     title: opts.title,
     update: () => [opts.title, ...opts.lines],
+    previewLines: opts.lines,
   })
 }
 
@@ -71,6 +72,7 @@ export async function editPage(
     project: opts.project,
     title: opts.title,
     update: () => [opts.title, ...opts.lines],
+    previewLines: opts.lines,
   })
 }
 
@@ -88,6 +90,7 @@ export async function renamePage(
     project: opts.project,
     title: opts.title,
     update: (lines) => [opts.newTitle, ...lines.slice(1).map((l) => l.text)],
+    previewLines: [opts.newTitle],
   })
 }
 
@@ -104,6 +107,7 @@ export async function prependToPage(
       ...opts.lines,
       ...existing.slice(1).map((l) => l.text),
     ],
+    previewLines: opts.lines,
   })
 }
 
@@ -125,6 +129,7 @@ export async function insertIntoPage(
       const txt = existing.map((l) => l.text)
       return [...txt.slice(0, opts.after), ...opts.lines, ...txt.slice(opts.after)]
     },
+    previewLines: opts.lines,
   })
 }
 

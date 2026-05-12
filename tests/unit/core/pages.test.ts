@@ -145,6 +145,18 @@ describe("createPage", () => {
     expect(writer.patch).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ commitId: "commit1" })
   })
+
+  it("patch に previewLines としてコンテンツ行を渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "create-commit", pageId: "page1" }
+      }),
+    })
+    await createPage(writer, { project: "proj", title: "新しいページ", lines: ["行1", "行2"] })
+    expect(capturedPreviewLines).toEqual(["行1", "行2"])
+  })
 })
 
 describe("appendToPage", () => {
@@ -191,6 +203,18 @@ describe("editPage", () => {
     await editPage(writer, { project: "proj", title: "既存ページ", lines: ["新しい内容"] })
     expect(writer.patch).toHaveBeenCalledTimes(1)
   })
+
+  it("patch に previewLines として新しいコンテンツ行を渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "edit-commit", pageId: "page1" }
+      }),
+    })
+    await editPage(writer, { project: "proj", title: "既存ページ", lines: ["新しい内容"] })
+    expect(capturedPreviewLines).toEqual(["新しい内容"])
+  })
 })
 
 describe("deletePage", () => {
@@ -202,6 +226,19 @@ describe("deletePage", () => {
 })
 
 describe("renamePage", () => {
+  it("patch に previewLines として新タイトルを渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "rename-commit", pageId: "page1" }
+      }),
+    })
+    await renamePage(writer, { project: "proj", title: "旧タイトル", newTitle: "新タイトル" })
+    // dry-run 時に変更後のタイトルが分かるよう、previewLines に新タイトルを設定する
+    expect(capturedPreviewLines).toEqual(["新タイトル"])
+  })
+
   it("patch の update 関数が新タイトルを先頭にした配列を返す", async () => {
     // update 関数の戻り値をキャプチャするためにモックを差し替える
     let capturedUpdate:
@@ -230,6 +267,22 @@ describe("renamePage", () => {
 })
 
 describe("prependToPage", () => {
+  it("patch に previewLines として挿入行を渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "prepend-commit", pageId: "page1" }
+      }),
+    })
+    await prependToPage(writer, {
+      project: "proj",
+      title: "既存ページ",
+      lines: ["先頭行1", "先頭行2"],
+    })
+    expect(capturedPreviewLines).toEqual(["先頭行1", "先頭行2"])
+  })
+
   it("patch の update 関数がタイトル直後に新行を挿入した配列を返す", async () => {
     let capturedUpdate:
       | ((
@@ -279,6 +332,23 @@ describe("prependToPage", () => {
 })
 
 describe("insertIntoPage", () => {
+  it("patch に previewLines として挿入行を渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "insert-commit", pageId: "page1" }
+      }),
+    })
+    await insertIntoPage(writer, {
+      project: "proj",
+      title: "挿入ページ",
+      after: 1,
+      lines: ["挿入行1", "挿入行2"],
+    })
+    expect(capturedPreviewLines).toEqual(["挿入行1", "挿入行2"])
+  })
+
   it("--after 2 で 2 行目の後ろに行を挿入する (1-indexed)", async () => {
     let capturedUpdate:
       | ((

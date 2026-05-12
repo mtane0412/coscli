@@ -42,6 +42,8 @@ export interface PatchOptions {
   title: string
   update: (lines: Line[]) => string[] | Promise<string[]>
   maxRetry?: number
+  /** dry-run 時に出力するプレビュー行 (書き込み予定の内容)。 */
+  previewLines?: string[]
 }
 
 /** InsertLinesOptions は insertLines() に渡すオプション。 */
@@ -106,11 +108,13 @@ export class CosenseWriter implements ScrapboxWriter {
     patchOpts: PatchOptions,
   ): Promise<{ commitId: string; pageId: string } | DryRunResult> {
     if (this.opts.dryRun) {
-      return {
+      const result: DryRunResult = {
         dryRun: true,
         project: patchOpts.project,
         title: patchOpts.title,
       }
+      if (patchOpts.previewLines !== undefined) result.previewLines = patchOpts.previewLines
+      return result
     }
 
     const patchOptions: { sid?: string; maxRetry?: number } = {}
@@ -134,7 +138,7 @@ export class CosenseWriter implements ScrapboxWriter {
 
   async insertLines(opts: InsertLinesOptions): Promise<{ commitId: string } | DryRunResult> {
     if (this.opts.dryRun) {
-      return { dryRun: true, project: opts.project, title: opts.title }
+      return { dryRun: true, project: opts.project, title: opts.title, previewLines: opts.lines }
     }
 
     // insertLines は patch の特殊ケース: 現在の末尾に行を追加する
@@ -191,11 +195,13 @@ export class CosenseWriter implements ScrapboxWriter {
  */
 export class DryRunWriter implements ScrapboxWriter {
   async patch(opts: PatchOptions): Promise<DryRunResult> {
-    return { dryRun: true, project: opts.project, title: opts.title }
+    const result: DryRunResult = { dryRun: true, project: opts.project, title: opts.title }
+    if (opts.previewLines !== undefined) result.previewLines = opts.previewLines
+    return result
   }
 
   async insertLines(opts: InsertLinesOptions): Promise<DryRunResult> {
-    return { dryRun: true, project: opts.project, title: opts.title }
+    return { dryRun: true, project: opts.project, title: opts.title, previewLines: opts.lines }
   }
 
   async deletePage(opts: DeletePageOptions): Promise<DryRunResult> {
