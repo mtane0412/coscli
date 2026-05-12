@@ -119,10 +119,11 @@ export function buildLogger(args: CommonArgs): Logger {
       : args.verbose === "v" || args.verbose === "1"
         ? 1
         : 0
+  // ルートフラグから環境変数経由で伝播した値を優先マージする
   return new Logger({
     quiet: args.quiet,
-    json: args.json,
-    plain: args.plain,
+    json: args.json || process.env["COS_JSON"] === "1",
+    plain: args.plain || process.env["COS_PLAIN"] === "1",
     verbose: verboseLevel,
   })
 }
@@ -159,10 +160,14 @@ export function checkSandbox(commandName: string, args: CommonArgs): void {
 /**
  * buildJsonOpts は CommonArgs から JsonOutputOptions を安全に生成する。
  * exactOptionalPropertyTypes に対応するため undefined を持つプロパティを除外する。
+ * ルートフラグから環境変数経由で伝播した COS_RESULTS_ONLY / COS_SELECT もフォールバックとして参照する。
  */
 export function buildJsonOpts(args: CommonArgs): JsonOutputOptions {
-  const opts: JsonOutputOptions = { resultsOnly: args["results-only"] }
-  if (args.select !== undefined) opts.select = args.select
+  const resultsOnly = args["results-only"] || process.env["COS_RESULTS_ONLY"] === "1"
+  const opts: JsonOutputOptions = { resultsOnly }
+  // args.select が明示指定された場合はそちらを優先する
+  const select = args.select ?? process.env["COS_SELECT"]
+  if (select !== undefined) opts.select = select
   return opts
 }
 

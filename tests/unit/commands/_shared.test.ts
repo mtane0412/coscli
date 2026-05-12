@@ -5,8 +5,27 @@
  * 書き込み系コマンドは commonArgs に加えて dryRunArg をスプレッドし --dry-run を持つ。
  */
 
-import { describe, expect, it } from "bun:test"
-import { commonArgs, dryRunArg, getRawFlagValue, isStdinPath } from "@/commands/_shared"
+import { afterEach, describe, expect, it, spyOn } from "bun:test"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  commonArgs,
+  dryRunArg,
+  getRawFlagValue,
+  isStdinPath,
+} from "@/commands/_shared"
+
+/** テスト用デフォルト CommonArgs を生成するヘルパー */
+function makeArgs(overrides: Partial<CommonArgs> = {}): CommonArgs {
+  return {
+    json: false,
+    plain: false,
+    "results-only": false,
+    quiet: false,
+    ...overrides,
+  }
+}
 
 describe("commonArgs", () => {
   it("--dry-run キーを含まない (読み取り専用コマンド向け)", () => {
@@ -53,6 +72,85 @@ describe("isStdinPath", () => {
 
   it("undefined はstdinパスとして認識されない", () => {
     expect(isStdinPath(undefined)).toBe(false)
+  })
+})
+
+describe("buildLogger - 環境変数伝播 (COS_JSON / COS_PLAIN)", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(process.env, "COS_JSON")
+    Reflect.deleteProperty(process.env, "COS_PLAIN")
+  })
+
+  it("COS_JSON=1 が設定されている場合、args.json=false でも info() を stderr へ出力しない (json モード)", () => {
+    // cos --json page list のように、ルートフラグから COS_JSON=1 が伝播するケース
+    process.env["COS_JSON"] = "1"
+    const logger = buildLogger(makeArgs({ json: false }))
+    const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
+  })
+
+  it("COS_PLAIN=1 が設定されている場合、args.plain=false でも info() を stderr へ出力しない (plain モード)", () => {
+    // cos --plain page list のように、ルートフラグから COS_PLAIN=1 が伝播するケース
+    process.env["COS_PLAIN"] = "1"
+    const logger = buildLogger(makeArgs({ plain: false }))
+    const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
+  })
+
+  it("環境変数が未設定かつ args.json=false の場合、info() を stderr へ出力する (通常モード)", () => {
+    // 環境変数もフラグも指定されていない場合は通常通り出力する
+    const logger = buildLogger(makeArgs({ json: false }))
+    const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
+  })
+})
+
+describe("buildJsonOpts - 環境変数伝播 (COS_RESULTS_ONLY / COS_SELECT)", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(process.env, "COS_RESULTS_ONLY")
+    Reflect.deleteProperty(process.env, "COS_SELECT")
+  })
+
+  it("COS_RESULTS_ONLY=1 が設定されている場合、args['results-only']=false でも resultsOnly が true になる", () => {
+    // cos --results-only page list のように、ルートフラグから伝播するケース
+    process.env["COS_RESULTS_ONLY"] = "1"
+    const opts = buildJsonOpts(makeArgs({ "results-only": false }))
+    expect(opts.resultsOnly).toBe(true)
+  })
+
+  it("COS_SELECT が設定されている場合、args.select が未指定でも select が適用される", () => {
+    // cos --select 'pages[].title' page list のように、ルートフラグから伝播するケース
+    process.env["COS_SELECT"] = "pages[].title"
+    const opts = buildJsonOpts(makeArgs())
+    expect(opts.select).toBe("pages[].title")
+  })
+
+  it("args.select と COS_SELECT の両方が設定されている場合、args.select が優先される", () => {
+    // サブコマンドレベルのフラグはルートフラグより優先する
+    process.env["COS_SELECT"] = "pages[].title"
+    const opts = buildJsonOpts(makeArgs({ select: "pages[].id" }))
+    expect(opts.select).toBe("pages[].id")
+  })
+
+  it("環境変数が未設定かつ args['results-only']=false の場合、resultsOnly が false のまま", () => {
+    // 環境変数もフラグも指定されていない場合は既定値を維持する
+    const opts = buildJsonOpts(makeArgs())
+    expect(opts.resultsOnly).toBe(false)
   })
 })
 
