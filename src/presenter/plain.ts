@@ -4,8 +4,13 @@
  * cli-table3 でボーダー付きテーブルを描画するか、
  * タブ区切り (TSV) で出力するかを選択できる。
  * AI エージェントやスクリプトには TSV が扱いやすい。
+ *
+ * cli-table3 は独自に ANSI エスケープコードを出力するため、
+ * isColorEnabled() の値を style オプションとして渡すことで
+ * --color never/always フラグを確実に反映する。
  */
 
+import { isColorEnabled } from "@/infra/color"
 import Table from "cli-table3"
 
 /** PlainOutputOptions はテキスト出力のオプション。 */
@@ -19,6 +24,9 @@ export interface PlainOutputOptions {
 /**
  * writePlainTable は cli-table3 を使ってボーダー付きテーブルを出力する。
  * TTY 環境での人間向け表示に適する。
+ *
+ * cli-table3 は style.head / style.border で色付けを行う。
+ * isColorEnabled() が false の場合は空配列を渡して ANSI コードを抑制する。
  */
 export function writePlainTable(
   headers: string[],
@@ -26,7 +34,12 @@ export function writePlainTable(
   opts: PlainOutputOptions = {},
 ): void {
   const stream = opts.stream ?? process.stdout
-  const table = new Table({ head: headers })
+  // 色無効時は head/border スタイルを空にして ANSI コードを抑制する。
+  // exactOptionalPropertyTypes のため、undefined を渡さずスプレッドで条件付きマージする。
+  const tableOpts = isColorEnabled()
+    ? { head: headers }
+    : { head: headers, style: { head: [] as string[], border: [] as string[] } }
+  const table = new Table(tableOpts)
   for (const row of rows) {
     table.push(row)
   }

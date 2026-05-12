@@ -3,9 +3,13 @@
  *
  * cli-table3 を使ったテーブル出力と TSV 出力を検証する。
  * 出力先 stream を差し替えて副作用なしにテストする。
+ *
+ * writePlainTable は initColor(mode) の設定に従い、
+ * never モードでは ANSI コードなし、always モードでは ANSI コードありで出力する。
  */
 
 import { describe, expect, it } from "bun:test"
+import { initColor } from "@/infra/color"
 import { writePlainList, writePlainTable, writeTsv } from "@/presenter/plain"
 
 /** WritableStream の代わりに文字列を収集するモックストリーム */
@@ -19,6 +23,12 @@ function createMockStream() {
       return buffer
     },
   }
+}
+
+/** containsAnsi は文字列に ANSI エスケープコード (ESC + '[') が含まれるか判定する。 */
+function containsAnsi(s: string): boolean {
+  // ESC (0x1B) の文字コードで判定する（正規表現の制御文字を避けるため）
+  return s.split("").some((c) => c.charCodeAt(0) === 0x1b)
 }
 
 describe("writePlainTable", () => {
@@ -44,6 +54,26 @@ describe("writePlainTable", () => {
       stream: stream as unknown as NodeJS.WritableStream,
     })
     expect(stream.output).toContain("タイトル")
+  })
+
+  it("never モードで ANSI コードが含まれない", () => {
+    // --color never 時はテーブルの罫線・ヘッダーに ANSI コードが含まれないこと
+    initColor("never")
+    const stream = createMockStream()
+    writePlainTable(["タイトル", "件数"], [["ホームページ", "100"]], {
+      stream: stream as unknown as NodeJS.WritableStream,
+    })
+    expect(containsAnsi(stream.output)).toBe(false)
+  })
+
+  it("always モードで ANSI コードが含まれる", () => {
+    // --color always 時はテーブルの罫線・ヘッダーに ANSI コードが含まれること
+    initColor("always")
+    const stream = createMockStream()
+    writePlainTable(["タイトル", "件数"], [["ホームページ", "100"]], {
+      stream: stream as unknown as NodeJS.WritableStream,
+    })
+    expect(containsAnsi(stream.output)).toBe(true)
   })
 })
 

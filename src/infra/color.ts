@@ -3,6 +3,10 @@
  *
  * --color=auto|always|never フラグと TTY 検出に基づき、
  * 色付け関数を提供する。
+ *
+ * picocolors はモジュールロード時に TTY を判定するため、
+ * always/never モードでは createColors(boolean) で明示的に
+ * ANSI 有効/無効のインスタンスを生成して使用する。
  */
 
 import pc from "picocolors"
@@ -18,7 +22,7 @@ let _enabled: boolean | null = null
 export function initColor(mode: ColorMode): void {
   if (mode === "always") _enabled = true
   else if (mode === "never") _enabled = false
-  else _enabled = process.stdout.isTTY // auto
+  else _enabled = process.stdout.isTTY ?? false // auto
 }
 
 /** isColorEnabled は現在の色付け設定を返す。 */
@@ -27,14 +31,27 @@ export function isColorEnabled(): boolean {
   return process.stdout.isTTY ?? false
 }
 
+/**
+ * _pc は現在の色付け設定に応じた picocolors インスタンスを返す。
+ *
+ * picocolors はモジュールロード時に isColorSupported を評価するため、
+ * TTY でない環境 (CI・パイプ等) で `always` を指定した場合でも
+ * デフォルトの pc では ANSI が出力されない。
+ * createColors(boolean) で明示的に enabled を指定したインスタンスを使うことで
+ * --color always/never を確実に反映する。
+ */
+function _pc(): ReturnType<typeof pc.createColors> {
+  return pc.createColors(isColorEnabled())
+}
+
 /** color は色付け関数のラッパーオブジェクト。 */
 export const color = {
-  bold: (s: string) => (isColorEnabled() ? pc.bold(s) : s),
-  dim: (s: string) => (isColorEnabled() ? pc.dim(s) : s),
-  red: (s: string) => (isColorEnabled() ? pc.red(s) : s),
-  green: (s: string) => (isColorEnabled() ? pc.green(s) : s),
-  yellow: (s: string) => (isColorEnabled() ? pc.yellow(s) : s),
-  blue: (s: string) => (isColorEnabled() ? pc.blue(s) : s),
-  cyan: (s: string) => (isColorEnabled() ? pc.cyan(s) : s),
-  gray: (s: string) => (isColorEnabled() ? pc.gray(s) : s),
+  bold: (s: string) => _pc().bold(s),
+  dim: (s: string) => _pc().dim(s),
+  red: (s: string) => _pc().red(s),
+  green: (s: string) => _pc().green(s),
+  yellow: (s: string) => _pc().yellow(s),
+  blue: (s: string) => _pc().blue(s),
+  cyan: (s: string) => _pc().cyan(s),
+  gray: (s: string) => _pc().gray(s),
 }
