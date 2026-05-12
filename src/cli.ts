@@ -7,7 +7,7 @@
  */
 
 import { setRootCommand } from "@/core/cli-root"
-import { normalizeRootStringFlags } from "@/infra/args"
+import { ROOT_STRING_FLAGS, normalizeRootStringFlags } from "@/infra/args"
 import {
   extractErrorMessage,
   extractStackTrace,
@@ -204,7 +204,6 @@ const main = defineCommand({
 setRootCommand(main as unknown as import("citty").CommandDef)
 
 // citty がスペース区切りの string フラグ値をサブコマンドと誤認識する問題を回避する
-const ROOT_STRING_FLAGS = ["color", "enable-commands", "disable-commands"]
 const rawArgs = normalizeRootStringFlags(process.argv.slice(2), ROOT_STRING_FLAGS)
 const showUsageFn = createCustomShowUsage(main as unknown as import("citty").CommandDef, "cos")
 

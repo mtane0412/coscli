@@ -8,6 +8,14 @@
  */
 
 /**
+ * ROOT_STRING_FLAGS はルートコマンドが定義する string 型フラグ名の一覧。
+ *
+ * ルートコマンド (src/cli.ts) に新しい string 型フラグを追加した場合は、
+ * この定数も同時に更新すること。
+ */
+export const ROOT_STRING_FLAGS = ["color", "enable-commands", "disable-commands"]
+
+/**
  * normalizeRootStringFlags は `--flag value` 形式の string フラグを
  * `--flag=value` 形式に正規化した新しい配列を返す。
  *
