@@ -3,6 +3,7 @@
  *
  * ページのプレーンテキスト本文を取得して stdout に出力する。
  * --format=md を指定すると Scrapbox 記法を Markdown に変換して出力する。
+ * --format=scrapbox は --format=txt の alias として扱う。
  * パイプや他ツールとの連携に使う。
  */
 
@@ -21,6 +22,12 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 const VALID_FORMATS = ["txt", "md"] as const
+
+/** scrapbox は txt の alias として受け付けるフォーマット値の対応表 */
+const FORMAT_ALIASES: Record<string, (typeof VALID_FORMATS)[number]> = {
+  scrapbox: "txt",
+}
+
 const VALID_BOLD_STYLES = ["auto", "heading", "emphasis"] as const
 
 export const pageTextCommand = defineCommand({
@@ -34,7 +41,7 @@ export const pageTextCommand = defineCommand({
     },
     format: {
       type: "string",
-      description: "出力フォーマット (txt | md)",
+      description: "出力フォーマット (txt | md | scrapbox)。scrapbox は txt の alias",
       default: "txt",
     },
     "bold-style": {
@@ -51,12 +58,15 @@ export const pageTextCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    // alias を正規値に変換する (例: scrapbox → txt)
+    const resolvedFormat = FORMAT_ALIASES[a.format] ?? a.format
+
     // --format バリデーション
-    if (!(VALID_FORMATS as readonly string[]).includes(a.format)) {
+    if (!(VALID_FORMATS as readonly string[]).includes(resolvedFormat)) {
       writeErrorJson(
         "VALIDATION_ERROR",
         `--format=${a.format} は無効な値です`,
-        `有効な値: ${VALID_FORMATS.join(", ")}`,
+        `有効な値: ${VALID_FORMATS.join(", ")}, scrapbox (txt の alias)`,
       )
       process.exit(5)
     }
@@ -77,7 +87,7 @@ export const pageTextCommand = defineCommand({
     const rawText = await getPageText(client, { project, title: a.title })
 
     const outputText =
-      a.format === "md"
+      resolvedFormat === "md"
         ? convert(rawText, "scrapbox", "md", { boldStyle: a["bold-style"] as BoldStyle })
         : rawText
 
