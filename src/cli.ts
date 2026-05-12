@@ -26,6 +26,7 @@ declare const VERSION: string
 
 import { pageAppendCommand } from "@/commands/page/append"
 import { pageCodeCommand } from "@/commands/page/code"
+import { pageContextCommand } from "@/commands/page/context"
 import { pageDeleteCommand } from "@/commands/page/delete"
 import { pageEditCommand } from "@/commands/page/edit"
 import { pageGetCommand } from "@/commands/page/get"
@@ -100,6 +101,7 @@ const pageCommand = defineCommand({
     delete: pageDeleteCommand,
     rm: pageDeleteCommand,
     watch: pageWatchCommand,
+    context: pageContextCommand,
   },
 })
 

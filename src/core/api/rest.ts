@@ -118,6 +118,22 @@ export class CosenseRestClient {
     )
   }
 
+  /**
+   * getSmartContext は Smart Context API を叩いて指定ページ起点のリンク先本文テキストを返す。
+   *
+   * エンドポイント:
+   *   - hops=1: /api/smart-context/export-1hop-links/:project.txt?title=:title
+   *   - hops=2: /api/smart-context/export-2hop-links/:project.txt?title=:title
+   *
+   * title は encodePageTitle (slug変換) ではなく URLSearchParams (クエリ文字列) で渡す。
+   */
+  async getSmartContext(project: string, title: string, hops: 1 | 2): Promise<string> {
+    const params = new URLSearchParams({ title })
+    return this.fetchText(
+      `${BASE_URL}/api/smart-context/export-${hops}hop-links/${encodeURIComponent(project)}.txt?${params.toString()}`,
+    )
+  }
+
   /** getCodeBlock は /api/code/:project/:title/:filename を叩いてコードブロックを返す。 */
   async getCodeBlock(project: string, title: string, filename: string): Promise<string> {
     return this.fetchText(
