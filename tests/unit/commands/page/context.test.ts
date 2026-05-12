@@ -117,55 +117,43 @@ describe("pageContextCommand", () => {
   })
 
   it("--hops=1 (デフォルト) で 1hop のテキストが stdout に出力される", async () => {
-    try {
-      await runContext({
-        title: TEST_TITLE,
-        project: TEST_PROJECT,
-        hops: 1,
-        json: false,
-        plain: false,
-        "results-only": false,
-        quiet: false,
-      })
-    } catch {
-      // REST クライアント初期化中の throw は想定内
-    }
+    await runContext({
+      title: TEST_TITLE,
+      project: TEST_PROJECT,
+      hops: 1,
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: false,
+    })
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).toContain(SMART_CONTEXT_1HOP)
   })
 
   it("--hops=2 で 2hop のテキストが stdout に出力される", async () => {
-    try {
-      await runContext({
-        title: TEST_TITLE,
-        project: TEST_PROJECT,
-        hops: 2,
-        json: false,
-        plain: false,
-        "results-only": false,
-        quiet: false,
-      })
-    } catch {
-      // REST クライアント初期化中の throw は想定内
-    }
+    await runContext({
+      title: TEST_TITLE,
+      project: TEST_PROJECT,
+      hops: 2,
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: false,
+    })
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).toContain(SMART_CONTEXT_2HOP)
   })
 
   it("--json 指定時に { text: ... } envelope が出力される", async () => {
-    try {
-      await runContext({
-        title: TEST_TITLE,
-        project: TEST_PROJECT,
-        hops: 1,
-        json: true,
-        plain: false,
-        "results-only": false,
-        quiet: false,
-      })
-    } catch {
-      // REST クライアント初期化中の throw は想定内
-    }
+    await runContext({
+      title: TEST_TITLE,
+      project: TEST_PROJECT,
+      hops: 1,
+      json: true,
+      plain: false,
+      "results-only": false,
+      quiet: false,
+    })
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     const parsed = JSON.parse(calls)
     expect(parsed.data.text).toBe(SMART_CONTEXT_1HOP)
