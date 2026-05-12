@@ -115,6 +115,7 @@ cos page new --project myproject --title "新しいページ" --body "本文"
 cos page list     ページ一覧を取得
 cos page get      ページ本文を取得
 cos page text     ページのテキスト (コードブロックなし) を取得
+cos page context  ページ起点の Smart Context (リンク先本文) を取得
 cos page code     ページのコードブロックを取得
 cos page url      ページの URL を表示
 cos page new      ページを作成
@@ -189,6 +190,21 @@ cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
 - `code:filename` のファイル名情報は ` ```filename ``` ` で保持するが、一部の Markdown パーサで認識されない可能性がある
 
 ## AI エージェント向け使い方
+
+### Smart Context でリンク先ページの文脈を取得
+
+`cos page context` は Cosense の [Smart Context](https://cosen.se/) 機能を使い、指定ページを起点に 1hop / 2hop 先のリンク先ページ本文を LLM が読みやすい形式でまとめて取得します。
+
+```bash
+# 1hop 先 (デフォルト) — 関連ページの直接リンクを取得
+cos page context "ページタイトル" --project myproject
+
+# 2hop 先 — さらに広い文脈を取得
+cos page context "ページタイトル" --project myproject --hops 2
+
+# JSON 出力 (エージェント向け)
+cos page context "ページタイトル" --project myproject --json
+```
 
 ### JSON 出力
 

@@ -30,6 +30,14 @@ export async function getPageText(
   return client.getPageText(opts.project, opts.title)
 }
 
+/** getSmartContext はページ起点の Smart Context テキストを取得する。 */
+export async function getSmartContext(
+  client: CosenseRestClient,
+  opts: { project: string; title: string; hops: 1 | 2 },
+) {
+  return client.getSmartContext(opts.project, opts.title, opts.hops)
+}
+
 /** getCodeBlock はページ内のコードブロックを取得する。 */
 export async function getCodeBlock(
   client: CosenseRestClient,

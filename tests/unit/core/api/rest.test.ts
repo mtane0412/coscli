@@ -67,6 +67,38 @@ const server = setupServer(
     return new HttpResponse("Not found", { status: 404 })
   }),
 
+  // Smart Context: 1hop リンクエクスポート
+  http.get(`${BASE_URL}/api/smart-context/export-1hop-links/:project`, ({ params, request }) => {
+    const cookie = request.headers.get("Cookie")
+    if (!cookie?.includes("connect.sid")) {
+      return new HttpResponse("Unauthorized", { status: 401 })
+    }
+    const projectParam = decodeURIComponent(params["project"] as string)
+    const project = projectParam.endsWith(".txt") ? projectParam.slice(0, -4) : projectParam
+    const url = new URL(request.url)
+    const title = url.searchParams.get("title")
+    if (project === TEST_PROJECT && title === "テストページ") {
+      return new HttpResponse("1hop Smart Context テキスト")
+    }
+    return new HttpResponse("Not found", { status: 404 })
+  }),
+
+  // Smart Context: 2hop リンクエクスポート
+  http.get(`${BASE_URL}/api/smart-context/export-2hop-links/:project`, ({ params, request }) => {
+    const cookie = request.headers.get("Cookie")
+    if (!cookie?.includes("connect.sid")) {
+      return new HttpResponse("Unauthorized", { status: 401 })
+    }
+    const projectParam = decodeURIComponent(params["project"] as string)
+    const project = projectParam.endsWith(".txt") ? projectParam.slice(0, -4) : projectParam
+    const url = new URL(request.url)
+    const title = url.searchParams.get("title")
+    if (project === TEST_PROJECT && title === "テストページ") {
+      return new HttpResponse("2hop Smart Context テキスト")
+    }
+    return new HttpResponse("Not found", { status: 404 })
+  }),
+
   http.get(`${BASE_URL}/api/pages/:project/search/query`, ({ request, params }) => {
     if (params["project"] === TEST_PROJECT) {
       const url = new URL(request.url)
@@ -167,6 +199,30 @@ describe("CosenseRestClient", () => {
       const text = await client.getPageText(TEST_PROJECT, "Hello World")
       expect(text).toContain("Hello World")
       expect(text).toContain("最初の行")
+    })
+  })
+
+  describe("getSmartContext", () => {
+    it("hops=1 のとき 1hop エンドポイントのテキストを返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const text = await client.getSmartContext(TEST_PROJECT, "テストページ", 1)
+      expect(text).toBe("1hop Smart Context テキスト")
+    })
+
+    it("hops=2 のとき 2hop エンドポイントのテキストを返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const text = await client.getSmartContext(TEST_PROJECT, "テストページ", 2)
+      expect(text).toBe("2hop Smart Context テキスト")
+    })
+
+    it("存在しないページは NotFoundError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await expect(client.getSmartContext(TEST_PROJECT, "存在しないページ", 1)).rejects.toThrow()
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(client.getSmartContext(TEST_PROJECT, "テストページ", 1)).rejects.toThrow()
     })
   })
 
