@@ -86,9 +86,12 @@ describe("buildLogger - 環境変数伝播 (COS_JSON / COS_PLAIN)", () => {
     process.env["COS_JSON"] = "1"
     const logger = buildLogger(makeArgs({ json: false }))
     const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
-    logger.info("テスト出力")
-    expect(writeSpy).not.toHaveBeenCalled()
-    writeSpy.mockRestore()
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
   })
 
   it("COS_PLAIN=1 が設定されている場合、args.plain=false でも info() を stderr へ出力しない (plain モード)", () => {
@@ -96,18 +99,24 @@ describe("buildLogger - 環境変数伝播 (COS_JSON / COS_PLAIN)", () => {
     process.env["COS_PLAIN"] = "1"
     const logger = buildLogger(makeArgs({ plain: false }))
     const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
-    logger.info("テスト出力")
-    expect(writeSpy).not.toHaveBeenCalled()
-    writeSpy.mockRestore()
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
   })
 
   it("環境変数が未設定かつ args.json=false の場合、info() を stderr へ出力する (通常モード)", () => {
     // 環境変数もフラグも指定されていない場合は通常通り出力する
     const logger = buildLogger(makeArgs({ json: false }))
     const writeSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
-    logger.info("テスト出力")
-    expect(writeSpy).toHaveBeenCalled()
-    writeSpy.mockRestore()
+    try {
+      logger.info("テスト出力")
+      expect(writeSpy).toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
   })
 })
 
