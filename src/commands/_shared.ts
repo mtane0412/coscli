@@ -176,6 +176,26 @@ export function isStdinPath(path: string | undefined): boolean {
   return path === "-" || path === ""
 }
 
+/**
+ * getRawFlagValue は argv から指定フラグの生の値を返す。
+ *
+ * citty が `--flag -N` の負数引数をフラグとして解析し、値が空文字になるバグの回避策。
+ * `--flag value` と `--flag=value` の両形式を解析する。
+ */
+export function getRawFlagValue(argv: string[], flagName: string): string | undefined {
+  const longFlag = `--${flagName}`
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (arg === longFlag && i + 1 < argv.length) {
+      return argv[i + 1]
+    }
+    if (arg?.startsWith(`${longFlag}=`)) {
+      return arg.slice(longFlag.length + 1)
+    }
+  }
+  return undefined
+}
+
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
 export async function requireSid(profile?: string): Promise<string> {
   // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)

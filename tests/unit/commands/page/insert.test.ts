@@ -188,6 +188,34 @@ describe("pageInsertCommand", () => {
     expect(capturedInsertCalls[0]?.lines).toContain("stdinの行2")
   })
 
+  it("--after '' (citty のパースバグ: 負数が空文字になるケース) でエラーメッセージに process.argv の実値を表示する", async () => {
+    // citty が --after -1 を --after "" + flag -1 として解析するバグへの対応
+    // process.argv に実際のフラグ値が残っているため、そこから "-1" を取得してエラーメッセージに表示する
+    const originalArgv = process.argv
+    process.argv = ["bun", "cos", "--after", "-1"]
+    try {
+      await runInsert({
+        title: "テストページ",
+        after: "",
+        line: "挿入行",
+        project: "テストプロジェクト",
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    } finally {
+      process.argv = originalArgv
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    // JSON 出力では " が \" にエスケープされるため \"-1\" 形式で含まれることを確認する
+    // (空文字 \"\" ではなく実値 \"-1\" が表示されること)
+    expect(stdoutMock).toHaveBeenCalledWith(expect.stringMatching(/\\"-1\\"/))
+  })
+
   it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
     // citty が --from-file - を "" に変換するバグへの対応
     await runInsert({
