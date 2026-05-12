@@ -23,6 +23,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   type CommonArgs,
+  SidValidationError,
+  assertValidSid,
   buildJsonOpts,
   buildLogger,
   checkSandbox,
@@ -238,6 +240,18 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           process.exit(0)
         }
         sid = input as string
+      }
+
+      // sid フォーマット検証 (制御文字・改行混入によるヘッダインジェクション防止)
+      try {
+        assertValidSid(sid)
+      } catch (err) {
+        if (err instanceof SidValidationError) {
+          writeErrorJson("INVALID_SID", err.message, "有効な connect.sid を指定してください")
+          process.exit(5)
+          return
+        }
+        throw err
       }
 
       logger.info("認証情報を確認中...")
