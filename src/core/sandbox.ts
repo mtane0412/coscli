@@ -62,6 +62,15 @@ export function createPolicy(opts: PolicyOptions): Policy {
   }
 }
 
+/**
+ * normalizeCommand はコマンド/パターン文字列を正規化する。
+ * Unicode 空白文字 (\p{White_Space}) およびゼロ幅文字 (U+200B–U+200F) を除去して小文字化することで、
+ * case-sensitive bypass や不可視文字混入による sandbox 迂回を防ぐ。
+ */
+function normalizeCommand(s: string): string {
+  return s.replace(/[\p{White_Space}​-‏]/gu, "").toLowerCase()
+}
+
 /** mergeList は配列とカンマ区切り文字列をマージして正規化する。 */
 function mergeList(list: string[] | undefined, str: string | undefined): string[] {
   const fromList = list ?? []
@@ -76,13 +85,30 @@ function mergeList(list: string[] | undefined, str: string | undefined): string[
 
 /**
  * isAllowed はコマンドがパターンリストにマッチするか判定する。
- * パターンが "page" のように noun のみの場合、"page.*" 全体にマッチする。
+ *
+ * - `*` / `all`: 全コマンドにマッチ
+ * - `page.*`: page ドメインのすべてのコマンドにマッチ
+ * - `page`: page.* 全体にマッチ (後方互換)
+ * - `page.list`: 完全一致のみマッチ
+ *
+ * 比較前に両辺を normalizeCommand で正規化するため、大文字小文字・Unicode 空白文字を区別しない。
  */
 function isAllowed(command: string, patterns: string[]): boolean {
+  const normalizedCmd = normalizeCommand(command)
   return patterns.some((pattern) => {
-    if (pattern === command) return true
-    // "page" は "page.list", "page.delete" 等にマッチ
-    if (!pattern.includes(".") && command.startsWith(`${pattern}.`)) return true
+    const normalizedPattern = normalizeCommand(pattern)
+    // ワイルドカード: * または all は全コマンドにマッチ
+    if (normalizedPattern === "*" || normalizedPattern === "all") return true
+    // 完全一致
+    if (normalizedPattern === normalizedCmd) return true
+    // "page.*" glob: page.* 全体にマッチ
+    if (normalizedPattern.endsWith(".*")) {
+      const prefix = normalizedPattern.slice(0, -2)
+      if (normalizedCmd.startsWith(`${prefix}.`)) return true
+    }
+    // "page" ワイルドカード: page.list, page.delete 等にマッチ (後方互換)
+    if (!normalizedPattern.includes(".") && normalizedCmd.startsWith(`${normalizedPattern}.`))
+      return true
     return false
   })
 }
