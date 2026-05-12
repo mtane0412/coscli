@@ -201,7 +201,13 @@ export class DryRunWriter implements ScrapboxWriter {
   }
 
   async insertLines(opts: InsertLinesOptions): Promise<DryRunResult> {
-    return { dryRun: true, project: opts.project, title: opts.title, previewLines: opts.lines }
+    const result: DryRunResult = {
+      dryRun: true,
+      project: opts.project,
+      title: opts.title,
+      previewLines: opts.lines,
+    }
+    return result
   }
 
   async deletePage(opts: DeletePageOptions): Promise<DryRunResult> {
