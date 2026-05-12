@@ -60,10 +60,11 @@ export const pageNewCommand = defineCommand({
     } else if (a["from-file"]) {
       const content = readFileSync(a["from-file"], "utf-8")
       lines = content.split("\n")
-    } else if (a.line) {
+    } else if (a.line !== undefined) {
       // citty は --line を複数回渡すと配列になるため、string と string[] の両方に対応する
+      // 実改行（\n, \r\n）とエスケープシーケンス（\\n）の両方を展開する
       const lineValues = Array.isArray(a.line) ? a.line : [a.line]
-      lines = lineValues.flatMap((l) => l.split("\\n"))
+      lines = lineValues.flatMap((l) => l.split(/\r?\n|\\n/))
     }
 
     if (lines.length === 0) {

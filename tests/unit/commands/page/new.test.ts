@@ -144,6 +144,22 @@ describe("pageNewCommand", () => {
     expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
   })
 
+  it("--line 配列要素内の実改行も展開される", async () => {
+    await runNew({
+      title: "テストページ",
+      line: ["行1\n行2", "行3"],
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // 配列要素内の実改行（\n）も分割されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
+  })
+
   it("--dry-run 時は success メッセージが stderr に出力されない", async () => {
     await runNew({
       title: "テストページ",
