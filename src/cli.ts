@@ -205,11 +205,17 @@ const main = defineCommand({
       process.env["COS_DISABLE_COMMANDS"] = args["disable-commands"]
     }
 
+    // --json と --plain は相互排他なのでいずれも指定された場合はエラー
+    if (args.json === true && args.plain === true) {
+      process.stderr.write("error: --json と --plain は同時に指定できません\n")
+      process.exit(5)
+    }
+
     // 出力制御フラグを環境変数経由でサブコマンドへ伝播する
     // buildLogger / buildJsonOpts がこれらの環境変数を参照する
-    if (args.json) process.env["COS_JSON"] = "1"
-    if (args.plain) process.env["COS_PLAIN"] = "1"
-    if (args["results-only"]) process.env["COS_RESULTS_ONLY"] = "1"
+    if (args.json === true) process.env["COS_JSON"] = "1"
+    if (args.plain === true) process.env["COS_PLAIN"] = "1"
+    if (args["results-only"] === true) process.env["COS_RESULTS_ONLY"] = "1"
     if (args.select) process.env["COS_SELECT"] = args.select
   },
   subCommands: {
