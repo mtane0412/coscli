@@ -1,7 +1,7 @@
 {
   "name": "coscli",
   "version": "0.2.0",
-  "description": "Cosense (旧 Scrapbox) 向け AI エージェント親和的 CLI",
+  "description": "Cosense in your terminal — CLI for pages, projects, search, sync, and AI agents.",
   "bin": {
     "cos": "./dist/cos"
   },
