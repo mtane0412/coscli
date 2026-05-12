@@ -3,11 +3,17 @@
  *
  * 使用方法: bun run scripts/build.ts
  * 単一ターゲット: bun run scripts/build.ts --target=bun-darwin-arm64
+ *
+ * VERSION の解決順序:
+ * 1. 環境変数 VERSION が設定されている場合はその値を使用 (CI タグビルド等)
+ * 2. それ以外は package.json の version フィールドを使用
+ * 3. どちらも取得できない場合は "dev" にフォールバック
  */
 
-export {}
+import pkg from "../package.json"
+import { resolveVersion } from "./resolve-version"
 
-const VERSION = process.env["VERSION"] ?? "dev"
+const VERSION = resolveVersion(process.env["VERSION"], pkg.version)
 
 const targets = [
   { target: "bun-darwin-arm64", output: "cos-darwin-arm64" },
