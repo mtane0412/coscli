@@ -77,8 +77,8 @@ describe("isStdinPath", () => {
 
 describe("buildLogger - 環境変数伝播 (COS_JSON / COS_PLAIN)", () => {
   afterEach(() => {
-    process.env["COS_JSON"] = undefined
-    process.env["COS_PLAIN"] = undefined
+    Reflect.deleteProperty(process.env, "COS_JSON")
+    Reflect.deleteProperty(process.env, "COS_PLAIN")
   })
 
   it("COS_JSON=1 が設定されている場合、args.json=false でも info() を stderr へ出力しない (json モード)", () => {
@@ -113,8 +113,8 @@ describe("buildLogger - 環境変数伝播 (COS_JSON / COS_PLAIN)", () => {
 
 describe("buildJsonOpts - 環境変数伝播 (COS_RESULTS_ONLY / COS_SELECT)", () => {
   afterEach(() => {
-    process.env["COS_RESULTS_ONLY"] = undefined
-    process.env["COS_SELECT"] = undefined
+    Reflect.deleteProperty(process.env, "COS_RESULTS_ONLY")
+    Reflect.deleteProperty(process.env, "COS_SELECT")
   })
 
   it("COS_RESULTS_ONLY=1 が設定されている場合、args['results-only']=false でも resultsOnly が true になる", () => {
