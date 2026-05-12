@@ -60,16 +60,18 @@ export const pageRenameCommand = defineCommand({
       const client = await buildRestClient(a)
       try {
         const page = await client.getPage(project, a["new-title"])
-        // persistent:true の場合のみ実体ページが存在するとみなす。
+        // persistent !== false の場合のみ実体ページが存在するとみなす。
         // Cosense REST API は存在しないページに persistent:false のスタブとして 200 を返すため、
         // getPage の成功だけでは重複の証明にならない。(issue #57)
-        if (page.persistent === true) {
+        // persistent が undefined の場合も安全側に倒して実体ページ扱いにする。
+        if (page.persistent !== false) {
           writeErrorJson(
             "DUPLICATE_TITLE",
             `"${a["new-title"]}" は既に存在します`,
             "別のタイトルを指定するか、--force-fallback を使用してください",
           )
           process.exit(5)
+          return
         }
       } catch (err) {
         // 404 (NotFoundError) は正常: 重複なし。その他のエラーは再スロー

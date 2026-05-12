@@ -27,11 +27,13 @@ import { setupServer } from "msw/node"
 // @/core/pages の renamePage をモックして WebSocket 接続を回避する
 // Bun は mock.module をファイル先頭にホイストするため import より前に評価される
 // ---------------------------------------------------------------------------
+const renamePageMock = mock(async () => ({
+  commitId: "ダミーコミットID",
+  pageId: "ダミーページID",
+}))
+
 mock.module("@/core/pages", () => ({
-  renamePage: mock(async () => ({
-    commitId: "ダミーコミットID",
-    pageId: "ダミーページID",
-  })),
+  renamePage: renamePageMock,
 }))
 
 const BASE_URL = "https://scrapbox.io"
@@ -84,6 +86,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   process.env["COS_SID"] = "s%3Atest-session-id"
+  renamePageMock.mockClear()
 })
 
 afterEach(() => {
@@ -168,6 +171,8 @@ describe("pageRenameCommand", () => {
     const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
     expect(exitMock).not.toHaveBeenCalledWith(5)
+    // persistent:false はスタブなので rename が実際に呼ばれることを確認する
+    expect(renamePageMock).toHaveBeenCalledTimes(1)
   })
 
   it("新タイトルが persistent:true のページを返す場合、DUPLICATE_TITLE エラー (exit 5) になる", async () => {
@@ -220,6 +225,8 @@ describe("pageRenameCommand", () => {
     expect(exitMock).toHaveBeenCalledWith(5)
     const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(stdoutOutput).toContain("DUPLICATE_TITLE")
+    // persistent:true は実体ページなので rename が呼ばれないことを確認する
+    expect(renamePageMock).not.toHaveBeenCalled()
   })
 
   it("新タイトルが 404 NotFoundError を返す場合、重複なしとして rename が継続する", async () => {
@@ -251,5 +258,60 @@ describe("pageRenameCommand", () => {
     const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
     expect(exitMock).not.toHaveBeenCalledWith(5)
+    // 404 は重複なしなので rename が実際に呼ばれることを確認する
+    expect(renamePageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("新タイトルが persistent フィールド欠落のページを返す場合、安全側に倒して DUPLICATE_TITLE エラー (exit 5) になる", async () => {
+    // 前提: persistent フィールドが欠落 (undefined) のレスポンスを返す。
+    // 期待: undefined は安全側 (実体ページ) として扱い DUPLICATE_TITLE エラーになる。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const project = decodeURIComponent(params["project"] as string)
+        const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "persistentなしページ") {
+          // persistent フィールドを含まないレスポンス
+          return HttpResponse.json({
+            id: "ambiguous-page-id",
+            title: "persistentなしページ",
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "persistentなしページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "変更元ページ",
+        "new-title": "persistentなしページ",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // persistent が undefined でも安全側に倒して DUPLICATE_TITLE になることを確認する
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).toContain("DUPLICATE_TITLE")
+    // 重複扱いなので rename は呼ばれない
+    expect(renamePageMock).not.toHaveBeenCalled()
   })
 })
