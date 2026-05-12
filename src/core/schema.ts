@@ -14,6 +14,8 @@ export interface SchemaArg {
   name: string
   /** フラグ型 */
   type: "string" | "boolean" | "positional"
+  /** 位置引数かどうか（type === "positional" のとき true） */
+  positional: boolean
   /** フラグ説明 */
   description?: string
   /** alias リスト（string | string[] を string[] に正規化済み） */
@@ -95,9 +97,12 @@ async function buildArgsSchema(cmd: CommandDef): Promise<SchemaArg[]> {
           valueHint?: string
         }>,
       )
+      // type が "positional" の場合は positional フラグを true に設定する
+      const argType = (resolved?.type ?? "string") as SchemaArg["type"]
       const schemaArg: SchemaArg = {
         name,
-        type: (resolved?.type ?? "string") as SchemaArg["type"],
+        type: argType,
+        positional: argType === "positional",
         alias: normalizeAlias(resolved?.alias),
       }
       if (resolved?.description !== undefined) schemaArg.description = resolved.description

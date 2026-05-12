@@ -118,6 +118,24 @@ describe("buildSchema", () => {
     expect(titleArg?.alias).toEqual([])
   })
 
+  it("positional 型の args には positional: true が付与される", async () => {
+    const schema = await buildSchema(rootCommand, "cos")
+    const pageCmd = schema.subCommands.find((c) => c.name === "page")
+    const newCmd = pageCmd?.subCommands.find((c) => c.name === "new")
+    const titleArg = newCmd?.args.find((a) => a.name === "title")
+    // positional フィールドが true であること
+    expect(titleArg?.positional).toBe(true)
+  })
+
+  it("非 positional な args には positional: false が付与される", async () => {
+    const schema = await buildSchema(rootCommand, "cos")
+    const pageCmd = schema.subCommands.find((c) => c.name === "page")
+    const listCmd = pageCmd?.subCommands.find((c) => c.name === "list")
+    const projectArg = listCmd?.args.find((a) => a.name === "project")
+    // フラグ引数は positional が false であること
+    expect(projectArg?.positional).toBe(false)
+  })
+
   it("Resolvable<T> が関数の場合でも解決される", async () => {
     const lazyCommand: CommandDef = {
       meta: () => ({ name: "lazy", description: "遅延解決テスト" }),
