@@ -48,7 +48,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
+  process.env["COS_SID"] = "s%3Atest-session-id"
   // 各テスト前にキャプチャを初期化する
   capturedInsertCalls.length = 0
 })
