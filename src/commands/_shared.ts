@@ -167,7 +167,7 @@ export function buildJsonOpts(args: CommonArgs): JsonOutputOptions {
 }
 
 /**
- * isStdinPath は --from-file の値が stdin を指すかどうかを判定する。
+ * isStdinPath は path が stdin を指すかどうかを示す boolean を返す。
  *
  * citty が `--from-file -` の `-` を空文字列 `""` に変換するため、
  * `""` も stdin (`"-"`) と同等に扱う。
