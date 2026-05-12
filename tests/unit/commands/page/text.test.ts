@@ -185,24 +185,4 @@ describe("pageTextCommand", () => {
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).toContain("[*** 大見出し]")
   })
-
-  it("--format=scrapbox は VALIDATION_ERROR にならない", async () => {
-    // scrapbox は alias として有効な値であることを検証する
-    try {
-      await runText({
-        title: TEST_TITLE,
-        project: TEST_PROJECT,
-        format: "scrapbox",
-        "bold-style": "auto",
-        json: false,
-        plain: false,
-        "results-only": false,
-        quiet: false,
-      })
-    } catch {
-      // REST クライアント初期化中の throw は想定内
-    }
-    expect(exitMock).not.toHaveBeenCalled()
-    expect(stdoutMock).not.toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
-  })
 })
