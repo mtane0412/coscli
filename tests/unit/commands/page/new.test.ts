@@ -1,7 +1,7 @@
 /**
  * page/new.test.ts — `cos page new <title>` コマンドのテスト。
  *
- * --line の \n 展開と --dry-run 時の success メッセージ抑制を検証する。
+ * --line の \n 展開、--line 複数指定、--dry-run 時の success メッセージ抑制を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
@@ -110,6 +110,54 @@ describe("pageNewCommand", () => {
     // createPage が呼ばれ、lines が ["行1", "行2"] に分割されること
     expect(capturedCreatePageCalls).toHaveLength(1)
     expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2"])
+  })
+
+  it("--line を配列で複数指定した場合は createPage に複数行で渡される", async () => {
+    await runNew({
+      title: "テストページ",
+      line: ["行1", "行2", "行3"],
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // --line を複数回渡すと citty が配列にするため、lines に全要素が渡されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
+  })
+
+  it("--line を配列で渡した場合も \\n 区切りが展開される", async () => {
+    await runNew({
+      title: "テストページ",
+      line: ["行1\\n行2", "行3"],
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // 配列内の各要素も \n で分割されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
+  })
+
+  it("--line 配列要素内の実改行も展開される", async () => {
+    await runNew({
+      title: "テストページ",
+      line: ["行1\n行2", "行3"],
+      project: "テストプロジェクト",
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+    })
+    // 配列要素内の実改行（\n）も分割されること
+    expect(capturedCreatePageCalls).toHaveLength(1)
+    expect(capturedCreatePageCalls[0]?.lines).toEqual(["行1", "行2", "行3"])
   })
 
   it("--dry-run 時は success メッセージが stderr に出力されない", async () => {
