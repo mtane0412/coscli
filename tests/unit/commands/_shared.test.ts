@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "bun:test"
-import { commonArgs, dryRunArg } from "@/commands/_shared"
+import { commonArgs, dryRunArg, isStdinPath } from "@/commands/_shared"
 
 describe("commonArgs", () => {
   it("--dry-run キーを含まない (読み取り専用コマンド向け)", () => {
@@ -29,5 +29,29 @@ describe("dryRunArg", () => {
 
   it("dry-run フラグのデフォルト値は false", () => {
     expect(dryRunArg["dry-run"].default).toBe(false)
+  })
+})
+
+describe("isStdinPath", () => {
+  it('"-" はstdinパスとして認識される', () => {
+    // cos page new --from-file - のように明示的に - を渡したケース
+    expect(isStdinPath("-")).toBe(true)
+  })
+
+  it('"" (空文字) はstdinパスとして認識される (citty が --from-file - を空文字に変換するバグへの対応)', () => {
+    // citty のパースバグで --from-file - が "" として渡されるケース
+    expect(isStdinPath("")).toBe(true)
+  })
+
+  it('"somefile.txt" はstdinパスとして認識されない', () => {
+    expect(isStdinPath("somefile.txt")).toBe(false)
+  })
+
+  it('"/tmp/content.txt" はstdinパスとして認識されない', () => {
+    expect(isStdinPath("/tmp/content.txt")).toBe(false)
+  })
+
+  it("undefined はstdinパスとして認識されない", () => {
+    expect(isStdinPath(undefined)).toBe(false)
   })
 })

@@ -166,6 +166,16 @@ export function buildJsonOpts(args: CommonArgs): JsonOutputOptions {
   return opts
 }
 
+/**
+ * isStdinPath は --from-file の値が stdin を指すかどうかを判定する。
+ *
+ * citty が `--from-file -` の `-` を空文字列 `""` に変換するため、
+ * `""` も stdin (`"-"`) と同等に扱う。
+ */
+export function isStdinPath(path: string | undefined): boolean {
+  return path === "-" || path === ""
+}
+
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
 export async function requireSid(profile?: string): Promise<string> {
   // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
