@@ -29,10 +29,10 @@ describe("color.ts", () => {
 
     test("always モードで color.red が ANSI コードを含む", () => {
       initColor("always")
-      const 結果 = color.red("テスト文字列")
-      expect(結果).toContain("テスト文字列")
+      const result = color.red("テスト文字列")
+      expect(result).toContain("テスト文字列")
       // ANSI コード付きのため元の文字列とは異なるはず
-      expect(結果).not.toBe("テスト文字列")
+      expect(result).not.toBe("テスト文字列")
     })
 
     test("never モードで color.gray が ANSI なしを返す", () => {
@@ -42,9 +42,9 @@ describe("color.ts", () => {
 
     test("always モードで color.gray が ANSI コードを含む", () => {
       initColor("always")
-      const 結果 = color.gray("グレー文字")
-      expect(結果).toContain("グレー文字")
-      expect(結果).not.toBe("グレー文字")
+      const result = color.gray("グレー文字")
+      expect(result).toContain("グレー文字")
+      expect(result).not.toBe("グレー文字")
     })
   })
 })

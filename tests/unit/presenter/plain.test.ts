@@ -25,7 +25,7 @@ function createMockStream() {
   }
 }
 
-/** containsAnsi は文字列に ANSI エスケープコード (ESC + '[') が含まれるか判定する。 */
+/** containsAnsi は文字列に ANSI エスケープコード (ESC: 0x1B) が含まれるか判定する。 */
 function containsAnsi(s: string): boolean {
   // ESC (0x1B) の文字コードで判定する（正規表現の制御文字を避けるため）
   return s.split("").some((c) => c.charCodeAt(0) === 0x1b)
