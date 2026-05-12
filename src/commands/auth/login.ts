@@ -9,6 +9,9 @@
  * - --browser と --no-input は同時指定不可 (exit 5、ブラウザログインは対話前提)
  * - --no-input 時は --sid が必須 (exit 5)
  *
+ * 実装上の注意: citty は --no-X を args.X = false に自動変換するため、
+ * args 定義は `input: { default: true }` とし、--no-input で input = false になることを利用する。
+ *
  * --browser フロー:
  * 1. Chrome/Chromium を CDP デバッグポートで起動する
  * 2. https://scrapbox.io/login を表示してユーザーにログインさせる
@@ -72,10 +75,11 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         type: "string",
         description: "connect.sid の値 (--no-input 時に使用)",
       },
-      "no-input": {
+      input: {
         type: "boolean",
-        description: "対話入力を禁止 (CI/エージェント向け)",
-        default: false,
+        description:
+          "対話入力を許可 (デフォルト: true)。--no-input で禁止 (CI/エージェント向け、要 --sid)",
+        default: true,
       },
       browser: {
         type: "boolean",
@@ -100,7 +104,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
     async run({ args }) {
       type LoginArgs = CommonArgs & {
         sid?: string
-        "no-input": boolean
+        input: boolean
         browser: boolean
         "browser-path"?: string
         "browser-port": string
@@ -123,7 +127,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
       }
 
       // 排他チェック: --browser と --no-input
-      if (a.browser && a["no-input"]) {
+      if (a.browser && !a.input) {
         writeErrorJson(
           "BROWSER_REQUIRES_INPUT",
           "--browser フラグはブラウザでの手動ログインが必要なため --no-input と併用できません。",
@@ -215,7 +219,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         }
       } else if (a.sid) {
         sid = a.sid
-      } else if (a["no-input"]) {
+      } else if (!a.input) {
         writeErrorJson("SID_REQUIRED", "--no-input モードでは --sid フラグが必要です")
         process.exit(5)
         return

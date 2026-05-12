@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn
 import { createAuthLoginCommand } from "@/commands/auth/login"
 import type { BrowserLoginDeps } from "@/core/auth/browser-login"
 import { InMemoryTokenStore } from "@/core/auth/store"
+import { runCommand } from "citty"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 
@@ -106,7 +107,7 @@ describe("authLoginCommand — 排他チェック", () => {
     await runLogin({
       browser: true,
       sid: "何かのSID",
-      "no-input": false,
+      input: true,
       profile: "default",
       json: false,
       plain: false,
@@ -119,7 +120,7 @@ describe("authLoginCommand — 排他チェック", () => {
   it("--browser と --no-input を同時指定した場合は exit 5 で終了する", async () => {
     await runLogin({
       browser: true,
-      "no-input": true,
+      input: false,
       profile: "default",
       json: false,
       plain: false,
@@ -136,7 +137,7 @@ describe("authLoginCommand — --browser フロー", () => {
     await runLogin(
       {
         browser: true,
-        "no-input": false,
+        input: true,
         profile: "default",
         json: false,
         plain: false,
@@ -161,7 +162,7 @@ describe("authLoginCommand — --browser フロー", () => {
     await runLogin(
       {
         browser: true,
-        "no-input": false,
+        input: true,
         profile: "default",
         json: false,
         plain: false,
@@ -182,7 +183,7 @@ describe("authLoginCommand — --browser フロー", () => {
     await runLogin(
       {
         browser: true,
-        "no-input": false,
+        input: true,
         profile: "default",
         json: false,
         plain: false,
@@ -203,7 +204,7 @@ describe("authLoginCommand — --browser フロー", () => {
     await runLogin(
       {
         browser: true,
-        "no-input": false,
+        input: true,
         profile: "default",
         json: false,
         plain: false,
@@ -222,7 +223,7 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
   it("--sid 指定時は getMe で検証してログインする", async () => {
     await runLogin({
       sid: testSid,
-      "no-input": false,
+      input: true,
       browser: false,
       profile: "default",
       json: false,
@@ -239,7 +240,7 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
 
   it("--no-input かつ --sid 未指定の場合は exit 5 で終了する", async () => {
     await runLogin({
-      "no-input": true,
+      input: false,
       browser: false,
       profile: "default",
       json: false,
@@ -247,6 +248,15 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
       quiet: false,
       verbose: false,
     })
+    expect(exitMock).toHaveBeenCalledWith(5)
+  })
+
+  it("rawArgs ['--no-input'] が citty parser を経由しても exit 5 で終了する (issue #39 回帰)", async () => {
+    // citty パーサは --no-X を args.X = false に変換する。
+    // このテストは CLI から実際に --no-input を渡した場合の経路を再現し、
+    // 修正前は対話プロンプトに突入してハングすることを確認するために追加した。
+    const command = createAuthLoginCommand({ createStore: () => new InMemoryTokenStore() })
+    await runCommand(command, { rawArgs: ["--no-input"] })
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 })
