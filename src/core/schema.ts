@@ -8,20 +8,22 @@
 import { groupSubCommandsByAlias, resolveValue } from "@/infra/help"
 import type { ArgsDef, CommandDef, Resolvable } from "citty"
 
-/** SchemaArg はコマンドフラグ 1 個のスキーマ表現。 */
+/** SchemaArg はコマンド引数（フラグ・位置引数）1 個のスキーマ表現。 */
 export interface SchemaArg {
-  /** フラグ名 */
+  /** 引数名 */
   name: string
-  /** フラグ型 */
+  /** 引数型 */
   type: "string" | "boolean" | "positional"
-  /** フラグ説明 */
+  /** 位置引数かどうか（type === "positional" のとき true） */
+  positional: boolean
+  /** 引数の説明 */
   description?: string
   /** alias リスト（string | string[] を string[] に正規化済み） */
   alias: string[]
   /** デフォルト値 */
   default?: string | boolean
-  /** 必須フラグかどうか */
-  required?: boolean
+  /** 必須かどうか（位置引数はデフォルト true、フラグはデフォルト false） */
+  required: boolean
   /** 値のヒント文字列 */
   valueHint?: string
 }
@@ -62,6 +64,20 @@ interface ParsedGroupKey {
  * groupKey のフォーマット変更に対して堅牢になるよう正規表現で検証する。
  * 不正なフォーマットの場合は aliasKeys を空配列として安全にフォールバックする。
  */
+/** 許可された引数型のセット */
+const VALID_ARG_TYPES = new Set<SchemaArg["type"]>(["string", "boolean", "positional"])
+
+/**
+ * normalizeArgType は citty の arg type 文字列を SchemaArg["type"] に正規化する。
+ * 未知の値（例: "enum"）は安全なデフォルト "string" にフォールバックする。
+ */
+function normalizeArgType(type: string | undefined): SchemaArg["type"] {
+  if (type !== undefined && VALID_ARG_TYPES.has(type as SchemaArg["type"])) {
+    return type as SchemaArg["type"]
+  }
+  return "string"
+}
+
 function parseGroupKey(groupKey: string): ParsedGroupKey {
   const match = /^(.+?) \((.+)\)$/.exec(groupKey)
   if (!match) {
@@ -95,14 +111,19 @@ async function buildArgsSchema(cmd: CommandDef): Promise<SchemaArg[]> {
           valueHint?: string
         }>,
       )
+      // 不正な type 値が混入しないよう normalizeArgType で検証・正規化する
+      const argType = normalizeArgType(resolved?.type)
+      const isPositional = argType === "positional"
+      // required は常に boolean で出力する。未指定の場合は位置引数なら true、フラグなら false
       const schemaArg: SchemaArg = {
         name,
-        type: (resolved?.type ?? "string") as SchemaArg["type"],
+        type: argType,
+        positional: isPositional,
+        required: resolved?.required ?? isPositional,
         alias: normalizeAlias(resolved?.alias),
       }
       if (resolved?.description !== undefined) schemaArg.description = resolved.description
       if (resolved?.default !== undefined) schemaArg.default = resolved.default
-      if (resolved?.required !== undefined) schemaArg.required = resolved.required
       if (resolved?.valueHint !== undefined) schemaArg.valueHint = resolved.valueHint
       return schemaArg
     }),
