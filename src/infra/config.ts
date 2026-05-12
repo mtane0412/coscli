@@ -77,9 +77,28 @@ export function saveConfig(config: CoscliConfig, filePath: string = defaultConfi
   writeFileSync(filePath, header + JSON.stringify(config, null, 2))
 }
 
+/** FORBIDDEN_KEYS は prototype 汚染を引き起こす危険なキー名の集合。 */
+const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"])
+
+/**
+ * assertSafeKey はキーが安全かどうかを検証する。
+ * 危険なキーが含まれている場合は Error を throw する。
+ */
+function assertSafeKeys(parts: string[]): void {
+  for (const part of parts) {
+    if (FORBIDDEN_KEYS.has(part)) {
+      throw new Error(`設定キーに不正な値が含まれています: "${part}"`)
+    }
+  }
+}
+
 /** getConfigValue は設定のネストしたキーを . 区切りで取得する。 */
 export function getConfigValue(config: CoscliConfig, key: string): unknown {
   const parts = key.split(".")
+  // 禁止キーへのアクセスは undefined を返して prototype 汚染を防ぐ
+  for (const part of parts) {
+    if (FORBIDDEN_KEYS.has(part)) return undefined
+  }
   let current: unknown = config
   for (const part of parts) {
     if (current === null || typeof current !== "object") return undefined
@@ -91,6 +110,8 @@ export function getConfigValue(config: CoscliConfig, key: string): unknown {
 /** setConfigValue は設定のネストしたキーを . 区切りで設定する。 */
 export function setConfigValue(config: CoscliConfig, key: string, value: unknown): CoscliConfig {
   const parts = key.split(".")
+  // 禁止キーが含まれていれば即座に throw して prototype 汚染を防ぐ
+  assertSafeKeys(parts)
   const updated = structuredClone(config) as Record<string, unknown>
   let current = updated
   for (const part of parts.slice(0, -1)) {
