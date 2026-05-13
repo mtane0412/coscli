@@ -6,7 +6,6 @@
  * --after 0 以下または lines 数超の値は VALIDATION_ERROR (exit 5) で終了する。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -18,8 +17,10 @@ import {
   getRawFlagValue,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { insertIntoPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -28,6 +29,7 @@ export const pageInsertCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -53,6 +55,7 @@ export const pageInsertCommand = defineCommand({
       after: string
       line?: string
       "from-file"?: string
+      "allow-unsafe-read": boolean
     }
     checkSandbox("page.insert", a)
     const logger = buildLogger(a)
@@ -78,20 +81,38 @@ export const pageInsertCommand = defineCommand({
     if (a.line !== undefined) {
       lines = a.line.split(/\r?\n|\\n/)
     } else if (a["from-file"] !== undefined) {
-      try {
-        // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
-        const content = isStdinPath(a["from-file"])
-          ? readFileSync(0, "utf-8")
-          : readFileSync(a["from-file"], "utf-8")
-        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch {
-        writeErrorJson(
-          "VALIDATION_ERROR",
-          `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
-          "ファイルパスが正しいか確認してください",
-        )
-        process.exit(5)
-        return
+      // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
+      if (isStdinPath(a["from-file"])) {
+        try {
+          const content = readStdinBounded()
+          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+        } catch (err) {
+          if (err instanceof UnsafePathError) {
+            // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
+            writeErrorJson("UNSAFE_PATH", err.message)
+            process.exit(5)
+            return
+          }
+          throw err
+        }
+      } else {
+        try {
+          const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
+          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+        } catch (err) {
+          if (err instanceof UnsafePathError) {
+            writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+            process.exit(5)
+            return
+          }
+          writeErrorJson(
+            "VALIDATION_ERROR",
+            `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
+            "ファイルパスが正しいか確認してください",
+          )
+          process.exit(5)
+          return
+        }
       }
     }
 

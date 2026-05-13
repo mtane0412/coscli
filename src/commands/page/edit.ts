@@ -7,7 +7,6 @@
  * --dry-run で変更内容のプレビューのみ表示する。
  */
 
-import { readFileSync } from "node:fs"
 import {
   type WriteCommonArgs,
   buildJsonOpts,
@@ -18,9 +17,11 @@ import {
   dryRunArg,
   isStdinPath,
   requireProject,
+  unsafeReadArg,
 } from "@/commands/_shared"
 import { convert } from "@/core/format/index"
 import { editPage } from "@/core/pages"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -31,6 +32,7 @@ export const pageEditCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...unsafeReadArg,
     title: {
       type: "positional",
       description: "ページタイトル",
@@ -52,6 +54,7 @@ export const pageEditCommand = defineCommand({
       title: string
       "from-file": string
       "input-format": string
+      "allow-unsafe-read": boolean
     }
     checkSandbox("page.edit", a)
     const logger = buildLogger(a)
@@ -71,10 +74,29 @@ export const pageEditCommand = defineCommand({
 
     let content: string
     if (isStdinPath(a["from-file"])) {
-      // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
-      content = readFileSync(0, "utf-8")
+      try {
+        // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
+        content = readStdinBounded()
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
+          writeErrorJson("UNSAFE_PATH", err.message)
+          process.exit(5)
+          return
+        }
+        throw err
+      }
     } else {
-      content = readFileSync(a["from-file"], "utf-8")
+      try {
+        content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
+      } catch (err) {
+        if (err instanceof UnsafePathError) {
+          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+          process.exit(5)
+          return
+        }
+        throw err
+      }
     }
 
     // MD フォーマットの場合は Scrapbox 記法に変換する

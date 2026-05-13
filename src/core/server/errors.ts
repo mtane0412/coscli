@@ -25,6 +25,7 @@ export type ErrorCode =
   | "VALIDATION_ERROR"
   | "POLICY_DENIED"
   | "INVALID_JSON"
+  | "BODY_TOO_LARGE"
   | "PROXY_AUTH_REQUIRED"
   | "WRITE_DISABLED"
   | "ROUTE_NOT_FOUND"
@@ -83,6 +84,10 @@ export function toHttpResponse(err: unknown): Response {
   }
   if (err instanceof SyntaxError) {
     return buildErrorResponse(400, "INVALID_JSON", err.message)
+  }
+  // parseJsonBody がスローする BODY_TOO_LARGE エラー
+  if (err instanceof Error && (err as Error & { code?: string }).code === "BODY_TOO_LARGE") {
+    return buildErrorResponse(413, "BODY_TOO_LARGE", err.message)
   }
   // 内部エラーの詳細はクライアントに漏洩させず、汎用メッセージを返す
   return buildErrorResponse(500, "INTERNAL_ERROR", "予期しないエラーが発生しました")
