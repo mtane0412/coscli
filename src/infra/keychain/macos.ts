@@ -8,6 +8,14 @@ import { type SpawnOptions, type Spawner, type SubprocessLike, defaultSpawner } 
 
 const SERVICE = "coscli"
 
+/**
+ * shellQuote は security -i コマンド行に渡す引数を single-quote でエスケープする。
+ * シングルクォートは `'\''` に変換して安全に埋め込む。
+ */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`
+}
+
 /** MacOSKeychainStore は macOS の security コマンド経由で Keychain にアクセスする。 */
 export class MacOSKeychainStore implements TokenStore {
   private readonly spawn: Spawner
@@ -19,18 +27,10 @@ export class MacOSKeychainStore implements TokenStore {
 
   async save(profile: string, sid: string): Promise<void> {
     validateProfile(profile)
-    // すでに存在する場合は update、なければ add
-    const result = await this.run([
-      "security",
-      "add-generic-password",
-      "-s",
-      SERVICE,
-      "-a",
-      profile,
-      "-w",
-      sid,
-      "-U",
-    ])
+    // security -i モードでコマンドを stdin 経由で渡す。
+    // argv は ["security", "-i"] のみで sid が ps に露出しない。
+    const cmd = `add-generic-password -s ${shellQuote(SERVICE)} -a ${shellQuote(profile)} -w ${shellQuote(sid)} -U\n`
+    const result = await this.run(["security", "-i"], { stdin: new TextEncoder().encode(cmd) })
     if (!result.success) {
       throw new Error(`Keychain への保存に失敗しました: ${result.stderr}`)
     }
