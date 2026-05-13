@@ -258,8 +258,11 @@ export class CosenseRestClient {
   private async handleError(response: Response, url: string): Promise<never> {
     if (response.status === 401) throw new AuthError()
     if (response.status === 403) throw new ForbiddenError()
-    if (response.status === 404) throw new NotFoundError(url)
+    if (response.status === 404) throw new NotFoundError(new URL(url).pathname)
     if (response.status === 429) throw new RateLimitError()
-    throw new CosenseApiError(response.status, `API エラー: ${response.status} ${url}`)
+    throw new CosenseApiError(
+      response.status,
+      `API エラー: ${response.status} ${new URL(url).pathname}`,
+    )
   }
 }
