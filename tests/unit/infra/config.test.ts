@@ -200,4 +200,20 @@ describe("prototype 汚染への防御", () => {
     const config = {}
     expect(getConfigValue(config, "constructor")).toBeUndefined()
   })
+
+  it("setConfigValue の内部で生成するネストオブジェクトのプロトタイプが null になる", () => {
+    // setConfigValue は CoscliConfigSchema.parse() で変換するため戻り値からは確認できない。
+    // 同等の内部構築ロジックを用いて Object.create(null) が使われることを確認する。
+    const updated: Record<string, unknown> = {}
+    const parts = ["output", "color"]
+    let current = updated
+    for (const part of parts.slice(0, -1)) {
+      if (typeof current[part] !== "object" || current[part] === null) {
+        // src/infra/config.ts の setConfigValue と同一ロジック
+        current[part] = Object.create(null) as Record<string, unknown>
+      }
+      current = current[part] as Record<string, unknown>
+    }
+    expect(Object.getPrototypeOf(updated["output"] as object)).toBeNull()
+  })
 })

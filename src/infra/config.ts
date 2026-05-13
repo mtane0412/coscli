@@ -116,7 +116,7 @@ export function setConfigValue(config: CoscliConfig, key: string, value: unknown
   let current = updated
   for (const part of parts.slice(0, -1)) {
     if (typeof current[part] !== "object" || current[part] === null) {
-      current[part] = {}
+      current[part] = Object.create(null) as Record<string, unknown>
     }
     current = current[part] as Record<string, unknown>
   }
