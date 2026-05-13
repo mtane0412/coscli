@@ -19,6 +19,8 @@ import { type Me, MeSchema } from "@/schemas/user"
 import { z } from "zod"
 
 const BASE_URL = "https://scrapbox.io"
+const ALLOWED_ORIGIN = new URL(BASE_URL).origin
+const MAX_REDIRECTS = 5
 
 /** CosenseApiError は API エラーの基底クラス。 */
 export class CosenseApiError extends Error {
@@ -210,21 +212,47 @@ export class CosenseRestClient {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.timeout)
 
-    let response: Response
     try {
-      response = await fetch(url, {
-        headers: this.buildHeaders(),
-        signal: controller.signal,
-      })
+      let currentUrl = url
+      for (let redirectCount = 0; ; redirectCount++) {
+        const response = await fetch(currentUrl, {
+          headers: this.buildHeaders(),
+          signal: controller.signal,
+          redirect: "manual",
+        })
+
+        // 3xx リダイレクト応答を手動処理 (Cookie の外部漏洩防止)
+        if (response.status >= 300 && response.status < 400) {
+          if (redirectCount >= MAX_REDIRECTS) {
+            throw new CosenseApiError(
+              0,
+              `リダイレクトの上限 (${MAX_REDIRECTS} 回) に達しました: ${url}`,
+            )
+          }
+          const location = response.headers.get("Location")
+          if (!location) {
+            throw new CosenseApiError(0, `Location ヘッダが見つかりません: ${currentUrl}`)
+          }
+          const redirectUrl = new URL(location, currentUrl)
+          if (redirectUrl.origin !== ALLOWED_ORIGIN) {
+            throw new CosenseApiError(
+              0,
+              `外部ドメインへのリダイレクトを拒否しました: ${redirectUrl.origin}`,
+            )
+          }
+          currentUrl = redirectUrl.href
+          continue
+        }
+
+        if (!response.ok) {
+          await this.handleError(response, url)
+        }
+
+        return response
+      }
     } finally {
       clearTimeout(timer)
     }
-
-    if (!response.ok) {
-      await this.handleError(response, url)
-    }
-
-    return response
   }
 
   private async handleError(response: Response, url: string): Promise<never> {
