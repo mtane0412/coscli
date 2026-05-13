@@ -60,16 +60,42 @@ describe("CosenseRestClient — リダイレクト制御", () => {
 
   it("5 回を超えるリダイレクトはエラーをスローする (ループ防止)", async () => {
     // 同一 URL への永続リダイレクトでループを発生させる
+    let callCount = 0
     server.use(
       http.get(`${BASE_URL}/api/users/me`, () => {
+        callCount++
         return new HttpResponse(null, {
           status: 302,
           headers: { Location: `${BASE_URL}/api/users/me` },
         })
       }),
     )
-    // タイムアウトを短く設定してループが早期終了することを確認する
-    const client = new CosenseRestClient({ sid: TEST_SID, timeout: 5000 })
-    await expect(client.getMe()).rejects.toThrow()
-  }, 10000)
+    const client = new CosenseRestClient({ sid: TEST_SID, timeout: 10000 })
+    await expect(client.getMe()).rejects.toThrow("リダイレクトの上限")
+    // MAX_REDIRECTS=5 なので 6 回目のリクエストでエラーになる
+    expect(callCount).toBe(6)
+  }, 15000)
+
+  it("相対 Location ヘッダ (クエリのみ) を currentUrl 基準に解決してリダイレクトを追従する", async () => {
+    // ?v=2 のような相対 URL を BASE_URL 基準で解決するとパスが消えてしまうため
+    // currentUrl を基準に解決することを確認する
+    let callCount = 0
+    server.use(
+      http.get(`${BASE_URL}/api/users/me`, () => {
+        callCount++
+        if (callCount === 1) {
+          // クエリのみの相対 URL: currentUrl 基準なら /api/users/me?v=2 になる
+          return new HttpResponse(null, {
+            status: 302,
+            headers: { Location: "?v=2" },
+          })
+        }
+        return HttpResponse.json(meFixture)
+      }),
+    )
+    const client = new CosenseRestClient({ sid: TEST_SID })
+    const me = await client.getMe()
+    expect(me.name).toBe("テストユーザー")
+    expect(callCount).toBe(2)
+  })
 })

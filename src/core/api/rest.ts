@@ -233,7 +233,7 @@ export class CosenseRestClient {
           if (!location) {
             throw new CosenseApiError(0, `Location ヘッダが見つかりません: ${currentUrl}`)
           }
-          const redirectUrl = new URL(location, BASE_URL)
+          const redirectUrl = new URL(location, currentUrl)
           if (redirectUrl.origin !== ALLOWED_ORIGIN) {
             throw new CosenseApiError(
               0,
