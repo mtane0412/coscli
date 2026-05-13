@@ -44,6 +44,21 @@ describe("MacOSKeychainStore", () => {
         "Keychain への保存に失敗しました",
       )
     })
+
+    it("sid にシングルクォートを含む場合も正しくエスケープして stdin に渡す", async () => {
+      // shellQuote の回帰テスト: sid にシングルクォートが含まれてもコマンドインジェクションが起きないことを確認する
+      // (profile はバリデーションでシングルクォートが禁止されているため sid のみを対象とする)
+      const { spawner, getCall } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await store.save("通常プロファイル", "sid'123")
+
+      const stdin = getCall(0).options?.stdin
+      expect(stdin).toBeInstanceOf(Uint8Array)
+      const decoded = new TextDecoder().decode(stdin as Uint8Array)
+      expect(decoded).toContain("add-generic-password")
+      // ' は '\'' にエスケープされ、全体が ' で囲まれる ('sid'\''123')
+      expect(decoded).toContain("'sid'\\''123'")
+    })
   })
 
   describe("load", () => {

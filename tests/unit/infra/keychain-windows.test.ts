@@ -59,6 +59,15 @@ describe("WindowsKeychainStore", () => {
       const store = new WindowsKeychainStore(spawner)
       await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow("Install-Module")
     })
+
+    it("exit code 2 のエラーメッセージが保存操作を示している", async () => {
+      // save() 専用のメッセージ (「保存に失敗しました」) が返ること。load() 用の「読み出しに失敗しました」ではないことを確認する
+      const { spawner } = captureSpawner("", "", 2)
+      const store = new WindowsKeychainStore(spawner)
+      await expect(store.save("テストプロファイル", "sid-abc")).rejects.toThrow(
+        "保存に失敗しました",
+      )
+    })
   })
 
   describe("load", () => {

@@ -23,8 +23,14 @@ const POWERSHELL_NOT_FOUND_MESSAGE =
   "PowerShell は Windows に標準インストールされています。\n" +
   "または cos auth login --insecure-file-store でファイル代替ストアを使用してください。"
 
-const CREDENTIAL_MANAGER_INSTALL_MESSAGE =
+const CREDENTIAL_MANAGER_LOAD_INSTALL_MESSAGE =
   "Windows Credential Manager の読み出しに失敗しました。\n" +
+  "PowerShell で次を実行してモジュールをインストールしてください:\n" +
+  "  Install-Module CredentialManager -Scope CurrentUser\n" +
+  "または cos auth login --insecure-file-store で代替ストアを使用してください。"
+
+const CREDENTIAL_MANAGER_SAVE_INSTALL_MESSAGE =
+  "Windows Credential Manager への保存に失敗しました。\n" +
   "PowerShell で次を実行してモジュールをインストールしてください:\n" +
   "  Install-Module CredentialManager -Scope CurrentUser\n" +
   "または cos auth login --insecure-file-store で代替ストアを使用してください。"
@@ -69,7 +75,7 @@ export class WindowsKeychainStore implements TokenStore {
     }
     const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited])
     if (exitCode === 2) {
-      throw new Error(`${CREDENTIAL_MANAGER_INSTALL_MESSAGE}\n詳細: ${stderr.trim()}`)
+      throw new Error(`${CREDENTIAL_MANAGER_SAVE_INSTALL_MESSAGE}\n詳細: ${stderr.trim()}`)
     }
     if (exitCode !== 0) {
       throw new Error(`Windows Credential Manager への保存に失敗しました: ${stderr}`)
@@ -105,7 +111,7 @@ export class WindowsKeychainStore implements TokenStore {
       proc.exited,
     ])
     if (exitCode === 2) {
-      throw new Error(`${CREDENTIAL_MANAGER_INSTALL_MESSAGE}\n詳細: ${stderr.trim()}`)
+      throw new Error(`${CREDENTIAL_MANAGER_LOAD_INSTALL_MESSAGE}\n詳細: ${stderr.trim()}`)
     }
     if (exitCode !== 0) return null
     return stdout.trim() || null
