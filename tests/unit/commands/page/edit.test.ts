@@ -1,7 +1,8 @@
 /**
  * page/edit.test.ts — `cos page edit <title>` コマンドのテスト。
  *
- * バリデーション (--input-format の無効値、空コンテンツ) を検証する。
+ * バリデーション (--input-format の無効値、空コンテンツ) と
+ * Cosense 記法 lint 統合 (warnings / --strict-notation) を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -54,6 +55,7 @@ describe("pageEditCommand", () => {
         plain: false,
         "results-only": false,
         "dry-run": false,
+        "strict-notation": false,
         quiet: false,
       })
     } catch {
@@ -75,6 +77,7 @@ describe("pageEditCommand", () => {
         plain: false,
         "results-only": false,
         "dry-run": false,
+        "strict-notation": false,
         quiet: false,
       })
     } catch {
@@ -99,6 +102,7 @@ describe("pageEditCommand", () => {
       plain: false,
       "results-only": false,
       "dry-run": true,
+      "strict-notation": false,
       quiet: false,
     })
     // VALIDATION_ERROR が出ていないこと (MD フォーマットは有効)
@@ -106,5 +110,76 @@ describe("pageEditCommand", () => {
     expect(calls).not.toContain("VALIDATION_ERROR")
     // exit 5 が呼ばれていないこと (MD フォーマットはバリデーションを通過する)
     expect(exitMock).not.toHaveBeenCalledWith(5)
+  })
+
+  describe("Cosense 記法 lint 統合", () => {
+    it("誤用記法があると --json 出力の meta.warnings に含まれる", async () => {
+      // [*テスト] はスペースなし → no-space-in-emphasis が検出される
+      const tmpFile = join(tmpdir(), `cos-test-edit-lint-${Date.now()}.txt`)
+      writeFileSync(tmpFile, "[*テスト]\n正常な行\n")
+      await runEdit({
+        title: "記法テストページ",
+        "from-file": tmpFile,
+        "input-format": "txt",
+        project: "テストプロジェクト",
+        json: true,
+        plain: false,
+        "results-only": false,
+        "dry-run": true,
+        "strict-notation": false,
+        quiet: false,
+      })
+      const out = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      const parsed = JSON.parse(out)
+      // meta.warnings に lint 結果が含まれること
+      expect(Array.isArray(parsed.meta?.warnings)).toBe(true)
+      expect(parsed.meta.warnings.length).toBeGreaterThan(0)
+      expect(parsed.meta.warnings[0]).toContain("no-space-in-emphasis")
+    })
+
+    it("正常な記法のファイルは meta.warnings が空配列", async () => {
+      // 正しいCosense記法: 大きいサイズが先に来る (*** → ** の順)
+      const tmpFile = join(tmpdir(), `cos-test-edit-lint-ok-${Date.now()}.txt`)
+      writeFileSync(tmpFile, "[*** 大見出し]\n[** 中見出し]\n通常テキスト\n")
+      await runEdit({
+        title: "記法正常テストページ",
+        "from-file": tmpFile,
+        "input-format": "txt",
+        project: "テストプロジェクト",
+        json: true,
+        plain: false,
+        "results-only": false,
+        "dry-run": true,
+        "strict-notation": false,
+        quiet: false,
+      })
+      const out = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      const parsed = JSON.parse(out)
+      expect(parsed.meta?.warnings).toEqual([])
+    })
+
+    it("--strict-notation が有効なら lint 警告があると exit 5 で中止する", async () => {
+      const tmpFile = join(tmpdir(), `cos-test-edit-strict-${Date.now()}.txt`)
+      writeFileSync(tmpFile, "[*NG記法]\n")
+      try {
+        await runEdit({
+          title: "厳格テストページ",
+          "from-file": tmpFile,
+          "input-format": "txt",
+          project: "テストプロジェクト",
+          json: true,
+          plain: false,
+          "results-only": false,
+          "dry-run": true,
+          "strict-notation": true,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      const out = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      expect(out).toContain("NOTATION_LINT")
+    })
   })
 })

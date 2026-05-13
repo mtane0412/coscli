@@ -6,6 +6,7 @@
  */
 
 import {
+  type StrictNotationArg,
   type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
@@ -14,9 +15,12 @@ import {
   commonArgs,
   dryRunArg,
   isStdinPath,
+  notationFindingToWarning,
   requireProject,
+  strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
+import { lintNotation } from "@/core/notation/lint"
 import { createPage } from "@/core/pages"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -27,6 +31,7 @@ export const pageNewCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...strictNotationArg,
     ...unsafeReadArg,
     title: {
       type: "positional",
@@ -44,7 +49,7 @@ export const pageNewCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & {
+    const a = args as WriteCommonArgs & StrictNotationArg & {
       title: string
       "from-file"?: string
       "allow-unsafe-read": boolean
@@ -96,13 +101,28 @@ export const pageNewCommand = defineCommand({
       process.exit(5)
     }
 
+    // Cosense 記法の lint 検査
+    const findings = lintNotation(lines)
+    const warnings = findings.map(notationFindingToWarning)
+
+    if (a["strict-notation"] && findings.length > 0) {
+      writeErrorJson(
+        "NOTATION_LINT",
+        `Cosense 記法の問題が ${findings.length} 件あります`,
+        "--strict-notation を外すと警告のみで実行できます",
+        { findings },
+      )
+      process.exit(5)
+      return
+    }
+
     logger.info(`"${a.title}" を作成中...`)
 
     const writer = await buildWriter(a)
     const result = await createPage(writer, { project, title: a.title, lines })
 
     if (a.json || a["dry-run"]) {
-      writeJson(result, { command: "page.new", startTime }, buildJsonOpts(a))
+      writeJson(result, { command: "page.new", startTime, warnings }, buildJsonOpts(a))
       return
     }
 

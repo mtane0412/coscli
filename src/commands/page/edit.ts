@@ -8,6 +8,7 @@
  */
 
 import {
+  type StrictNotationArg,
   type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
@@ -16,10 +17,13 @@ import {
   commonArgs,
   dryRunArg,
   isStdinPath,
+  notationFindingToWarning,
   requireProject,
+  strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
 import { convert } from "@/core/format/index"
+import { lintNotation } from "@/core/notation/lint"
 import { editPage } from "@/core/pages"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -32,6 +36,7 @@ export const pageEditCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...strictNotationArg,
     ...unsafeReadArg,
     title: {
       type: "positional",
@@ -50,7 +55,7 @@ export const pageEditCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & {
+    const a = args as WriteCommonArgs & StrictNotationArg & {
       title: string
       "from-file": string
       "input-format": string
@@ -113,13 +118,28 @@ export const pageEditCommand = defineCommand({
       return
     }
 
+    // Cosense 記法の lint 検査: findings を warnings に変換する
+    const findings = lintNotation(lines)
+    const warnings = findings.map(notationFindingToWarning)
+
+    if (a["strict-notation"] && findings.length > 0) {
+      writeErrorJson(
+        "NOTATION_LINT",
+        `Cosense 記法の問題が ${findings.length} 件あります`,
+        "--strict-notation を外すと警告のみで実行できます",
+        { findings },
+      )
+      process.exit(5)
+      return
+    }
+
     logger.info(`"${a.title}" を編集中...`)
 
     const writer = await buildWriter(a)
     const result = await editPage(writer, { project, title: a.title, lines })
 
     if (a.json || a["dry-run"]) {
-      writeJson(result, { command: "page.edit", startTime }, buildJsonOpts(a))
+      writeJson(result, { command: "page.edit", startTime, warnings }, buildJsonOpts(a))
       return
     }
 
