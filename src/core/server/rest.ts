@@ -6,6 +6,7 @@
  * ハンドラは純粋関数として単体テスト可能。
  */
 
+import { timingSafeEqual } from "node:crypto"
 import { createPage, deletePage, editPage, getPage, getPageText, listPages } from "@/core/pages"
 import { PolicyError } from "@/core/sandbox"
 import { toHttpResponse } from "@/core/server/errors"
@@ -59,7 +60,11 @@ function buildRouteNotFoundResponse(method: string, pathname: string): Response 
 function checkToken(ctx: ServerContext, req: Request): Response | null {
   if (!ctx.token) return null
   const auth = req.headers.get("Authorization")
-  if (!auth || auth !== `Bearer ${ctx.token}`) {
+  const expected = Buffer.from(`Bearer ${ctx.token}`, "utf8")
+  const actual = Buffer.from(auth ?? "", "utf8")
+  // timingSafeEqual は長さ不一致で例外をスローするため、長さを先に比較する
+  const valid = expected.length === actual.length && timingSafeEqual(expected, actual)
+  if (!valid) {
     return new Response(
       JSON.stringify({
         ok: false,

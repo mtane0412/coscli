@@ -351,5 +351,21 @@ describe("createFetchHandler", () => {
       )
       expect(res.status).toBe(200)
     })
+
+    it("長さが異なる不正トークンは例外を投げず 401 PROXY_AUTH_REQUIRED を返す", async () => {
+      // timingSafeEqual は長さ不一致で例外をスローするため、長さチェックが必須。
+      // 現実的な攻撃では長さの異なるトークンが使われる可能性があるため、
+      // 例外が 500 に漏れ出ていないことを検証する。
+      const handler = createFetchHandler(tokenCtx)
+      const shortToken = "x"
+      const res = await handler(
+        new Request("http://localhost/api/pages", {
+          headers: { Authorization: `Bearer ${shortToken}` },
+        }),
+      )
+      expect(res.status).toBe(401)
+      const body = (await res.json()) as { error: { code: string } }
+      expect(body.error.code).toBe("PROXY_AUTH_REQUIRED")
+    })
   })
 })
