@@ -49,13 +49,14 @@ export const pageNewCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & StrictNotationArg & {
-      title: string
-      "from-file"?: string
-      "allow-unsafe-read": boolean
-      /** citty が --line を複数回受け取ると string[] になる */
-      line?: string | string[]
-    }
+    const a = args as WriteCommonArgs &
+      StrictNotationArg & {
+        title: string
+        "from-file"?: string
+        "allow-unsafe-read": boolean
+        /** citty が --line を複数回受け取ると string[] になる */
+        line?: string | string[]
+      }
     checkSandbox("page.new", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

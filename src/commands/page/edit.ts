@@ -55,12 +55,13 @@ export const pageEditCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & StrictNotationArg & {
-      title: string
-      "from-file": string
-      "input-format": string
-      "allow-unsafe-read": boolean
-    }
+    const a = args as WriteCommonArgs &
+      StrictNotationArg & {
+        title: string
+        "from-file": string
+        "input-format": string
+        "allow-unsafe-read": boolean
+      }
     checkSandbox("page.edit", a)
     const logger = buildLogger(a)
     const project = requireProject(a)

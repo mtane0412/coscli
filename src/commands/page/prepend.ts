@@ -48,12 +48,13 @@ export const pagePrependCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & StrictNotationArg & {
-      title: string
-      line?: string
-      "from-file"?: string
-      "allow-unsafe-read": boolean
-    }
+    const a = args as WriteCommonArgs &
+      StrictNotationArg & {
+        title: string
+        line?: string
+        "from-file"?: string
+        "allow-unsafe-read": boolean
+      }
     checkSandbox("page.prepend", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
