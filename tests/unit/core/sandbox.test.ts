@@ -144,15 +144,15 @@ describe("大文字小文字の正規化", () => {
 
 describe("Unicode 空白文字の正規化", () => {
   it("パターンに Unicode 空白文字が含まれていても正しくマッチする", () => {
-    // ゼロ幅スペース (​) や全角スペース (　) を含むパターン
-    const policy = createPolicy({ enableStr: "page.list​,page.get　" })
+    // ゼロ幅スペース (U+200B) や全角スペース (U+3000) を含むパターン
+    const policy = createPolicy({ enableStr: "page.list\u200B,page.get\u3000" })
     expect(policy.allow("page.list")).toBeUndefined()
     expect(policy.allow("page.get")).toBeUndefined()
     expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
   })
 
-  it("ノーブレークスペース ( ) を含むパターンを正規化する", () => {
-    const policy = createPolicy({ disable: ["page.delete "] })
+  it("ノーブレークスペース (U+00A0) を含むパターンを正規化する", () => {
+    const policy = createPolicy({ disable: ["page.delete\u00A0"] })
     expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
     expect(policy.allow("page.list")).toBeUndefined()
   })

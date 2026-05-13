@@ -68,7 +68,7 @@ export function createPolicy(opts: PolicyOptions): Policy {
  * case-sensitive bypass や不可視文字混入による sandbox 迂回を防ぐ。
  */
 function normalizeCommand(s: string): string {
-  return s.replace(/[\p{White_Space}​-‏]/gu, "").toLowerCase()
+  return s.replace(/[\p{White_Space}\u200B-\u200F]/gu, "").toLowerCase()
 }
 
 /** mergeList は配列とカンマ区切り文字列をマージして正規化する。 */
