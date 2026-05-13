@@ -91,104 +91,71 @@ const mockCreateWriter: ServeDeps["createWriter"] = async () => stubWriter
 
 describe("makeServeCommand", () => {
   describe("バリデーション", () => {
-    it("--host 0.0.0.0 かつ --token 未指定の場合は exit 1 で起動を拒否する", async () => {
-      try {
-        await runServe(
-          { ...defaultArgs, host: "0.0.0.0", token: undefined },
-          { getSid: mockGetSid, createWriter: mockCreateWriter, startServer: immediateStartServer },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(exitMock).toHaveBeenCalledWith(1)
-    })
-
-    it("--host 192.168.1.1 かつ --token 未指定の場合は exit 1 で起動を拒否する", async () => {
-      try {
-        await runServe(
-          { ...defaultArgs, host: "192.168.1.1", token: undefined },
-          { getSid: mockGetSid, createWriter: mockCreateWriter, startServer: immediateStartServer },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(exitMock).toHaveBeenCalledWith(1)
-    })
-
-    it("--host 0.0.0.0 かつ --token 指定の場合は起動する", async () => {
-      let called = false
-      try {
-        await runServe(
-          { ...defaultArgs, host: "0.0.0.0", token: "ひみつトークン" },
-          {
-            getSid: mockGetSid,
-            createWriter: mockCreateWriter,
-            startServer: async () => {
-              called = true
+    describe("--host 非ループバック時の --token 必須チェック", () => {
+      // 非ループバックアドレスかつ --token 未指定の場合は exit 5 で起動を拒否する
+      it.each([
+        { host: "0.0.0.0", label: "全インターフェース" },
+        { host: "192.168.1.1", label: "プライベートIP" },
+      ])("$label ($host) かつ --token 未指定の場合は exit 5 で起動を拒否する", async ({ host }) => {
+        try {
+          await runServe(
+            { ...defaultArgs, host, token: undefined },
+            {
+              getSid: mockGetSid,
+              createWriter: mockCreateWriter,
+              startServer: immediateStartServer,
             },
-          },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(called).toBe(true)
-    })
+          )
+        } catch {
+          // 想定内
+        }
+        expect(exitMock).toHaveBeenCalledWith(5)
+      })
 
-    it("--host 127.0.0.1 (デフォルト) は --token なしでも起動できる", async () => {
-      let called = false
-      try {
-        await runServe(
-          { ...defaultArgs, host: "127.0.0.1", token: undefined },
-          {
-            getSid: mockGetSid,
-            createWriter: mockCreateWriter,
-            startServer: async () => {
-              called = true
+      // 非ループバックアドレスでも --token 指定があれば起動できる
+      it("--host 0.0.0.0 かつ --token 指定の場合は起動する", async () => {
+        let called = false
+        try {
+          await runServe(
+            { ...defaultArgs, host: "0.0.0.0", token: "ひみつトークン" },
+            {
+              getSid: mockGetSid,
+              createWriter: mockCreateWriter,
+              startServer: async () => {
+                called = true
+              },
             },
-          },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(called).toBe(true)
-    })
+          )
+        } catch {
+          // 想定内
+        }
+        expect(called).toBe(true)
+      })
 
-    it("--host ::1 は --token なしでも起動できる", async () => {
-      let called = false
-      try {
-        await runServe(
-          { ...defaultArgs, host: "::1", token: undefined },
-          {
-            getSid: mockGetSid,
-            createWriter: mockCreateWriter,
-            startServer: async () => {
-              called = true
+      // ループバックアドレスは --token なしでも起動できる
+      it.each([
+        { host: "127.0.0.1", label: "IPv4 ループバック (デフォルト)" },
+        { host: "::1", label: "IPv6 ループバック" },
+        { host: "localhost", label: "localhost" },
+        { host: "LOCALHOST", label: "大文字 LOCALHOST" },
+      ])("$label ($host) は --token なしでも起動できる", async ({ host }) => {
+        let called = false
+        try {
+          await runServe(
+            { ...defaultArgs, host, token: undefined },
+            {
+              getSid: mockGetSid,
+              createWriter: mockCreateWriter,
+              startServer: async () => {
+                called = true
+              },
             },
-          },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(called).toBe(true)
-    })
-
-    it("--host localhost は --token なしでも起動できる", async () => {
-      let called = false
-      try {
-        await runServe(
-          { ...defaultArgs, host: "localhost", token: undefined },
-          {
-            getSid: mockGetSid,
-            createWriter: mockCreateWriter,
-            startServer: async () => {
-              called = true
-            },
-          },
-        )
-      } catch {
-        // 想定内
-      }
-      expect(called).toBe(true)
+          )
+        } catch {
+          // 想定内
+        }
+        expect(called).toBe(true)
+      })
     })
 
     it("--rest 未指定の場合は exit 5 で終了する", async () => {

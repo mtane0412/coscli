@@ -144,14 +144,15 @@ export function makeServeCommand(deps: ServeDeps = {}) {
 
       // 6. --host 非ループバック時の --token 必須チェック
       const LOOPBACK_HOSTS = ["127.0.0.1", "::1", "localhost"]
-      const isLoopback = LOOPBACK_HOSTS.includes(a.host ?? DEFAULT_HOST)
+      const hostLower = (a.host ?? DEFAULT_HOST).toLowerCase()
+      const isLoopback = LOOPBACK_HOSTS.includes(hostLower)
       if (!isLoopback && !a.token) {
         writeErrorJson(
           "TOKEN_REQUIRED",
           "--host に非ループバックアドレスを指定する場合は --token が必須です",
           "--token <値> を追加して再実行してください",
         )
-        process.exit(1)
+        process.exit(5)
         return
       }
 
