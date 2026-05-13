@@ -142,11 +142,17 @@ export function makeServeCommand(deps: ServeDeps = {}) {
       // 5. 認証
       const sid = await getSidFn(a.profile)
 
-      // 6. --host 外部公開警告
-      if (a.host !== DEFAULT_HOST) {
-        logger.warn(
-          `--host=${a.host} が指定されています。外部ネットワークからアクセス可能になる場合があります。`,
+      // 6. --host 非ループバック時の --token 必須チェック
+      const LOOPBACK_HOSTS = ["127.0.0.1", "::1", "localhost"]
+      const isLoopback = LOOPBACK_HOSTS.includes(a.host ?? DEFAULT_HOST)
+      if (!isLoopback && !a.token) {
+        writeErrorJson(
+          "TOKEN_REQUIRED",
+          "--host に非ループバックアドレスを指定する場合は --token が必須です",
+          "--token <値> を追加して再実行してください",
         )
+        process.exit(1)
+        return
       }
 
       // 7. sandbox ポリシー生成（ハンドラ内の二段ガード用）

@@ -91,6 +91,106 @@ const mockCreateWriter: ServeDeps["createWriter"] = async () => stubWriter
 
 describe("makeServeCommand", () => {
   describe("バリデーション", () => {
+    it("--host 0.0.0.0 かつ --token 未指定の場合は exit 1 で起動を拒否する", async () => {
+      try {
+        await runServe(
+          { ...defaultArgs, host: "0.0.0.0", token: undefined },
+          { getSid: mockGetSid, createWriter: mockCreateWriter, startServer: immediateStartServer },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(1)
+    })
+
+    it("--host 192.168.1.1 かつ --token 未指定の場合は exit 1 で起動を拒否する", async () => {
+      try {
+        await runServe(
+          { ...defaultArgs, host: "192.168.1.1", token: undefined },
+          { getSid: mockGetSid, createWriter: mockCreateWriter, startServer: immediateStartServer },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(1)
+    })
+
+    it("--host 0.0.0.0 かつ --token 指定の場合は起動する", async () => {
+      let called = false
+      try {
+        await runServe(
+          { ...defaultArgs, host: "0.0.0.0", token: "ひみつトークン" },
+          {
+            getSid: mockGetSid,
+            createWriter: mockCreateWriter,
+            startServer: async () => {
+              called = true
+            },
+          },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(called).toBe(true)
+    })
+
+    it("--host 127.0.0.1 (デフォルト) は --token なしでも起動できる", async () => {
+      let called = false
+      try {
+        await runServe(
+          { ...defaultArgs, host: "127.0.0.1", token: undefined },
+          {
+            getSid: mockGetSid,
+            createWriter: mockCreateWriter,
+            startServer: async () => {
+              called = true
+            },
+          },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(called).toBe(true)
+    })
+
+    it("--host ::1 は --token なしでも起動できる", async () => {
+      let called = false
+      try {
+        await runServe(
+          { ...defaultArgs, host: "::1", token: undefined },
+          {
+            getSid: mockGetSid,
+            createWriter: mockCreateWriter,
+            startServer: async () => {
+              called = true
+            },
+          },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(called).toBe(true)
+    })
+
+    it("--host localhost は --token なしでも起動できる", async () => {
+      let called = false
+      try {
+        await runServe(
+          { ...defaultArgs, host: "localhost", token: undefined },
+          {
+            getSid: mockGetSid,
+            createWriter: mockCreateWriter,
+            startServer: async () => {
+              called = true
+            },
+          },
+        )
+      } catch {
+        // 想定内
+      }
+      expect(called).toBe(true)
+    })
+
     it("--rest 未指定の場合は exit 5 で終了する", async () => {
       try {
         await runServe(
