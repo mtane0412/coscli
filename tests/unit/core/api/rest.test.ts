@@ -5,7 +5,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test"
-import { CosenseRestClient } from "@/core/api/rest"
+import { CosenseRestClient, NotFoundError } from "@/core/api/rest"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 
@@ -220,6 +220,19 @@ describe("CosenseRestClient", () => {
       await expect(client.getSmartContext(TEST_PROJECT, "存在しないページ", 1)).rejects.toThrow()
     })
 
+    it("NotFoundError のメッセージにクエリ文字列 (?title=...) が含まれない", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      // 存在しないページを指定して 404 を発生させる
+      const error = await client
+        .getSmartContext(TEST_PROJECT, "存在しないページ", 1)
+        .catch((e) => e)
+      expect(error).toBeInstanceOf(NotFoundError)
+      // pathname は含まれること
+      expect(error.message).toContain("/api/smart-context/")
+      // クエリ文字列は含まれないこと
+      expect(error.message).not.toContain("?")
+    })
+
     it("未認証の場合は AuthError をスローする", async () => {
       const client = new CosenseRestClient({ sid: "" })
       await expect(client.getSmartContext(TEST_PROJECT, "テストページ", 1)).rejects.toThrow()
@@ -227,6 +240,19 @@ describe("CosenseRestClient", () => {
   })
 
   describe("searchPages", () => {
+    it("存在しないプロジェクトの NotFoundError メッセージにクエリ文字列 (?q=...) が含まれない", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      // 存在しないプロジェクトを指定して 404 を発生させる
+      const error = await client
+        .searchPages("存在しないプロジェクト", "検索キーワード")
+        .catch((e) => e)
+      expect(error).toBeInstanceOf(NotFoundError)
+      // pathname は含まれること
+      expect(error.message).toContain("/api/pages/")
+      // クエリ文字列は含まれないこと
+      expect(error.message).not.toContain("?")
+    })
+
     it("クエリにマッチするページを返す", async () => {
       const client = new CosenseRestClient({ sid: TEST_SID })
       const result = await client.searchPages(TEST_PROJECT, "Hello")
