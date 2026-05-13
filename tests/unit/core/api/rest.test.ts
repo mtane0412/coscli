@@ -5,7 +5,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test"
-import { CosenseRestClient, NotFoundError } from "@/core/api/rest"
+import { CosenseApiError, CosenseRestClient, NotFoundError } from "@/core/api/rest"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 
@@ -260,6 +260,23 @@ describe("CosenseRestClient", () => {
         .searchPages("存在しないプロジェクト", "検索キーワード")
         .catch((e) => e)
       expect(error).toBeInstanceOf(NotFoundError)
+      // pathname は含まれること
+      expect(error.message).toContain("/api/pages/")
+      // クエリ文字列は含まれないこと
+      expect(error.message).not.toContain("?")
+    })
+
+    it("5xx エラーの CosenseApiError メッセージにクエリ文字列 (?q=...) が含まれない", async () => {
+      // 500 を返すハンドラーで一時上書き (afterEach で自動リセットされる)
+      server.use(
+        http.get(`${BASE_URL}/api/pages/:project/search/query`, () => {
+          return HttpResponse.json({ message: "Internal Server Error" }, { status: 500 })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      // クエリパラメータ (?q=...) を含む URL で 500 を発生させる
+      const error = await client.searchPages(TEST_PROJECT, "検索キーワード").catch((e) => e)
+      expect(error).toBeInstanceOf(CosenseApiError)
       // pathname は含まれること
       expect(error.message).toContain("/api/pages/")
       // クエリ文字列は含まれないこと
