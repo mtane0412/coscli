@@ -89,3 +89,71 @@ describe("PolicyOptions のパース", () => {
     expect(policy.allow("page.delete")).toBeUndefined()
   })
 })
+
+describe("ワイルドカード '*' / 'all'", () => {
+  it("disable: ['*'] で全コマンドを拒否する", () => {
+    const policy = createPolicy({ disable: ["*"] })
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("project.info")).toBeInstanceOf(PolicyError)
+  })
+
+  it("disable: ['all'] で全コマンドを拒否する", () => {
+    const policy = createPolicy({ disable: ["all"] })
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("project.info")).toBeInstanceOf(PolicyError)
+  })
+
+  it("disableStr '*' で全コマンドを拒否する (CLI フラグ形式)", () => {
+    const policy = createPolicy({ disableStr: "*" })
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+  })
+})
+
+describe("'page.*' glob パターン", () => {
+  it("disable: ['page.*'] で page.* 全体を拒否し他ドメインは通す", () => {
+    const policy = createPolicy({ disable: ["page.*"] })
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("project.info")).toBeUndefined()
+  })
+
+  it("enable: ['page.*'] で page.* のみ許可する", () => {
+    const policy = createPolicy({ enable: ["page.*"] })
+    expect(policy.allow("page.list")).toBeUndefined()
+    expect(policy.allow("page.delete")).toBeUndefined()
+    expect(policy.allow("project.info")).toBeInstanceOf(PolicyError)
+  })
+})
+
+describe("大文字小文字の正規化", () => {
+  it("パターンの大文字を小文字に正規化してマッチする", () => {
+    const policy = createPolicy({ enableStr: "PAGE.LIST,Page.Get" })
+    expect(policy.allow("page.list")).toBeUndefined()
+    expect(policy.allow("page.get")).toBeUndefined()
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+  })
+
+  it("disable パターンの大文字を正規化して拒否する", () => {
+    const policy = createPolicy({ disable: ["PAGE.DELETE"] })
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("page.list")).toBeUndefined()
+  })
+})
+
+describe("Unicode 空白文字の正規化", () => {
+  it("パターンに Unicode 空白文字が含まれていても正しくマッチする", () => {
+    // ゼロ幅スペース (U+200B) や全角スペース (U+3000) を含むパターン
+    const policy = createPolicy({ enableStr: "page.list\u200B,page.get\u3000" })
+    expect(policy.allow("page.list")).toBeUndefined()
+    expect(policy.allow("page.get")).toBeUndefined()
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+  })
+
+  it("ノーブレークスペース (U+00A0) を含むパターンを正規化する", () => {
+    const policy = createPolicy({ disable: ["page.delete\u00A0"] })
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+    expect(policy.allow("page.list")).toBeUndefined()
+  })
+})
