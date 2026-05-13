@@ -5,9 +5,10 @@
  * を Cosense プロジェクトへ送信してしまう経路を防ぐ。
  *
  * 禁止ルール:
- *   - /etc, /proc, /sys, /dev, /root, /boot 等のシステムディレクトリ
+ *   - Unix: /etc, /proc, /sys, /dev, /root, /boot 等のシステムディレクトリ
+ *   - Windows: C:\Windows\System32, C:\ProgramData, %USERPROFILE%\.ssh 等
  *   - *.pem, *.key, *.env, *_rsa, *_ed25519, *_ecdsa, *_dsa の機密拡張子
- *   - .ssh, .aws, .gnupg, coscli/secrets.json の機密ディレクトリ/ファイル
+ *   - .ssh, .aws, .gnupg, coscli/secrets.json の機密ディレクトリ/ファイル (大文字小文字を区別しない)
  *   - シンボリックリンク解決後に上記に該当するパス
  *   - 10 MiB を超えるファイル
  *
@@ -17,6 +18,7 @@
 import { readFileSync, statSync } from "node:fs"
 import { realpathSync } from "node:fs"
 import { sep } from "node:path"
+import { platform } from "node:process"
 
 /** ファイルの最大読み込みサイズ (10 MiB) */
 const MAX_FROM_FILE_BYTES = 10 * 1024 * 1024
@@ -24,8 +26,31 @@ const MAX_FROM_FILE_BYTES = 10 * 1024 * 1024
 /** stdin の最大読み込みサイズ (10 MiB) */
 const MAX_STDIN_BYTES = 10 * 1024 * 1024
 
-/** 禁止されたシステムディレクトリプレフィックスの一覧 (macOS の /etc → /private/etc も含む) */
-const DENY_DIRS = ["/etc", "/proc", "/sys", "/dev", "/root", "/boot", "/run/secrets"].flatMap(
+/** Unix 向け禁止システムディレクトリの一覧 */
+const UNIX_DENY_DIRS = ["/etc", "/proc", "/sys", "/dev", "/root", "/boot", "/run/secrets"]
+
+/** Windows 向け禁止システムディレクトリの一覧 (環境変数を展開して生成) */
+function buildWindowsDenyDirs(): string[] {
+  const userProfile = process.env["USERPROFILE"] ?? ""
+  const systemRoot = process.env["SystemRoot"] ?? "C:\\Windows"
+  const programData = process.env["ProgramData"] ?? "C:\\ProgramData"
+  const dirs = [
+    systemRoot,
+    `${systemRoot}\\System32`,
+    programData,
+    `${userProfile}\\.ssh`,
+    `${userProfile}\\.aws`,
+    `${userProfile}\\AppData`,
+  ]
+  return dirs.filter((d) => d !== "" && d !== "\\.ssh" && d !== "\\.aws" && d !== "\\AppData")
+}
+
+/**
+ * 禁止されたシステムディレクトリプレフィックスの一覧。
+ * macOS の /etc → /private/etc のような OS レベルのシンボリックリンクも解決して追加する。
+ * Windows 環境ではシステムディレクトリと機密ディレクトリを追加する。
+ */
+const DENY_DIRS = (platform === "win32" ? buildWindowsDenyDirs() : UNIX_DENY_DIRS).flatMap(
   (dir) => {
     try {
       const real = realpathSync(dir)
@@ -142,11 +167,12 @@ function assertSafePath(originalPath: string, realPath: string): void {
     }
   }
 
-  // 禁止ディレクトリセグメントのチェック
+  // 禁止ディレクトリセグメントのチェック (大文字小文字を区別しない)
   const segments = realPath.split(sep)
   for (const segment of segments) {
+    const lowerSegment = segment.toLowerCase()
     for (const denySegment of DENY_DIR_SEGMENTS) {
-      if (segment === denySegment) {
+      if (lowerSegment === denySegment) {
         throw new UnsafePathError(
           originalPath,
           `禁止ディレクトリ ${denySegment} 配下のファイルは読み込めません`,
@@ -155,8 +181,11 @@ function assertSafePath(originalPath: string, realPath: string): void {
     }
   }
 
-  // coscli 自身の secrets.json のチェック
-  if (segments.at(-1) === COSCLI_SECRETS_FILENAME && segments.at(-2) === COSCLI_CONFIG_DIRNAME) {
+  // coscli 自身の secrets.json のチェック (大文字小文字を区別しない)
+  if (
+    segments.at(-1)?.toLowerCase() === COSCLI_SECRETS_FILENAME &&
+    segments.at(-2)?.toLowerCase() === COSCLI_CONFIG_DIRNAME
+  ) {
     throw new UnsafePathError(originalPath, "coscli の認証ファイルは読み込めません")
   }
 }

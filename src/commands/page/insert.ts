@@ -81,25 +81,38 @@ export const pageInsertCommand = defineCommand({
     if (a.line !== undefined) {
       lines = a.line.split(/\r?\n|\\n/)
     } else if (a["from-file"] !== undefined) {
-      try {
-        // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
-        const content = isStdinPath(a["from-file"])
-          ? readStdinBounded()
-          : readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
-        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch (err) {
-        if (err instanceof UnsafePathError) {
-          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+      // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
+      if (isStdinPath(a["from-file"])) {
+        try {
+          const content = readStdinBounded()
+          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+        } catch (err) {
+          if (err instanceof UnsafePathError) {
+            // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
+            writeErrorJson("UNSAFE_PATH", err.message)
+            process.exit(5)
+            return
+          }
+          throw err
+        }
+      } else {
+        try {
+          const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
+          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+        } catch (err) {
+          if (err instanceof UnsafePathError) {
+            writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+            process.exit(5)
+            return
+          }
+          writeErrorJson(
+            "VALIDATION_ERROR",
+            `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
+            "ファイルパスが正しいか確認してください",
+          )
           process.exit(5)
           return
         }
-        writeErrorJson(
-          "VALIDATION_ERROR",
-          `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
-          "ファイルパスが正しいか確認してください",
-        )
-        process.exit(5)
-        return
       }
     }
 

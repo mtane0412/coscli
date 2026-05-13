@@ -89,32 +89,50 @@ const MAX_BODY_BYTES = 5 * 1024 * 1024
 /**
  * parseJsonBody は JSON リクエストボディをパースする。
  * ボディサイズが MAX_BODY_BYTES を超える場合は 413 エラーをスローする。
+ * Content-Length による事前チェック後、ストリーミング読み込みで逐次サイズを検証する。
  * パースに失敗した場合は SyntaxError をスローし、toHttpResponse で 400 に変換される。
  */
 async function parseJsonBody(req: Request): Promise<unknown> {
+  const createBodyTooLargeError = () =>
+    Object.assign(new Error("リクエストボディが大きすぎます"), {
+      code: "BODY_TOO_LARGE",
+      status: 413,
+    })
+
   // Content-Length ヘッダによる事前チェック
   const contentLength = req.headers.get("content-length")
   if (contentLength !== null) {
     const len = Number(contentLength)
     if (!Number.isNaN(len) && len > MAX_BODY_BYTES) {
-      const err = Object.assign(new Error("リクエストボディが大きすぎます"), {
-        code: "BODY_TOO_LARGE",
-        status: 413,
-      })
-      throw err
+      throw createBodyTooLargeError()
     }
   }
 
-  const buf = new Uint8Array(await req.arrayBuffer())
-  if (buf.byteLength > MAX_BODY_BYTES) {
-    const err = Object.assign(new Error("リクエストボディが大きすぎます"), {
-      code: "BODY_TOO_LARGE",
-      status: 413,
-    })
-    throw err
+  // ストリーミング読み込みで受信中にサイズ超過を検出して即時中断する
+  const reader = req.body?.getReader()
+  if (!reader) return JSON.parse("")
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value) continue
+    total += value.byteLength
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel()
+      throw createBodyTooLargeError()
+    }
+    chunks.push(value)
   }
 
-  return JSON.parse(new TextDecoder().decode(buf))
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return JSON.parse(new TextDecoder().decode(merged))
 }
 
 /**

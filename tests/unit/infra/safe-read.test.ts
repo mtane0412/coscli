@@ -161,6 +161,42 @@ describe("readFromFile", () => {
     })
   })
 
+  describe("大文字小文字を含むパスのブロック", () => {
+    it(".SSH ディレクトリ内のファイルはブロックされる", () => {
+      tmpDir = makeTempDir()
+      const sshDir = join(tmpDir, ".SSH")
+      mkdirSync(sshDir)
+      const filePath = join(sshDir, "authorized_keys")
+      writeFileSync(filePath, "ssh-rsa AAAA... ユーザー名@ホスト名")
+      expect(() => readFromFile(filePath)).toThrow(UnsafePathError)
+    })
+
+    it(".Aws ディレクトリ内のファイルはブロックされる", () => {
+      tmpDir = makeTempDir()
+      const awsDir = join(tmpDir, ".Aws")
+      mkdirSync(awsDir)
+      const filePath = join(awsDir, "credentials")
+      writeFileSync(filePath, "[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE")
+      expect(() => readFromFile(filePath)).toThrow(UnsafePathError)
+    })
+
+    it("Secrets.json という名前のファイルは coscli/Secrets.json でブロックされる", () => {
+      tmpDir = makeTempDir()
+      const configDir = join(tmpDir, "coscli")
+      mkdirSync(configDir)
+      const secretsPath = join(configDir, "Secrets.json")
+      writeFileSync(secretsPath, '{"default":"s%3A秘密のsid"}')
+      expect(() => readFromFile(secretsPath)).toThrow(UnsafePathError)
+    })
+
+    it(".PEM 拡張子のファイルはブロックされる (サフィックスチェックは既に小文字対応済み)", () => {
+      tmpDir = makeTempDir()
+      const filePath = join(tmpDir, "証明書.PEM")
+      writeFileSync(filePath, "-----BEGIN CERTIFICATE-----")
+      expect(() => readFromFile(filePath)).toThrow(UnsafePathError)
+    })
+  })
+
   describe("allowUnsafe フラグ", () => {
     it("allowUnsafe: true で禁止パスも読み込める", () => {
       tmpDir = makeTempDir()
