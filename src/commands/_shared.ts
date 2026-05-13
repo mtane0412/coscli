@@ -92,6 +92,20 @@ export const dryRunArg = {
 } as const
 
 /**
+ * strictNotationArg は書き込み系コマンドが追加スプレッドする --strict-notation フラグ定義。
+ *
+ * Cosense 記法の lint 警告が検出された場合に書き込みを中止して exit 5 を返す。
+ * 省略時は警告のみ meta.warnings に追加し書き込みは続行する。
+ */
+export const strictNotationArg = {
+  "strict-notation": {
+    type: "boolean" as const,
+    description: "Cosense 記法の lint 警告を検出したら書き込みを中止する",
+    default: false,
+  },
+} as const
+
+/**
  * unsafeReadArg は --from-file を持つコマンドが追加スプレッドする安全読み込みバイパスフラグ定義。
  *
  * 通常はセキュリティ上の理由で禁止されているパス (.env, ~/.ssh, /etc 等) も読み込みたい
@@ -121,6 +135,9 @@ export type CommonArgs = {
 
 /** DryRunArg は書き込み系コマンドが追加で受け取る --dry-run フラグの型。 */
 export type DryRunArg = { "dry-run": boolean }
+
+/** StrictNotationArg は書き込み系コマンドが追加で受け取る --strict-notation フラグの型。 */
+export type StrictNotationArg = { "strict-notation": boolean }
 
 /** WriteCommonArgs は書き込み系コマンドが受け取る共通フラグの型。 */
 export type WriteCommonArgs = CommonArgs & DryRunArg
@@ -302,4 +319,18 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
 export async function buildWriter(args: WriteCommonArgs) {
   const sid = await requireSid(args.profile)
   return createScrapboxWriter({ sid, dryRun: args["dry-run"] })
+}
+
+/**
+ * notationFindingToWarning は NotationFinding を JSON envelope の warnings 文字列に変換する。
+ *
+ * 書式: "[行 N] rule: message (hint: ...)"
+ */
+export function notationFindingToWarning(
+  finding: import("@/core/notation/lint").NotationFinding,
+): string {
+  const loc =
+    finding.column !== undefined ? `行 ${finding.line} 列 ${finding.column}` : `行 ${finding.line}`
+  const hint = finding.hint ? ` (修正案: ${finding.hint})` : ""
+  return `[${loc}] ${finding.rule}: ${finding.message}${hint}`
 }

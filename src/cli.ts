@@ -74,6 +74,7 @@ import { serveCommand } from "@/commands/serve"
 
 // エージェント向け補助コマンド
 import { exitCodesCommand } from "@/commands/exit-codes"
+import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
 /** page サブコマンドグループ */
@@ -232,6 +233,7 @@ const main = defineCommand({
     serve: serveCommand,
     "exit-codes": exitCodesCommand,
     schema: schemaCommand,
+    notation: notationGuideCommand,
   },
 })
 

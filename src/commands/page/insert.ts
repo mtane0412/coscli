@@ -7,6 +7,7 @@
  */
 
 import {
+  type StrictNotationArg,
   type WriteCommonArgs,
   buildJsonOpts,
   buildLogger,
@@ -16,9 +17,12 @@ import {
   dryRunArg,
   getRawFlagValue,
   isStdinPath,
+  notationFindingToWarning,
   requireProject,
+  strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
+import { lintNotation } from "@/core/notation/lint"
 import { insertIntoPage } from "@/core/pages"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -29,6 +33,7 @@ export const pageInsertCommand = defineCommand({
   args: {
     ...commonArgs,
     ...dryRunArg,
+    ...strictNotationArg,
     ...unsafeReadArg,
     title: {
       type: "positional",
@@ -50,13 +55,14 @@ export const pageInsertCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as WriteCommonArgs & {
-      title: string
-      after: string
-      line?: string
-      "from-file"?: string
-      "allow-unsafe-read": boolean
-    }
+    const a = args as WriteCommonArgs &
+      StrictNotationArg & {
+        title: string
+        after: string
+        line?: string
+        "from-file"?: string
+        "allow-unsafe-read": boolean
+      }
     checkSandbox("page.insert", a)
     const logger = buildLogger(a)
     const project = requireProject(a)
@@ -126,6 +132,21 @@ export const pageInsertCommand = defineCommand({
       return
     }
 
+    // Cosense 記法の lint 検査
+    const findings = lintNotation(lines)
+    const warnings = findings.map(notationFindingToWarning)
+
+    if (a["strict-notation"] && findings.length > 0) {
+      writeErrorJson(
+        "NOTATION_LINT",
+        `Cosense 記法の問題が ${findings.length} 件あります`,
+        "--strict-notation を外すと警告のみで実行できます",
+        { findings },
+      )
+      process.exit(5)
+      return
+    }
+
     logger.info(`"${a.title}" の ${afterN} 行目の後ろに挿入中...`)
 
     const writer = await buildWriter(a)
@@ -143,7 +164,7 @@ export const pageInsertCommand = defineCommand({
     }
 
     if (a.json || a["dry-run"]) {
-      writeJson(result, { command: "page.insert", startTime }, buildJsonOpts(a))
+      writeJson(result, { command: "page.insert", startTime, warnings }, buildJsonOpts(a))
       return
     }
 
