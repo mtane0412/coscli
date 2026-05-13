@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { FileTokenStore } from "@/infra/keychain/file"
 
 const tmpFile = join(tmpdir(), `coscli-test-secrets-${Date.now()}.json`)
@@ -112,7 +112,7 @@ describe("FileTokenStore", () => {
 
       // tmpFile のベース名に由来する .tmp ファイルが残っていないことを確認する
       const dir = dirname(tmpFile)
-      const base = tmpFile.split("/").pop() ?? ""
+      const base = basename(tmpFile)
       const tmpFiles = readdirSync(dir).filter((f) => f.startsWith(base) && f.endsWith(".tmp"))
       expect(tmpFiles).toHaveLength(0)
     })
@@ -139,6 +139,30 @@ describe("FileTokenStore", () => {
       const store = new FileTokenStore(tmpFile)
       // 検証: list はエラーなく空配列を返す
       expect(await store.list()).toEqual([])
+    })
+
+    it("破損ファイルに対する delete は throw する", async () => {
+      // 前提: 破損した JSON ファイルが存在する
+      writeFileSync(tmpFile, "{ invalid json {{{", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: delete が throw することで上書きによる他プロファイルの消失を防ぐ
+      await expect(store.delete("テストプロファイル")).rejects.toThrow()
+    })
+
+    it("配列形式の JSON ファイルに対する save は throw する", async () => {
+      // 前提: プレーンオブジェクト以外の JSON (配列) が保存されている
+      writeFileSync(tmpFile, "[]", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: save が throw することで配列への代入による永続化失敗を防ぐ
+      await expect(store.save("テストプロファイル", "sid-abcdef")).rejects.toThrow()
+    })
+
+    it("null の JSON ファイルに対する save は throw する", async () => {
+      // 前提: null が保存されている不正なファイル
+      writeFileSync(tmpFile, "null", { mode: 0o600 })
+      const store = new FileTokenStore(tmpFile)
+      // 検証: save が throw することでデータ消失を防ぐ
+      await expect(store.save("テストプロファイル", "sid-abcdef")).rejects.toThrow()
     })
   })
 })

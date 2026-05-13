@@ -61,7 +61,18 @@ export class FileTokenStore implements TokenStore {
   private read(): Record<string, string> {
     if (!existsSync(this.filePath)) return {}
     // 破損ファイルの上書きによるデータ消失を防ぐため、パース失敗は呼び出し元に伝播する
-    return JSON.parse(readFileSync(this.filePath, "utf-8")) as Record<string, string>
+    const parsed: unknown = JSON.parse(readFileSync(this.filePath, "utf-8"))
+    // プレーンオブジェクト + 値がすべて string 以外は不正形式として弾く
+    // ([] は string キーを stringify で落とすため save が成功に見えてデータ消失する)
+    if (
+      parsed === null ||
+      Array.isArray(parsed) ||
+      typeof parsed !== "object" ||
+      Object.values(parsed).some((value) => typeof value !== "string")
+    ) {
+      throw new Error("secrets.json の形式が不正です")
+    }
+    return parsed as Record<string, string>
   }
 
   private write(data: Record<string, string>): void {
