@@ -165,7 +165,7 @@ describe("setConfigValue", () => {
 describe("prototype 汚染への防御", () => {
   afterAll(() => {
     // RED フェーズで汚染が発生した場合に備えてクリーンアップする
-    ;(Object.prototype as Record<string, unknown>)["polluted"] = undefined
+    Reflect.deleteProperty(Object.prototype, "polluted")
   })
 
   it("setConfigValue で __proto__ キーを指定すると throw する", () => {
@@ -187,7 +187,7 @@ describe("prototype 汚染への防御", () => {
       // 期待通りの throw
     }
     // Object.prototype が汚染されていないことを確認する
-    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined()
+    expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false)
   })
 
   it("getConfigValue で __proto__ キーを指定すると undefined を返す", () => {
