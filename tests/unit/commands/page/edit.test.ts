@@ -30,7 +30,7 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   // requireSid のキーチェーン呼び出しをスキップするためダミー SID を設定する
-  process.env["COS_SID"] = "ダミーセッションID-テスト用"
+  process.env["COS_SID"] = "dummy-session-id-for-test"
 })
 
 afterEach(() => {

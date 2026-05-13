@@ -216,12 +216,43 @@ export function getRawFlagValue(argv: string[], flagName: string): string | unde
   return result
 }
 
+const SID_MAX_LENGTH = 4096
+// RFC 6265 cookie-octet: DQUOTE(0x22), comma(0x2C), semicolon(0x3B), backslash(0x5C), CTL, SP を除外
+const SID_PATTERN = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/
+
+/** SidValidationError は SID フォーマット違反を表すエラー。 */
+export class SidValidationError extends Error {
+  constructor() {
+    super("SID のフォーマットが不正です。改行・制御文字・空白は使用できません")
+    this.name = "SidValidationError"
+  }
+}
+
+/** assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。 */
+export function assertValidSid(sid: string): void {
+  if (sid.length === 0 || sid.length > SID_MAX_LENGTH || !SID_PATTERN.test(sid)) {
+    throw new SidValidationError()
+  }
+}
+
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
 export async function requireSid(profile?: string): Promise<string> {
   // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
   if (!profile) {
     const envSid = process.env["COS_SID"]
-    if (envSid) return envSid
+    if (envSid !== undefined) {
+      try {
+        assertValidSid(envSid)
+      } catch {
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID のフォーマットが不正です",
+          "改行・制御文字・空白を含まない印字可能 ASCII 文字列を指定してください",
+        )
+        exitWithError(5, "INVALID_SID")
+      }
+      return envSid
+    }
   }
   const store = createTokenStore()
   const sessionOpts = profile !== undefined ? { profile } : {}
@@ -233,6 +264,16 @@ export async function requireSid(profile?: string): Promise<string> {
       "`cos auth login` を実行してログインしてください",
     )
     exitWithError(2, "AUTH_REQUIRED")
+  }
+  try {
+    assertValidSid(sid)
+  } catch {
+    writeErrorJson(
+      "INVALID_SID",
+      "キーチェーンに保存された SID のフォーマットが不正です",
+      "`cos auth logout` 後に再ログインしてください",
+    )
+    exitWithError(5, "INVALID_SID")
   }
   return sid
 }

@@ -8,6 +8,8 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import {
   type CommonArgs,
+  SidValidationError,
+  assertValidSid,
   buildJsonOpts,
   buildLogger,
   commonArgs,
@@ -151,6 +153,74 @@ describe("buildJsonOpts - 環境変数伝播 (COS_RESULTS_ONLY / COS_SELECT)", (
     // 環境変数もフラグも指定されていない場合は既定値を維持する
     const opts = buildJsonOpts(makeArgs())
     expect(opts.resultsOnly).toBe(false)
+  })
+})
+
+describe("assertValidSid / SidValidationError", () => {
+  it("正常な SID は検証を通過する", () => {
+    expect(() => assertValidSid("s%3Atest-session-id.xyz")).not.toThrow()
+  })
+
+  it("英数字と記号のみの SID は検証を通過する", () => {
+    expect(() => assertValidSid("abc123XYZ!#$%&'*+-.^_`|~")).not.toThrow()
+  })
+
+  it("1 文字の SID は検証を通過する", () => {
+    expect(() => assertValidSid("a")).not.toThrow()
+  })
+
+  it("4096 文字ちょうどの SID は検証を通過する", () => {
+    expect(() => assertValidSid("a".repeat(4096))).not.toThrow()
+  })
+
+  it("空文字列は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("")).toThrow(SidValidationError)
+  })
+
+  it("4097 文字の SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("a".repeat(4097))).toThrow(SidValidationError)
+  })
+
+  it("CR (\\r) を含む SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("valid-sid\r\n")).toThrow(SidValidationError)
+  })
+
+  it("LF (\\n) のみを含む SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("valid-sid\n")).toThrow(SidValidationError)
+  })
+
+  it("NUL バイト (\\x00) を含む SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("valid\x00sid")).toThrow(SidValidationError)
+  })
+
+  it("スペースを含む SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid("valid sid")).toThrow(SidValidationError)
+  })
+
+  it("ダブルクォートを含む SID は SidValidationError をスローする", () => {
+    expect(() => assertValidSid('valid"sid')).toThrow(SidValidationError)
+  })
+
+  it("セミコロン (;) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // connect.sid=value;Path=/ のようなヘッダー区切り文字はSIDとして無効
+    expect(() => assertValidSid("valid;sid")).toThrow(SidValidationError)
+  })
+
+  it("カンマ (,) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // カンマはCookieヘッダーの区切り文字として使われるためSIDとして無効
+    expect(() => assertValidSid("valid,sid")).toThrow(SidValidationError)
+  })
+
+  it("バックスラッシュ (\\\\) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // バックスラッシュはCookieヘッダーの値として無効
+    expect(() => assertValidSid("valid\\sid")).toThrow(SidValidationError)
+  })
+
+  it("SidValidationError は Error を継承し SID に関するメッセージを持つ", () => {
+    const err = new SidValidationError()
+    expect(err).toBeInstanceOf(Error)
+    expect(err.name).toBe("SidValidationError")
+    expect(err.message).toContain("SID")
   })
 })
 
