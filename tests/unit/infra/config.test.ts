@@ -5,7 +5,7 @@
  * テスト終了後にクリーンアップする。
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { existsSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -159,5 +159,45 @@ describe("setConfigValue", () => {
   it("sync.format に不正な値を設定するとエラーになる", () => {
     const config = {}
     expect(() => setConfigValue(config, "sync.format", "md")).toThrow()
+  })
+})
+
+describe("prototype 汚染への防御", () => {
+  afterAll(() => {
+    // RED フェーズで汚染が発生した場合に備えてクリーンアップする
+    Reflect.deleteProperty(Object.prototype, "polluted")
+  })
+
+  it("setConfigValue で __proto__ キーを指定すると throw する", () => {
+    expect(() => setConfigValue({}, "__proto__.polluted", true)).toThrow()
+  })
+
+  it("setConfigValue で prototype キーを指定すると throw する", () => {
+    expect(() => setConfigValue({}, "prototype.polluted", true)).toThrow()
+  })
+
+  it("setConfigValue で constructor キーを指定すると throw する", () => {
+    expect(() => setConfigValue({}, "constructor.name", "不正コード")).toThrow()
+  })
+
+  it("__proto__ への setConfigValue が失敗しても Object.prototype が汚染されない", () => {
+    try {
+      setConfigValue({}, "__proto__.polluted", true)
+    } catch {
+      // 期待通りの throw
+    }
+    // Object.prototype が汚染されていないことを確認する
+    expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false)
+  })
+
+  it("getConfigValue で __proto__ キーを指定すると undefined を返す", () => {
+    const config = {}
+    expect(getConfigValue(config, "__proto__")).toBeUndefined()
+    expect(getConfigValue(config, "__proto__.polluted")).toBeUndefined()
+  })
+
+  it("getConfigValue で constructor キーを指定すると undefined を返す", () => {
+    const config = {}
+    expect(getConfigValue(config, "constructor")).toBeUndefined()
   })
 })
