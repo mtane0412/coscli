@@ -240,19 +240,6 @@ describe("CosenseRestClient", () => {
   })
 
   describe("searchPages", () => {
-    it("存在しないプロジェクトの NotFoundError メッセージにクエリ文字列 (?q=...) が含まれない", async () => {
-      const client = new CosenseRestClient({ sid: TEST_SID })
-      // 存在しないプロジェクトを指定して 404 を発生させる
-      const error = await client
-        .searchPages("存在しないプロジェクト", "検索キーワード")
-        .catch((e) => e)
-      expect(error).toBeInstanceOf(NotFoundError)
-      // pathname は含まれること
-      expect(error.message).toContain("/api/pages/")
-      // クエリ文字列は含まれないこと
-      expect(error.message).not.toContain("?")
-    })
-
     it("クエリにマッチするページを返す", async () => {
       const client = new CosenseRestClient({ sid: TEST_SID })
       const result = await client.searchPages(TEST_PROJECT, "Hello")
@@ -264,6 +251,19 @@ describe("CosenseRestClient", () => {
       const client = new CosenseRestClient({ sid: TEST_SID })
       const result = await client.searchPages(TEST_PROJECT, "存在しないキーワード")
       expect(result.pages).toHaveLength(0)
+    })
+
+    it("存在しないプロジェクトの NotFoundError メッセージにクエリ文字列 (?q=...) が含まれない", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      // 存在しないプロジェクトを指定して 404 を発生させる
+      const error = await client
+        .searchPages("存在しないプロジェクト", "検索キーワード")
+        .catch((e) => e)
+      expect(error).toBeInstanceOf(NotFoundError)
+      // pathname は含まれること
+      expect(error.message).toContain("/api/pages/")
+      // クエリ文字列は含まれないこと
+      expect(error.message).not.toContain("?")
     })
   })
 
