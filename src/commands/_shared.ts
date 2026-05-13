@@ -203,8 +203,8 @@ export function getRawFlagValue(argv: string[], flagName: string): string | unde
 }
 
 const SID_MAX_LENGTH = 4096
-// RFC 6265 cookie-octet 相当: 制御文字・スペース・ダブルクォートを除く印字可能 ASCII
-const SID_PATTERN = /^[\x21\x23-\x7E]+$/
+// RFC 6265 cookie-octet: DQUOTE(0x22), comma(0x2C), semicolon(0x3B), backslash(0x5C), CTL, SP を除外
+const SID_PATTERN = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/
 
 /** SidValidationError は SID フォーマット違反を表すエラー。 */
 export class SidValidationError extends Error {
@@ -214,11 +214,7 @@ export class SidValidationError extends Error {
   }
 }
 
-/**
- * assertValidSid は SID 文字列のフォーマットを検証する。
- * 長さ 1〜4096、印字可能 ASCII (制御文字・スペース・ダブルクォートを除く) のみ許可。
- * 違反時は SidValidationError をスローする。
- */
+/** assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。 */
 export function assertValidSid(sid: string): void {
   if (sid.length === 0 || sid.length > SID_MAX_LENGTH || !SID_PATTERN.test(sid)) {
     throw new SidValidationError()
@@ -230,7 +226,7 @@ export async function requireSid(profile?: string): Promise<string> {
   // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
   if (!profile) {
     const envSid = process.env["COS_SID"]
-    if (envSid) {
+    if (envSid !== undefined) {
       try {
         assertValidSid(envSid)
       } catch {

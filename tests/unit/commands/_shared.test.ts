@@ -201,6 +201,21 @@ describe("assertValidSid / SidValidationError", () => {
     expect(() => assertValidSid('valid"sid')).toThrow(SidValidationError)
   })
 
+  it("セミコロン (;) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // connect.sid=value;Path=/ のようなヘッダー区切り文字はSIDとして無効
+    expect(() => assertValidSid("valid;sid")).toThrow(SidValidationError)
+  })
+
+  it("カンマ (,) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // カンマはCookieヘッダーの区切り文字として使われるためSIDとして無効
+    expect(() => assertValidSid("valid,sid")).toThrow(SidValidationError)
+  })
+
+  it("バックスラッシュ (\\\\) を含む SID は SidValidationError をスローする (RFC 6265 cookie-octet 違反)", () => {
+    // バックスラッシュはCookieヘッダーの値として無効
+    expect(() => assertValidSid("valid\\sid")).toThrow(SidValidationError)
+  })
+
   it("SidValidationError は Error を継承し SID に関するメッセージを持つ", () => {
     const err = new SidValidationError()
     expect(err).toBeInstanceOf(Error)
