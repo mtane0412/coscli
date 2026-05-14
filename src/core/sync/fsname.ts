@@ -12,6 +12,9 @@ const FORBIDDEN_PATTERN = /[/\\:*?"<>|]/
 /** 予約名: . と .. はディレクトリトラバーサルの危険がある */
 const RESERVED_NAMES = new Set([".", ".."])
 
+/** Windows 予約デバイス名: 拡張子付きも含む (例: CON.txt) */
+const WINDOWS_RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$/i
+
 /** FilenameInvalidError はファイル名として使用できないタイトルのエラー。 */
 export class FilenameInvalidError extends Error {
   constructor(
@@ -46,6 +49,12 @@ export function safeFsName(title: string): string {
       const display = `U+${code.toString(16).padStart(4, "0").toUpperCase()}`
       throw new FilenameInvalidError(title, `禁則文字 ${display} が含まれています`)
     }
+  }
+  if (WINDOWS_RESERVED.test(title)) {
+    throw new FilenameInvalidError(title, `"${title}" は Windows 予約デバイス名です`)
+  }
+  if (/[ .]$/.test(title)) {
+    throw new FilenameInvalidError(title, "末尾にスペースまたはピリオドを使用できません")
   }
   return title
 }
