@@ -94,28 +94,24 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("authWhoamiCommand — --json 出力のセキュリティ検証", () => {
+  const defaultWhoamiArgs = {
+    json: true,
+    plain: false,
+    quiet: false,
+    verbose: false,
+    profile: "default",
+  }
+
   it("--json 出力に csrfToken が含まれないこと (issue #89)", async () => {
     const getJson = captureJsonOutput()
-    await runWhoami({
-      json: true,
-      plain: false,
-      quiet: false,
-      verbose: false,
-      profile: "default",
-    })
+    await runWhoami(defaultWhoamiArgs)
     const output = getJson() as { data?: Record<string, unknown> }
     expect(output.data).not.toHaveProperty("csrfToken")
   })
 
   it("--json 出力に id・name・displayName が含まれること", async () => {
     const getJson = captureJsonOutput()
-    await runWhoami({
-      json: true,
-      plain: false,
-      quiet: false,
-      verbose: false,
-      profile: "default",
-    })
+    await runWhoami(defaultWhoamiArgs)
     const output = getJson() as { data?: Record<string, unknown> }
     expect(output.data).toHaveProperty("id", "yamada-taro-id")
     expect(output.data).toHaveProperty("name", "yamada-taro")
