@@ -74,7 +74,7 @@ export function saveConfig(config: CoscliConfig, filePath: string = defaultConfi
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   // JSON5 形式のヘッダコメントを付与
   const header = "// coscli 設定ファイル (JSON5形式 — コメント・末尾カンマ可)\n"
-  writeFileSync(filePath, header + JSON.stringify(config, null, 2))
+  writeFileSync(filePath, header + JSON.stringify(config, null, 2), { mode: 0o600 })
 }
 
 /** FORBIDDEN_KEYS は prototype 汚染を引き起こす危険なキー名の集合。 */

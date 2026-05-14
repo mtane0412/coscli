@@ -3,7 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type SyncMeta, SyncMetaSchema, readMeta, writeMeta } from "@/core/sync/meta"
@@ -81,6 +81,17 @@ describe("writeMeta / readMeta", () => {
   test("readMeta はファイルが存在しない場合 null を返す", () => {
     const result = readMeta(TEST_DIR, "存在しないプロジェクト", "存在しないページ")
     expect(result).toBeNull()
+  })
+
+  test("writeMeta で書き込まれたファイルのパーミッションが 0o600 であること", () => {
+    const meta = makeValidMeta()
+    writeMeta(TEST_DIR, meta)
+
+    const metaPath = join(TEST_DIR, ".coscli", "テストプロジェクト", "テストページ.json")
+    const stat = statSync(metaPath)
+    // 下位 9 ビットでファイルパーミッションを確認する
+    const mode = stat.mode & 0o777
+    expect(mode).toBe(0o600)
   })
 
   test("metaPath はタイトルをファイル名に使う", () => {
