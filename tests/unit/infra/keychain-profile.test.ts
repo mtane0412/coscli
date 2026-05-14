@@ -72,5 +72,13 @@ describe("validateProfile", () => {
     it("末尾に空白を含む名前を拒否する", () => {
       expect(() => validateProfile("profile ")).toThrow("プロファイル名")
     })
+
+    it("255 文字を超える名前を拒否する (長すぎるプロファイル名)", () => {
+      expect(() => validateProfile("a".repeat(256))).toThrow("長すぎ")
+    })
+
+    it("255 文字ちょうどの名前は受け入れる", () => {
+      expect(() => validateProfile("a".repeat(255))).not.toThrow()
+    })
   })
 })

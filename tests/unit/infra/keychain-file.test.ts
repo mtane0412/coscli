@@ -46,6 +46,16 @@ describe("FileTokenStore", () => {
       const store = new FileTokenStore(tmpFile)
       await expect(store.delete("invalid/profile")).rejects.toThrow("使用できない文字")
     })
+
+    it("load で不正なプロファイル名 (長すぎる) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.load("a".repeat(256))).rejects.toThrow("長すぎ")
+    })
+
+    it("delete で不正なプロファイル名 (長すぎる) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.delete("a".repeat(256))).rejects.toThrow("長すぎ")
+    })
   })
 
   it("セッション ID を保存して取得できる", async () => {

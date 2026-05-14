@@ -83,6 +83,12 @@ describe("WindowsKeychainStore", () => {
       await expect(store.load("invalid/profile")).rejects.toThrow("使用できない文字")
     })
 
+    it("不正なプロファイル名 (長すぎる) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new WindowsKeychainStore(spawner)
+      await expect(store.load("a".repeat(256))).rejects.toThrow("長すぎ")
+    })
+
     it("powershell を呼び出して SID を返す", async () => {
       const { spawner, getCall } = captureSpawner("sid-abc-123", "", 0)
       const store = new WindowsKeychainStore(spawner)
@@ -150,6 +156,12 @@ describe("WindowsKeychainStore", () => {
       const { spawner } = captureSpawner("", "", 0)
       const store = new WindowsKeychainStore(spawner)
       await expect(store.delete("invalid/profile")).rejects.toThrow("使用できない文字")
+    })
+
+    it("不正なプロファイル名 (長すぎる) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new WindowsKeychainStore(spawner)
+      await expect(store.delete("a".repeat(256))).rejects.toThrow("長すぎ")
     })
 
     it("cmdkey /delete:coscli:<profile> を呼び出す", async () => {

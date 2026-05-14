@@ -5,6 +5,9 @@
  * コマンドインジェクション・引数解釈の混乱・パース破壊を防ぐために使用する。
  */
 
+/** MAX_PROFILE_LENGTH は全プラットフォームで安全に扱える最大プロファイル名長。 */
+export const MAX_PROFILE_LENGTH = 255
+
 /** FORBIDDEN_CHARS は明示的に禁止する印字可能文字の一覧。 */
 const FORBIDDEN_CHARS = "'\":/"
 
@@ -34,6 +37,12 @@ function hasInvalidChar(profile: string): boolean {
 export function validateProfile(profile: string): void {
   if (profile.length === 0) {
     throw new Error("プロファイル名を空にすることはできません。")
+  }
+
+  if (profile.length > MAX_PROFILE_LENGTH) {
+    throw new Error(
+      `プロファイル名が長すぎます: ${profile.length} 文字 (最大 ${MAX_PROFILE_LENGTH} 文字)`,
+    )
   }
 
   if (profile.startsWith("-")) {
