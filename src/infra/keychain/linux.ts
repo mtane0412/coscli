@@ -56,6 +56,7 @@ export class LinuxKeychainStore implements TokenStore {
   }
 
   async load(profile: string): Promise<string | null> {
+    validateProfile(profile)
     let proc: SubprocessLike
     try {
       proc = this.spawn(["secret-tool", "lookup", "service", SERVICE, "account", profile], {
@@ -72,6 +73,7 @@ export class LinuxKeychainStore implements TokenStore {
   }
 
   async delete(profile: string): Promise<void> {
+    validateProfile(profile)
     let proc: SubprocessLike
     try {
       proc = this.spawn(["secret-tool", "clear", "service", SERVICE, "account", profile], {

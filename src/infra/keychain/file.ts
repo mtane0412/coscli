@@ -23,6 +23,7 @@ import {
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import type { TokenStore } from "@/core/auth/store"
+import { validateProfile } from "./profile"
 
 /** FileTokenStore はファイルに平文で connect.sid を保存する (フォールバック用)。 */
 export class FileTokenStore implements TokenStore {
@@ -36,6 +37,7 @@ export class FileTokenStore implements TokenStore {
   }
 
   async load(profile: string): Promise<string | null> {
+    validateProfile(profile)
     try {
       const data = this.read()
       return data[profile] ?? null
@@ -45,6 +47,7 @@ export class FileTokenStore implements TokenStore {
   }
 
   async delete(profile: string): Promise<void> {
+    validateProfile(profile)
     const data = this.read()
     delete data[profile]
     this.write(data)

@@ -26,6 +26,38 @@ describe("FileTokenStore", () => {
     if (existsSync(tmpFile)) unlinkSync(tmpFile)
   })
 
+  describe("バリデーション", () => {
+    it("load で不正なプロファイル名 (空文字列) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.load("")).rejects.toThrow("プロファイル名を空にすることはできません")
+    })
+
+    it("load で不正なプロファイル名 (禁止文字含む) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.load("invalid/profile")).rejects.toThrow("使用できない文字")
+    })
+
+    it("delete で不正なプロファイル名 (空文字列) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.delete("")).rejects.toThrow("プロファイル名を空にすることはできません")
+    })
+
+    it("delete で不正なプロファイル名 (禁止文字含む) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.delete("invalid/profile")).rejects.toThrow("使用できない文字")
+    })
+
+    it("load で不正なプロファイル名 (長すぎる) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.load("a".repeat(256))).rejects.toThrow("長すぎ")
+    })
+
+    it("delete で不正なプロファイル名 (長すぎる) はバリデーションエラーを throw する", async () => {
+      const store = new FileTokenStore(tmpFile)
+      await expect(store.delete("a".repeat(256))).rejects.toThrow("長すぎ")
+    })
+  })
+
   it("セッション ID を保存して取得できる", async () => {
     const store = new FileTokenStore(tmpFile)
     await store.save("default", "test-sid-12345")
