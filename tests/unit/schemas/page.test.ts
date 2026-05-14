@@ -198,6 +198,29 @@ describe("SearchResultSchema — 実 API レスポンスとの整合性", () => 
     expect(result.projectName).toBe("テストプロジェクト")
   })
 
+  it("query オブジェクトの words・excludes フィールドが正しくパースされる", () => {
+    const result = SearchResultSchema.parse({
+      query: { words: ["TypeScript", "Cosense"], excludes: ["非表示"] },
+      pages: [],
+      projectName: "テストプロジェクト",
+    })
+    // 型ガードで query がオブジェクトであることを確認してから各フィールドを検証する
+    const q = result.query
+    if (typeof q !== "object" || q === null) throw new Error("query はオブジェクトであるべき")
+    expect(q.words).toEqual(["TypeScript", "Cosense"])
+    expect(q.excludes).toEqual(["非表示"])
+  })
+
+  it("query オブジェクトに未知のキーが含まれた場合はストリップされる", () => {
+    const result = SearchResultSchema.parse({
+      query: { words: ["テスト"], excludes: [], unknownKey: "不審な値" },
+      pages: [],
+      projectName: "テストプロジェクト",
+    })
+    // 未知のキーはストリップされ query オブジェクトに混入しないこと
+    expect(Object.keys(result.query as object)).not.toContain("unknownKey")
+  })
+
   it("query フィールドが文字列でもパースできる", () => {
     const result = SearchResultSchema.parse({
       query: "テスト",
