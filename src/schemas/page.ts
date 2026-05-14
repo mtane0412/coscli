@@ -93,7 +93,15 @@ export type PageListResponse = z.infer<typeof PageListResponseSchema>
 /** SearchResult は /api/pages/:project/search/query のレスポンス。 */
 export const SearchResultSchema = z.object({
   // 実 API (認証あり): query はオブジェクト形式 { words, excludes } を返すことがある
-  query: z.union([z.string(), z.object({}).passthrough()]).optional(),
+  query: z
+    .union([
+      z.string(),
+      z.object({
+        words: z.array(z.string()).optional(),
+        excludes: z.array(z.string()).optional(),
+      }),
+    ])
+    .optional(),
   pages: z.array(
     z.object({
       id: z.string(),
