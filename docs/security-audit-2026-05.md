@@ -5,7 +5,8 @@
 **監査日**: 2026-05-12  
 **対象バージョン**: v0.2.0 (コミット `016d593`)  
 **調査スコープ**: `src/` 全ソース、`tests/` テスト群、依存ライブラリ、CI ワークフロー  
-**目的**: 一般ユーザーおよび AI エージェント (Claude Code / Codex / Cursor) からの利用を想定した脅威モデルでの安全性評価
+**目的**: 一般ユーザーおよび AI エージェント (Claude Code / Codex / Cursor) からの利用を想定した脅威モデルでの安全性評価  
+**最終更新**: 2026-05-14 (全 20 項目対応完了)
 
 ### 脅威モデル
 
@@ -18,13 +19,13 @@
 
 ### 発見件数
 
-| 優先度 | 件数 | 本セッションでの扱い |
+| 優先度 | 件数 | 状態 |
 |---|---|---|
-| Critical | 4 件 | 後続 PR で対応 |
-| High | 4 件 | 後続 PR で対応 |
-| Medium | 8 件 | 後続 issue で対応 |
-| Low | 4 件 | 後続 issue で対応 |
-| **合計** | **20 件** | |
+| Critical | 4 件 | 対応完了 (PR #75–#77) |
+| High | 4 件 | 対応完了 (PR #78–#81, #97) |
+| Medium | 8 件 | 対応完了 (PR #98–#104、#13 は別 PR) |
+| Low | 4 件 | 対応完了 (PR #105–#108) |
+| **合計** | **20 件** | **全件対応完了** |
 
 ---
 
@@ -178,7 +179,7 @@ AI エージェントが設定ファイル操作ツールとして `cos config s
 
 **本セッションでの扱い**: PR #79 でマージ済み (入口 reject 実装済み)
 
-**未対応の深層防御**: `src/infra/config.ts:119` の中間オブジェクト生成が `Object.create(null)` に変更されていない。FORBIDDEN_KEYS による入口 reject で実害はほぼ防げているが、深層防御として残作業あり → issue #84
+**追加対応**: PR #97 で `src/infra/config.ts:119` の中間オブジェクトを `Object.create(null)` に変更し深層防御を完了 (issue #84 クローズ済み)
 
 ---
 
@@ -228,7 +229,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 
 ---
 
-## Medium — 後続 issue で対応
+## Medium — 対応完了
 
 ### #9: serve Bearer トークンの non-constant-time 比較
 
@@ -236,7 +237,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/core/server/rest.ts:62`  
 **概要**: `auth !== \`Bearer ${ctx.token}\`` でタイミング攻撃に脆弱。  
 **推奨対応**: `crypto.timingSafeEqual` を使用。  
-**後続 issue**: issue #85
+**対応 PR**: PR #98 (issue #85 クローズ)
 
 ---
 
@@ -246,7 +247,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/commands/serve.ts:146`  
 **概要**: `--host` がループバック以外のとき `--token` 未指定なら warn を出すだけで起動を許可する。  
 **推奨対応**: ループバック以外 + トークンなしは起動拒否。  
-**後続 issue**: issue #86
+**対応 PR**: PR #99 (issue #86 クローズ)
 
 ---
 
@@ -256,7 +257,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/core/api/rest.ts:52, :233`  
 **概要**: NotFoundError のメッセージに URL 全体が含まれ、クエリパラメータ (title, query) がログに残る。  
 **推奨対応**: エラーメッセージには pathname のみ含める。  
-**後続 issue**: issue #87
+**対応 PR**: PR #100 (issue #87 クローズ)
 
 ---
 
@@ -266,7 +267,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/infra/keychain/{macos,linux,windows,file}.ts` の `load`, `delete`  
 **概要**: `validateProfile` が save 時のみ呼ばれ、load/delete では未呼出。  
 **推奨対応**: load/delete の先頭で `validateProfile(profile)` を呼ぶ。  
-**後続 issue**: issue #88
+**対応 PR**: PR #101 (issue #88 クローズ)
 
 ---
 
@@ -286,7 +287,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/commands/auth/whoami.ts:48`, `src/schemas/user.ts:14`  
 **概要**: `MeSchema.csrfToken` が `--json` 出力に含まれ、ログに残ったり git にコミットされる危険がある。  
 **推奨対応**: whoami 出力時に `csrfToken` を除外する。  
-**後続 issue**: issue #89
+**対応 PR**: PR #102 (issue #89 クローズ)
 
 ---
 
@@ -296,7 +297,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/core/sync/fsname.ts`  
 **概要**: `CON`, `PRN`, `NUL`, `COM1-9`, `LPT1-9` 等の Windows 予約名と末尾スペース・ピリオドを検査しない。  
 **推奨対応**: WINDOWS_RESERVED 正規表現による拒否、末尾スペース・ピリオドの拒否を追加。  
-**後続 issue**: issue #90
+**対応 PR**: PR #103 (issue #90 クローズ)
 
 ---
 
@@ -306,19 +307,18 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **対象ファイル**: `src/commands/sync/push.ts:172-178`  
 **概要**: メタディレクトリの readdir 結果から `.json` を除去して title とするが、`safeFsName(title)` の明示呼出がなく engine.ts 側の検証のみに依存している。  
 **推奨対応**: `push.ts` 側でも `safeFsName(title)` を明示的に呼びエラー時はスキップ。  
-**状態**: 部分対応 — engine 側に検査はあるが、`push.ts:172-178` の明示呼出は未実装。  
-**後続 issue**: issue #91
+**対応 PR**: PR #104 (issue #91 クローズ) — `push.ts:172-185` で `safeFsName` を try/catch でラップし不正ファイル名を明示スキップ
 
 ---
 
-## Low — 後続で対応
+## Low — 対応完了
 
 ### #17: `SearchResultSchema.query` の `.passthrough()` 未制限
 
 **優先度**: Low  
 **対象ファイル**: `src/schemas/page.ts:96`  
 **概要**: `query` フィールドのみ `.passthrough()` で未知キーが素通りする。  
-**後続 issue**: issue #92
+**対応 PR**: PR #105 (issue #92 クローズ)
 
 ---
 
@@ -327,7 +327,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **優先度**: Low  
 **対象ファイル**: `src/infra/config.ts:77`, `src/core/sync/meta.ts:39`  
 **概要**: `config.json5`, sync メタファイルともに `mode` 指定なし。Critical #4 (PR #77) で `secrets.json` は `0o600` 対応済みだが、config.json5 と sync メタファイルは未対応。  
-**後続 issue**: issue #93
+**対応 PR**: PR #106 (issue #93 クローズ)
 
 ---
 
@@ -336,7 +336,7 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **優先度**: Low  
 **対象ファイル**: `package.json:37`  
 **概要**: `"@types/bun": "latest"` は devDependency だが、ロックなしで `bun install` すると差し替わる。CI は `--frozen-lockfile` を使用しているため実害は限定的。  
-**後続 issue**: issue #94
+**対応 PR**: PR #107 (issue #94 クローズ)
 
 ---
 
@@ -345,11 +345,11 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 **優先度**: Low  
 **対象ファイル**: リポジトリ直下 `SECURITY.md` (新規作成)  
 **概要**: 脆弱性の報告窓口・サポートバージョン・脅威モデルを記載した SECURITY.md が存在しない。  
-**後続 issue**: issue #95
+**対応 PR**: PR #108 (issue #95 クローズ)
 
 ---
 
-## 修正状況 (2026-05-13 時点)
+## 修正状況 (2026-05-14 時点) — 全件対応完了
 
 | # | 概要 | 優先度 | 状態 | PR / issue |
 |---|---|---|---|---|
@@ -357,18 +357,18 @@ AI エージェントが `COS_SID=$'s%3A...\r\nX-Injected: hdr'` を渡すと、
 | 3 | keychain argv 経由 sid 露出 | Critical | マージ済み | PR #76 |
 | 4 | FileTokenStore atomic write / dir perm | Critical | マージ済み | PR #77 |
 | 5 | sandbox ワイルドカード / case-sensitivity | High | マージ済み | PR #78 |
-| 6 | prototype 汚染 (入口 reject) | High | マージ済み (深層防御 1 点未対応) | PR #79、残作業 → issue #84 |
+| 6 | prototype 汚染 (入口 reject + 深層防御) | High | マージ済み (深層防御も完了) | PR #79, #97 (issue #84 クローズ) |
 | 7 | sid フォーマット検証 | High | マージ済み | PR #80 |
 | 8 | HTTP redirect Cookie 漏洩 | High | マージ済み | PR #81 |
-| 9 | serve Bearer non-constant-time 比較 | Medium | 未対応 | issue #85 |
-| 10 | serve --host 非ループバック時トークン未強制 | Medium | 未対応 | issue #86 |
-| 11 | NotFoundError URL クエリ漏洩 | Medium | 未対応 | issue #87 |
-| 12 | keychain load/delete の validateProfile 欠如 | Medium | 未対応 | issue #88 |
+| 9 | serve Bearer non-constant-time 比較 | Medium | マージ済み | PR #98 (issue #85 クローズ) |
+| 10 | serve --host 非ループバック時トークン未強制 | Medium | マージ済み | PR #99 (issue #86 クローズ) |
+| 11 | NotFoundError URL クエリ漏洩 | Medium | マージ済み | PR #100 (issue #87 クローズ) |
+| 12 | keychain load/delete の validateProfile 欠如 | Medium | マージ済み | PR #101 (issue #88 クローズ) |
 | 13 | serve listPages skip/limit バリデーション | Medium | 修正済み (別 PR) | — |
-| 14 | whoami --json に csrfToken 含む | Medium | 未対応 | issue #89 |
-| 15 | fsname.ts Windows 予約名 / 末尾 spc・period | Medium | 未対応 | issue #90 |
-| 16 | sync push の safeFsName 二重防御 | Medium | 部分対応 | issue #91 |
-| 17 | SearchResultSchema.query passthrough | Low | 未対応 | issue #92 |
-| 18 | config / sync メタファイル mode 指定 | Low | 未対応 | issue #93 |
-| 19 | @types/bun: latest ピン留め | Low | 未対応 | issue #94 |
-| 20 | SECURITY.md 新規作成 | Low | 未対応 | issue #95 |
+| 14 | whoami --json に csrfToken 含む | Medium | マージ済み | PR #102 (issue #89 クローズ) |
+| 15 | fsname.ts Windows 予約名 / 末尾 spc・period | Medium | マージ済み | PR #103 (issue #90 クローズ) |
+| 16 | sync push の safeFsName 二重防御 | Medium | マージ済み | PR #104 (issue #91 クローズ) |
+| 17 | SearchResultSchema.query passthrough | Low | マージ済み | PR #105 (issue #92 クローズ) |
+| 18 | config / sync メタファイル mode 指定 | Low | マージ済み | PR #106 (issue #93 クローズ) |
+| 19 | @types/bun: latest ピン留め | Low | マージ済み | PR #107 (issue #94 クローズ) |
+| 20 | SECURITY.md 新規作成 | Low | マージ済み | PR #108 (issue #95 クローズ) |
