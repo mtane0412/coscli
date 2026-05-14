@@ -204,8 +204,9 @@ describe("SearchResultSchema — 実 API レスポンスとの整合性", () => 
       pages: [],
       projectName: "テストプロジェクト",
     })
-    // queryがオブジェクトの場合にwordsとexcludesが保持されること
-    const q = result.query as { words: string[]; excludes: string[] }
+    // 型ガードで query がオブジェクトであることを確認してから各フィールドを検証する
+    const q = result.query
+    if (typeof q !== "object" || q === null) throw new Error("query はオブジェクトであるべき")
     expect(q.words).toEqual(["TypeScript", "Cosense"])
     expect(q.excludes).toEqual(["非表示"])
   })
@@ -217,8 +218,7 @@ describe("SearchResultSchema — 実 API レスポンスとの整合性", () => 
       projectName: "テストプロジェクト",
     })
     // 未知のキーはストリップされ query オブジェクトに混入しないこと
-    const q = result.query as Record<string, unknown>
-    expect(q["unknownKey"]).toBeUndefined()
+    expect(Object.keys(result.query as object)).not.toContain("unknownKey")
   })
 
   it("query フィールドが文字列でもパースできる", () => {
