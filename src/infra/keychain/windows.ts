@@ -83,6 +83,7 @@ export class WindowsKeychainStore implements TokenStore {
   }
 
   async load(profile: string): Promise<string | null> {
+    validateProfile(profile)
     // cmdkey は直接パスワードを読み出せないため PowerShell + CredentialManager モジュールを試みる。
     // profile 値は文字列補間を避けるため環境変数 COS_TARGET 経由で渡す。
     const script = `
@@ -118,6 +119,7 @@ export class WindowsKeychainStore implements TokenStore {
   }
 
   async delete(profile: string): Promise<void> {
+    validateProfile(profile)
     let proc: SubprocessLike
     try {
       proc = this.spawn(["cmdkey", `/delete:${SERVICE}:${profile}`], {

@@ -62,6 +62,18 @@ describe("MacOSKeychainStore", () => {
   })
 
   describe("load", () => {
+    it("不正なプロファイル名 (空文字列) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await expect(store.load("")).rejects.toThrow("プロファイル名を空にすることはできません")
+    })
+
+    it("不正なプロファイル名 (禁止文字含む) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await expect(store.load("invalid/profile")).rejects.toThrow("使用できない文字")
+    })
+
     it("security find-generic-password -w を呼び出して SID を返す", async () => {
       const { spawner, getCall } = captureSpawner("sid-abc-123\n", "", 0)
       const store = new MacOSKeychainStore(spawner)
@@ -93,6 +105,18 @@ describe("MacOSKeychainStore", () => {
   })
 
   describe("delete", () => {
+    it("不正なプロファイル名 (空文字列) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await expect(store.delete("")).rejects.toThrow("プロファイル名を空にすることはできません")
+    })
+
+    it("不正なプロファイル名 (禁止文字含む) でバリデーションエラーを throw する", async () => {
+      const { spawner } = captureSpawner("", "", 0)
+      const store = new MacOSKeychainStore(spawner)
+      await expect(store.delete("invalid/profile")).rejects.toThrow("使用できない文字")
+    })
+
     it("security delete-generic-password を呼び出す", async () => {
       const { spawner, getCall } = captureSpawner("", "", 0)
       const store = new MacOSKeychainStore(spawner)
