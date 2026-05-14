@@ -17,7 +17,7 @@ import {
   requireProject,
 } from "@/commands/_shared"
 import { syncPush } from "@/core/sync/engine"
-import { FilenameInvalidError } from "@/core/sync/fsname"
+import { FilenameInvalidError, safeFsName } from "@/core/sync/fsname"
 import { loadConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -176,6 +176,13 @@ export const syncPushCommand = defineCommand({
 
       for (const metaFile of metaFiles) {
         const title = metaFile.replace(/\.json$/, "")
+        // 二重防御: engine 側の検証に加え、不正ファイル名を push 前にスキップする
+        try {
+          safeFsName(title)
+        } catch {
+          logger.warn(`不正なファイル名をスキップ: ${metaFile}`)
+          continue
+        }
         try {
           const result = await syncPush(client, writer, syncDir, project, title, {
             dryRun,
