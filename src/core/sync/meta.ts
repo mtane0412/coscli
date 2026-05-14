@@ -36,7 +36,7 @@ export function writeMeta(syncDir: string, meta: SyncMeta): void {
   const filePath = metaFilePath(syncDir, meta.project, meta.title)
   const dir = join(syncDir, ".coscli", meta.project)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  writeFileSync(filePath, JSON.stringify(meta, null, 2))
+  writeFileSync(filePath, JSON.stringify(meta, null, 2), { mode: 0o600 })
 }
 
 /** readMeta はメタデータをファイルから読み込む。ファイルが存在しない場合は null を返す。破損時は Error を throw する。 */

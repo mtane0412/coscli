@@ -6,7 +6,7 @@
  */
 
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, unlinkSync } from "node:fs"
+import { existsSync, statSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -78,6 +78,14 @@ describe("saveConfig", () => {
     const loaded = loadConfig(nestedPath)
     expect(loaded.defaultProject).toBe("ネストテスト")
     unlinkSync(nestedPath)
+  })
+
+  it("保存されたファイルのパーミッションが 0o600 であること", () => {
+    saveConfig({ defaultProject: "パーミッションテスト" }, path)
+    const stat = statSync(path)
+    // 下位 9 ビットでファイルパーミッションを確認する
+    const mode = stat.mode & 0o777
+    expect(mode).toBe(0o600)
   })
 })
 
