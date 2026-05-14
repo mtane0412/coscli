@@ -65,6 +65,86 @@ describe("safeFsName", () => {
     expect(() => safeFsName("newline\nchar")).toThrow(FilenameInvalidError)
   })
 
+  describe("Windows 予約デバイス名", () => {
+    test("CON は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("CON")).toThrow(FilenameInvalidError)
+    })
+
+    test("PRN は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("PRN")).toThrow(FilenameInvalidError)
+    })
+
+    test("AUX は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("AUX")).toThrow(FilenameInvalidError)
+    })
+
+    test("NUL は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("NUL")).toThrow(FilenameInvalidError)
+    })
+
+    test("COM1 は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("COM1")).toThrow(FilenameInvalidError)
+    })
+
+    test("COM9 は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("COM9")).toThrow(FilenameInvalidError)
+    })
+
+    test("LPT1 は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("LPT1")).toThrow(FilenameInvalidError)
+    })
+
+    test("LPT9 は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("LPT9")).toThrow(FilenameInvalidError)
+    })
+
+    test("拡張子付き予約名 COM1.txt は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("COM1.txt")).toThrow(FilenameInvalidError)
+    })
+
+    test("拡張子付き予約名 NUL.log は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("NUL.log")).toThrow(FilenameInvalidError)
+    })
+
+    test("小文字の予約名 con は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("con")).toThrow(FilenameInvalidError)
+    })
+
+    test("混在大小文字の予約名 CoM1 は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("CoM1")).toThrow(FilenameInvalidError)
+    })
+
+    test("予約名を含む通常名 CONSOLE は通過する", () => {
+      expect(safeFsName("CONSOLE")).toBe("CONSOLE")
+    })
+
+    test("予約名を含む通常名 NULLポインタ は通過する", () => {
+      expect(safeFsName("NULLポインタ")).toBe("NULLポインタ")
+    })
+  })
+
+  describe("末尾スペース・末尾ピリオド", () => {
+    test("末尾スペースのファイル名は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("ファイル名 ")).toThrow(FilenameInvalidError)
+    })
+
+    test("末尾ピリオドのファイル名は FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("ファイル名.")).toThrow(FilenameInvalidError)
+    })
+
+    test("複数の末尾スペースは FilenameInvalidError を throw する", () => {
+      expect(() => safeFsName("ファイル名   ")).toThrow(FilenameInvalidError)
+    })
+
+    test("中間のスペースは通過する", () => {
+      expect(safeFsName("ファイル 名")).toBe("ファイル 名")
+    })
+
+    test("中間のピリオドは通過する", () => {
+      expect(safeFsName("ファイル.名")).toBe("ファイル.名")
+    })
+  })
+
   test("FilenameInvalidError は title と reason を持つ", () => {
     let caughtErr: unknown
     try {
