@@ -1,8 +1,9 @@
 /**
  * page/rename.test.ts — `cos page rename <title> <new-title>` コマンドのテスト。
  *
- * 重複チェックにおける persistent フラグの判定ロジックを検証する。
+ * 重複チェックおよびリネーム元 persistent チェックのロジックを検証する。
  * issue #57: persistent:false のスタブページを重複と誤判定しないよう修正。
+ * issue #112: リネーム元が persistent:false/404 の場合に NOT_FOUND (exit 4) で終了する。
  *
  * - REST getPage は msw でモックする。
  * - WebSocket 書き込み (renamePage) は spyOn でモックして WS 接続を回避する。
@@ -112,6 +113,25 @@ describe("pageRenameCommand", () => {
       http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
         const project = decodeURIComponent(params["project"] as string)
         const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "既存ページ") {
+          // リネーム元は実体のある persistent:true のページ
+          return HttpResponse.json({
+            id: "source-page-id",
+            title: "既存ページ",
+            persistent: true,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "既存ページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
         if (project === TEST_PROJECT && title === "存在しない新タイトル") {
           // persistent:false のスタブページを返す (200 だが実体なし)
           return HttpResponse.json({
@@ -166,18 +186,21 @@ describe("pageRenameCommand", () => {
       http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
         const project = decodeURIComponent(params["project"] as string)
         const title = decodeURIComponent(params["title"] as string)
-        if (project === TEST_PROJECT && title === "既存ページタイトル") {
-          // persistent:true の実体ページを返す
+        if (
+          project === TEST_PROJECT &&
+          (title === "変更元ページ" || title === "既存ページタイトル")
+        ) {
+          // リネーム元・リネーム先ともに実体のある persistent:true のページ
           return HttpResponse.json({
-            id: "existing-page-id",
-            title: "既存ページタイトル",
+            id: `${title}-id`,
+            title,
             persistent: true,
             created: 1700000000,
             updated: 1700000000,
             lines: [
               {
                 id: "line-1",
-                text: "既存ページタイトル",
+                text: title,
                 userId: "user-1",
                 created: 1700000000,
                 updated: 1700000000,
@@ -214,10 +237,31 @@ describe("pageRenameCommand", () => {
   })
 
   it("新タイトルが 404 NotFoundError を返す場合、重複なしとして rename が継続する", async () => {
-    // 前提: Cosense REST API が 404 を返す (真のページなし)。
+    // 前提: Cosense REST API がリネーム先に対して 404 を返す (真のページなし)。
     // 期待: NotFoundError は重複なしを意味するため、rename が継続する。
     server.use(
-      http.get(`${BASE_URL}/api/pages/:project/:title`, () => {
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const title = decodeURIComponent(params["title"] as string)
+        if (title === "既存ページ") {
+          // リネーム元は実体のある persistent:true のページ
+          return HttpResponse.json({
+            id: "source-page-id",
+            title: "既存ページ",
+            persistent: true,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "既存ページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        // リネーム先 "存在しないタイトル" は 404 → 重複なし
         return HttpResponse.json({ message: "Not found" }, { status: 404 })
       }),
     )
@@ -253,6 +297,25 @@ describe("pageRenameCommand", () => {
       http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
         const project = decodeURIComponent(params["project"] as string)
         const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "変更元ページ") {
+          // リネーム元は実体のある persistent:true のページ
+          return HttpResponse.json({
+            id: "source-page-id",
+            title: "変更元ページ",
+            persistent: true,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "変更元ページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
         if (project === TEST_PROJECT && title === "persistentなしページ") {
           // persistent フィールドを含まないレスポンス
           return HttpResponse.json({
@@ -297,5 +360,147 @@ describe("pageRenameCommand", () => {
     expect(stdoutOutput).toContain("DUPLICATE_TITLE")
     // 重複扱いなので rename は呼ばれない
     expect(renamePageSpy).not.toHaveBeenCalled()
+  })
+
+  it("リネーム元が persistent:false のプレースホルダーの場合、exit 4 NOT_FOUND で終了し renamePage は呼ばれない (issue #112)", async () => {
+    // 前提: リネーム元タイトルが persistent:false のプレースホルダーページを返す。
+    // 期待: 実体のないページはリネーム不可として NOT_FOUND エラー (exit 4) で終了し、
+    //       WebSocket commit (renamePage) は呼ばれない。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const project = decodeURIComponent(params["project"] as string)
+        const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "プレースホルダーページ") {
+          // persistent:false のプレースホルダーページ (本文なし)
+          return HttpResponse.json({
+            id: "placeholder-page-id",
+            title: "プレースホルダーページ",
+            persistent: false,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "プレースホルダーページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "プレースホルダーページ",
+        "new-title": "新しいタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // NOT_FOUND エラー (exit 4) で終了することを確認する
+    expect(exitMock).toHaveBeenCalledWith(4)
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).toContain("NOT_FOUND")
+    // プレースホルダーへの rename は実行されない
+    expect(renamePageSpy).not.toHaveBeenCalled()
+  })
+
+  it("リネーム元が 404 (NotFoundError) を返す場合、exit 4 NOT_FOUND で終了し renamePage は呼ばれない (issue #112)", async () => {
+    // 前提: リネーム元タイトルが 404 を返す (ページが存在しない)。
+    // 期待: 存在しないページはリネーム不可として NOT_FOUND エラー (exit 4) で終了し、
+    //       WebSocket commit (renamePage) は呼ばれない。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, () => {
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "存在しないソースページ",
+        "new-title": "新しいタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // NOT_FOUND エラー (exit 4) で終了することを確認する
+    expect(exitMock).toHaveBeenCalledWith(4)
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).toContain("NOT_FOUND")
+    // 存在しないページへの rename は実行されない
+    expect(renamePageSpy).not.toHaveBeenCalled()
+  })
+
+  it("--dry-run 時はリネーム元 persistent チェックをスキップし renamePage が呼ばれる", async () => {
+    // 前提: --dry-run フラグが指定されており、リネーム元は persistent:false のプレースホルダー。
+    // 期待: dry-run は副作用なしのプレビューのため REST チェックをスキップし、
+    //       renamePage が呼ばれる (dry-run なので実際の変更はない)。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const title = decodeURIComponent(params["title"] as string)
+        if (title === "プレースホルダーページ") {
+          // dry-run 時はこのハンドラが呼ばれないことを期待するが、
+          // 万一呼ばれた場合に備えて persistent:false を返す
+          return HttpResponse.json({
+            id: "placeholder-page-id",
+            title: "プレースホルダーページ",
+            persistent: false,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "プレースホルダーページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "プレースホルダーページ",
+        "new-title": "新しいタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": true,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // dry-run なので NOT_FOUND エラーにならない
+    expect(exitMock).not.toHaveBeenCalledWith(4)
+    // renamePage が呼ばれる (dry-run はスキップではなくプレビュー実行)
+    expect(renamePageSpy).toHaveBeenCalledTimes(1)
   })
 })
