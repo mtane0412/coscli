@@ -121,7 +121,7 @@ export const pageLineReplaceCommand = defineCommand({
       if (isStdinPath(filePath)) {
         try {
           const content = readStdinBounded()
-          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+          lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
         } catch (err) {
           if (err instanceof UnsafePathError) {
             writeErrorJson("UNSAFE_PATH", err.message)
@@ -133,7 +133,7 @@ export const pageLineReplaceCommand = defineCommand({
       } else {
         try {
           const content = readFromFile(filePath, { allowUnsafe: a["allow-unsafe-read"] })
-          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
+          lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
         } catch (err) {
           if (err instanceof UnsafePathError) {
             writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")

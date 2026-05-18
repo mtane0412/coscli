@@ -26,6 +26,16 @@ export async function getLineRange(
 ): Promise<{ start: number; end: number; lines: Line[] }> {
   const page = await client.getPage(opts.project, opts.title)
 
+  if (
+    !Number.isInteger(opts.start) ||
+    !Number.isInteger(opts.end) ||
+    opts.start < 1 ||
+    opts.start > opts.end
+  ) {
+    throw new Error(
+      `--range/--line の値が不正です (1以上の整数で start <= end を満たしてください: start=${opts.start}, end=${opts.end})`,
+    )
+  }
   if (opts.end > page.lines.length) {
     throw new Error(`--range/--line の値が範囲外です (ページの行数は ${page.lines.length} です)`)
   }

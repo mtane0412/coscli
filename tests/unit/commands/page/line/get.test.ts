@@ -48,8 +48,8 @@ beforeEach(() => {
   capturedGetCalls.splice(0)
   getLineRangeSpy = spyOn(pageLine, "getLineRange").mockImplementation(async (_client, opts) => {
     capturedGetCalls.push({ start: opts.start, end: opts.end })
-    const count = opts.end - opts.start + 1
-    return { start: opts.start, end: opts.end, lines: sampleLines.slice(0, count) }
+    // 1-indexed の start/end に対応した切り出し (実装と同じロジック)
+    return { start: opts.start, end: opts.end, lines: sampleLines.slice(opts.start - 1, opts.end) }
   })
 })
 
@@ -124,6 +124,7 @@ describe("pageLineGetCommand", () => {
       json: false,
       plain: true,
     })
-    expect(stdoutOutput).toContain("本文1行目")
+    // --line 2 は 2 行目 (本文2行目) のみを返す
+    expect(stdoutOutput).toBe("本文2行目\n")
   })
 })

@@ -166,6 +166,11 @@ export async function replaceLinesInPage(
       if (opts.start < 2) {
         throw new PageLineError("タイトル行は編集できません (start は 2 以上を指定してください)")
       }
+      if (opts.start > opts.end) {
+        throw new PageLineError(
+          `--range/--line の値が不正です (start <= end を満たしてください: start=${opts.start}, end=${opts.end})`,
+        )
+      }
       if (opts.end > existing.length) {
         throw new PageLineError(
           `--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`,
@@ -198,6 +203,11 @@ export async function deleteLinesFromPage(
     update: (existing) => {
       if (opts.start < 2) {
         throw new PageLineError("タイトル行は編集できません (start は 2 以上を指定してください)")
+      }
+      if (opts.start > opts.end) {
+        throw new PageLineError(
+          `--range/--line の値が不正です (start <= end を満たしてください: start=${opts.start}, end=${opts.end})`,
+        )
       }
       if (opts.end > existing.length) {
         throw new PageLineError(
