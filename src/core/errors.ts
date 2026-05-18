@@ -5,6 +5,20 @@
  */
 
 /**
+ * PageLineError はページ行操作のバリデーションエラー。
+ *
+ * `replaceLinesInPage` / `deleteLinesFromPage` でタイトル行への操作や
+ * 範囲外アクセスが発生した場合に throw する。
+ * コマンド層が VALIDATION_ERROR (exit 5) にマップする。
+ */
+export class PageLineError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PageLineError"
+  }
+}
+
+/**
  * CommitConflictError は楽観ロック競合を表すエラー。
  *
  * `page edit` 等で他者がページを更新したことを検知した場合に throw する。
