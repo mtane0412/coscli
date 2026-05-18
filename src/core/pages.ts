@@ -7,7 +7,7 @@
 
 import type { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
-import { PageLineError } from "@/core/errors"
+import { CommitConflictError, PageLineError } from "@/core/errors"
 
 /** listPages はプロジェクトのページ一覧を取得する。 */
 export async function listPages(
@@ -72,15 +72,48 @@ export async function appendToPage(
   })
 }
 
-/** editPage はページの内容を全置換する (WebSocket commit)。 */
+/**
+ * editPage はページの内容を全置換する (WebSocket commit)。
+ *
+ * デフォルトで楽観ロックを有効化する。`metadata.attempts > 0` は @cosense/std が
+ * リトライを発生させたことを示し、他者の編集と競合したとみなして CommitConflictError を throw する。
+ * `--force` を指定すると楽観ロックを無効化して上書きを許可する。
+ * `expectCommitId` を指定すると、サーバーの現在の commitId と一致しない場合も CommitConflictError を throw する。
+ */
 export async function editPage(
   writer: ScrapboxWriter,
-  opts: { project: string; title: string; lines: string[] },
+  opts: {
+    project: string
+    title: string
+    lines: string[]
+    /** true の場合、楽観ロックを無効化して上書きを許可する。 */
+    force?: boolean
+    /** 期待する commitId。サーバーの値と不一致の場合に CommitConflictError を throw する。 */
+    expectCommitId?: string
+  },
 ) {
   return writer.patch({
     project: opts.project,
     title: opts.title,
-    update: () => [opts.title, ...opts.lines],
+    update: (_existing, meta) => {
+      if (!opts.force) {
+        // リトライが発生した = 他者がページを更新した
+        if (meta && meta.attempts > 0) {
+          throw new CommitConflictError(
+            `編集中に他者がページを更新しました (attempts=${meta.attempts})`,
+          )
+        }
+        // 明示的な commitId チェック
+        if (opts.expectCommitId && meta?.commitId && meta.commitId !== opts.expectCommitId) {
+          throw new CommitConflictError(
+            `期待 commit ${opts.expectCommitId} と現在 ${meta.commitId} が異なります`,
+            opts.expectCommitId,
+            meta.commitId,
+          )
+        }
+      }
+      return [opts.title, ...opts.lines]
+    },
     previewLines: opts.lines,
   })
 }
