@@ -3,12 +3,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type SyncMeta, SyncMetaSchema, readMeta, writeMeta } from "@/core/sync/meta"
 
-const TEST_DIR = join(tmpdir(), "coscli-meta-test")
+let testDir: string
 
 function makeValidMeta(overrides: Partial<SyncMeta> = {}): SyncMeta {
   return {
@@ -25,11 +25,12 @@ function makeValidMeta(overrides: Partial<SyncMeta> = {}): SyncMeta {
 }
 
 beforeEach(() => {
-  mkdirSync(TEST_DIR, { recursive: true })
+  // 各テストに一意な一時ディレクトリを割り当てて並列実行時の競合を防ぐ
+  testDir = mkdtempSync(join(tmpdir(), "coscli-meta-test-"))
 })
 
 afterEach(() => {
-  rmSync(TEST_DIR, { recursive: true, force: true })
+  rmSync(testDir, { recursive: true, force: true })
 })
 
 describe("SyncMetaSchema", () => {
@@ -54,24 +55,24 @@ describe("SyncMetaSchema", () => {
 describe("writeMeta / readMeta", () => {
   test("writeMeta でメタファイルを書き込める", () => {
     const meta = makeValidMeta()
-    writeMeta(TEST_DIR, meta)
+    writeMeta(testDir, meta)
 
-    const metaPath = join(TEST_DIR, ".coscli", "テストプロジェクト", "テストページ.json")
+    const metaPath = join(testDir, ".coscli", "テストプロジェクト", "テストページ.json")
     expect(existsSync(metaPath)).toBe(true)
   })
 
   test("writeMeta は中間ディレクトリを自動作成する", () => {
     const meta = makeValidMeta({ project: "新プロジェクト", title: "新ページ" })
-    writeMeta(TEST_DIR, meta)
+    writeMeta(testDir, meta)
 
-    const metaPath = join(TEST_DIR, ".coscli", "新プロジェクト", "新ページ.json")
+    const metaPath = join(testDir, ".coscli", "新プロジェクト", "新ページ.json")
     expect(existsSync(metaPath)).toBe(true)
   })
 
   test("readMeta で書き込んだメタデータを読み込める", () => {
     const meta = makeValidMeta()
-    writeMeta(TEST_DIR, meta)
-    const loaded = readMeta(TEST_DIR, "テストプロジェクト", "テストページ")
+    writeMeta(testDir, meta)
+    const loaded = readMeta(testDir, "テストプロジェクト", "テストページ")
 
     expect(loaded).not.toBeNull()
     expect(loaded?.commitId).toBe("commit-abc")
@@ -79,15 +80,15 @@ describe("writeMeta / readMeta", () => {
   })
 
   test("readMeta はファイルが存在しない場合 null を返す", () => {
-    const result = readMeta(TEST_DIR, "存在しないプロジェクト", "存在しないページ")
+    const result = readMeta(testDir, "存在しないプロジェクト", "存在しないページ")
     expect(result).toBeNull()
   })
 
   test("writeMeta で書き込まれたファイルのパーミッションが 0o600 であること", () => {
     const meta = makeValidMeta()
-    writeMeta(TEST_DIR, meta)
+    writeMeta(testDir, meta)
 
-    const metaPath = join(TEST_DIR, ".coscli", "テストプロジェクト", "テストページ.json")
+    const metaPath = join(testDir, ".coscli", "テストプロジェクト", "テストページ.json")
     const stat = statSync(metaPath)
     // 下位 9 ビットでファイルパーミッションを確認する
     const mode = stat.mode & 0o777
@@ -96,10 +97,10 @@ describe("writeMeta / readMeta", () => {
 
   test("metaPath はタイトルをファイル名に使う", () => {
     const meta = makeValidMeta({ title: "通常タイトル" })
-    writeMeta(TEST_DIR, meta)
+    writeMeta(testDir, meta)
 
     const raw = readFileSync(
-      join(TEST_DIR, ".coscli", "テストプロジェクト", "通常タイトル.json"),
+      join(testDir, ".coscli", "テストプロジェクト", "通常タイトル.json"),
       "utf-8",
     )
     const parsed = JSON.parse(raw) as SyncMeta

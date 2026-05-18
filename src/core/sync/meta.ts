@@ -35,7 +35,8 @@ function metaFilePath(syncDir: string, project: string, title: string): string {
 export function writeMeta(syncDir: string, meta: SyncMeta): void {
   const filePath = metaFilePath(syncDir, meta.project, meta.title)
   const dir = join(syncDir, ".coscli", meta.project)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  // recursive: true は冪等のため existsSync による事前チェック不要
+  mkdirSync(dir, { recursive: true })
   writeFileSync(filePath, JSON.stringify(meta, null, 2), { mode: 0o600 })
 }
 
