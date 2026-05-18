@@ -294,13 +294,125 @@ cos auth login --no-input --sid "$COS_SID"
 
 ## 設定
 
-設定ファイルは JSON5 形式です。`cos config path` でパスを確認できます。
+### 設定ファイルの場所
+
+設定ファイルは **JSON5 形式** (コメント・末尾カンマ可) です。
+
+| OS | デフォルトパス |
+|---|---|
+| macOS / Linux | `~/.config/coscli/config.json5` |
+| XDG 環境 | `$XDG_CONFIG_HOME/coscli/config.json5` |
+
+```bash
+cos config path          # 現在の設定ファイルパスを確認
+cos config get <key>     # 設定値を取得
+cos config set <key> <value>  # 設定値を保存
+```
+
+### 設定リファレンス
+
+#### 基本設定
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `defaultProject` | string | `--project` 省略時のデフォルトプロジェクト名 |
+| `defaultProfile` | string | 認証プロファイル名 (未設定: `"default"`) |
+
+#### 出力設定 (`output`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `output.color` | `"auto"` \| `"always"` \| `"never"` | カラー出力モード (未設定: `"auto"`) |
+| `output.json` | boolean | 常に `--json` を有効にする |
+| `output.plain` | boolean | 常に `--plain` を有効にする |
+
+#### sandbox / エージェント設定 (`agent`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `agent.defaultEnableCommands` | string[] | グローバルで許可するコマンド (CLI/環境変数未指定時のデフォルト) |
+| `agent.defaultDisableCommands` | string[] | グローバルで禁止するコマンド |
+| `agent.defaultProjectPermission` | `"read"` \| `"readwrite"` \| `"none"` | `projects` に未列挙のプロジェクトへの既定権限 |
+| `agent.maxChangesPerCommit` | number | エージェント 1 コミットあたりの最大変更数 |
+
+`defaultProjectPermission` の意味:
+
+| 値 | 効果 |
+|---|---|
+| `"read"` | 読み取り系コマンドのみ許可 (page.get, page.list, search 等) |
+| `"readwrite"` | 全コマンドを許可 |
+| `"none"` | 全コマンドを拒否 |
+
+#### プロジェクト固有設定 (`projects.<name>`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `projects.<name>.defaultSort` | string | ページ一覧のデフォルトソート順 |
+| `projects.<name>.defaultLimit` | number | ページ一覧のデフォルト件数 |
+| `projects.<name>.enableCommands` | string[] | このプロジェクトで許可するコマンド (**グローバル設定を上書き**) |
+| `projects.<name>.disableCommands` | string[] | このプロジェクトで禁止するコマンド (**グローバル設定を上書き**) |
+
+#### 同期設定 (`sync`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `sync.dir` | string | ローカル同期ディレクトリ |
+| `sync.format` | `"txt"` | 同期ファイル形式 |
+| `sync.retries` | number (≥0) | 同期失敗時のリトライ回数 |
+
+### 設定例
+
+#### 個人利用 — よく使うプロジェクトを省略する
+
+```bash
+cos config set defaultProject myproject
+cos config set output.color always
+```
+
+これで `--project myproject` を毎回指定しなくてよくなります。
+
+#### AI エージェント向け — コマンドを絞る
+
+AI エージェントに coscli を使わせる際は sandbox 設定で権限を限定できます。
 
 ```json5
+// ~/.config/coscli/config.json5
 {
-  // デフォルトプロジェクト
   defaultProject: "myproject",
+  agent: {
+    // グローバルでは読み取り + ページ作成のみ許可
+    defaultEnableCommands: ["page.get", "page.list", "page.text", "search", "page.new"],
+    // projects に未列挙のプロジェクトは読み取り専用
+    defaultProjectPermission: "read",
+  },
+  projects: {
+    // myproject では全操作を許可し削除だけ禁止
+    myproject: {
+      enableCommands: ["*"],
+      disableCommands: ["page.delete"],
+    },
+    // sandbox プロジェクトはプリセット (read) が適用される
+  },
 }
+```
+
+プロジェクト固有の `enableCommands` / `disableCommands` が存在する場合、`agent.defaultEnableCommands` / `defaultDisableCommands` は**完全に無視**されます。
+
+sandbox の優先順位: **CLI フラグ > 環境変数 > プロジェクト固有設定 > `defaultProjectPermission` > グローバル設定**
+
+#### 設定値を CLI で確認・変更する
+
+```bash
+# 現在の設定を確認
+cos config get defaultProject
+cos config get agent.defaultProjectPermission
+
+# 配列は JSON 形式で渡す
+cos config set agent.defaultEnableCommands '["page.get","page.list","search"]'
+cos config set projects.myproject.disableCommands '["page.delete"]'
+
+# 設定ファイルを直接エディタで開く
+$EDITOR "$(cos config path)"
 ```
 
 ## 終了コード
