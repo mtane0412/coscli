@@ -9,7 +9,9 @@
  */
 
 import { AuthError, CosenseApiError, ForbiddenError, NotFoundError } from "@/core/api/rest"
+import { CommitConflictError } from "@/core/errors"
 import {
+  EXIT_CONFLICT,
   EXIT_ERROR,
   EXIT_FORBIDDEN,
   EXIT_NOT_FOUND,
@@ -29,6 +31,7 @@ import { ZodError } from "zod"
  */
 export function resolveExitCode(err: unknown): number {
   if (err instanceof ZodError) return EXIT_VALIDATION_ERROR
+  if (err instanceof CommitConflictError) return EXIT_CONFLICT
   if (err instanceof AuthError) return EXIT_UNAUTHORIZED
   if (err instanceof ForbiddenError) return EXIT_FORBIDDEN
   if (err instanceof NotFoundError) return EXIT_NOT_FOUND
@@ -44,6 +47,7 @@ export function resolveExitCode(err: unknown): number {
  */
 export function resolveErrorCode(err: unknown): string {
   if (err instanceof ZodError) return "VALIDATION_ERROR"
+  if (err instanceof CommitConflictError) return "CONFLICT"
   if (err instanceof AuthError) return "AUTH_REQUIRED"
   if (err instanceof ForbiddenError) return "FORBIDDEN"
   if (err instanceof NotFoundError) return "NOT_FOUND"

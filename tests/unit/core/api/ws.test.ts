@@ -24,6 +24,11 @@ const mockStdClient = {
   unpin: mockUnpin,
 }
 
+/** テスト用のダミー行データ */
+const dummyLines: Line[] = [
+  { id: "line-1", text: "タイトル", userId: "user-1", created: 0, updated: 0 },
+]
+
 describe("CosenseWriter", () => {
   beforeEach(() => {
     mockPatch.mockClear()
@@ -41,6 +46,54 @@ describe("CosenseWriter", () => {
       update: async (_lines: Line[]) => ["行1", "行2"],
     })
     expect(mockPatch).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ commitId: "mock-commit-id" })
+  })
+
+  it("stdClient.patch から渡された metadata が update 関数の第2引数に伝搬される", async () => {
+    // stdClient が update(lines, metadata) で呼んだとき、
+    // patchOpts.update が metadata を受け取れることを検証する
+    let capturedMetadata: unknown
+
+    const mockPatchWithMetadata = mock(
+      async (
+        _project: string,
+        _title: string,
+        update: (lines: Line[], meta: { commitId?: string; attempts: number }) => Promise<string[]>,
+        _options?: unknown,
+      ) => {
+        // @cosense/std が metadata を渡すことをシミュレートする
+        const metadata = { commitId: "コミットabc", attempts: 0 }
+        await update(dummyLines, metadata)
+        return { commitId: "mock-commit-id", pageId: "mock-page-id" }
+      },
+    )
+
+    const stdClient = { ...mockStdClient, patch: mockPatchWithMetadata }
+    const writer = new CosenseWriter(stdClient as ConstructorParameters<typeof CosenseWriter>[0])
+
+    await writer.patch({
+      project: "テストプロジェクト",
+      title: "テストページ",
+      update: async (_lines: Line[], metadata?: { commitId?: string; attempts: number }) => {
+        capturedMetadata = metadata
+        return ["行1"]
+      },
+    })
+
+    expect(capturedMetadata).toEqual({ commitId: "コミットabc", attempts: 0 })
+  })
+
+  it("metadata を受け取らない update 関数も引き続き動作する (後方互換)", async () => {
+    // 第2引数を省略した update 関数が壊れないことを確認する
+    const writer = new CosenseWriter(
+      mockStdClient as ConstructorParameters<typeof CosenseWriter>[0],
+    )
+    const result = await writer.patch({
+      project: "テストプロジェクト",
+      title: "テストページ",
+      // metadata を受け取らない従来パターン
+      update: async (_lines: Line[]) => ["後方互換行"],
+    })
     expect(result).toMatchObject({ commitId: "mock-commit-id" })
   })
 

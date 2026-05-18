@@ -10,12 +10,22 @@
 
 import type { Line } from "@/schemas/page"
 
+/**
+ * PatchMetadata は @cosense/std から update クロージャに渡されるページメタデータ。
+ *
+ * `commitId` は現在のページの最新コミット ID。`attempts` は retry 回数 (0 スタート)。
+ */
+export interface PatchMetadata {
+  commitId?: string
+  attempts: number
+}
+
 /** ScrapboxWriterStdClient は @cosense/std の API 関数群の interface。 */
 export interface ScrapboxWriterStdClient {
   patch(
     project: string,
     title: string,
-    update: (lines: Line[]) => Promise<string[]>,
+    update: (lines: Line[], metadata?: PatchMetadata) => Promise<string[]>,
     options?: { sid?: string; maxRetry?: number },
   ): Promise<{ commitId: string; pageId: string } | unknown>
 
@@ -40,7 +50,11 @@ export interface DryRunResult {
 export interface PatchOptions {
   project: string
   title: string
-  update: (lines: Line[]) => string[] | Promise<string[]>
+  /**
+   * update は現在の行と @cosense/std から渡されるメタデータを受け取り、
+   * 新しい行内容を返す。metadata.attempts > 0 は retry が発生したことを示す。
+   */
+  update: (lines: Line[], metadata?: PatchMetadata) => string[] | Promise<string[]>
   maxRetry?: number
   /** dry-run 時に出力するプレビュー行 (書き込み予定の内容)。 */
   previewLines?: string[]
@@ -125,8 +139,8 @@ export class CosenseWriter implements ScrapboxWriter {
     const result = await this.stdClient.patch(
       patchOpts.project,
       patchOpts.title,
-      async (lines: Line[]) => {
-        const updated = await patchOpts.update(lines)
+      async (lines: Line[], metadata?: PatchMetadata) => {
+        const updated = await patchOpts.update(lines, metadata)
         return updated
       },
       patchOptions,
@@ -244,7 +258,14 @@ export async function createScrapboxWriter(opts: {
       patch(
         project,
         title,
-        update as Parameters<typeof patch>[2],
+        // @cosense/std の MakePatchFn は (BaseLine[], PatchMetadata) を渡す。
+        // coscli 内部の update は (Line[], PatchMetadata?) を受け取るため、
+        // metadata から commitId と attempts のみ抽出して渡す。
+        (lines, metadata) =>
+          update(
+            lines as Line[],
+            metadata ? { commitId: metadata.commitId, attempts: metadata.attempts } : undefined,
+          ),
         {
           sid: options?.sid,
           retry: options?.maxRetry,
