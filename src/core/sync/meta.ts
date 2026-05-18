@@ -5,7 +5,7 @@
  * push/diff 時の競合検出とローカル変更有無の判定に使う。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { z } from "zod"
 
@@ -43,11 +43,12 @@ export function writeMeta(syncDir: string, meta: SyncMeta): void {
 /** readMeta はメタデータをファイルから読み込む。ファイルが存在しない場合は null を返す。破損時は Error を throw する。 */
 export function readMeta(syncDir: string, project: string, title: string): SyncMeta | null {
   const filePath = metaFilePath(syncDir, project, title)
-  if (!existsSync(filePath)) return null
   try {
     const raw = readFileSync(filePath, "utf-8")
     return SyncMetaSchema.parse(JSON.parse(raw) as unknown)
   } catch (err) {
+    // ENOENT はファイル未作成の正常ケース (existsSync は Linux bun で誤検知があるため使わない)
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null
     throw new Error(
       `メタデータファイルの読み込みに失敗しました: ${filePath}\n${err instanceof Error ? err.message : String(err)}`,
     )
