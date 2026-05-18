@@ -77,7 +77,7 @@ export const pageRenameCommand = defineCommand({
           return
         }
       } catch (err) {
-        const isNotFound = err instanceof Error && err.constructor.name === "NotFoundError"
+        const isNotFound = err instanceof Error && err.name === "NotFoundError"
         if (isNotFound) {
           writeErrorJson(
             "NOT_FOUND",
@@ -107,7 +107,7 @@ export const pageRenameCommand = defineCommand({
           }
         } catch (err) {
           // 404 (NotFoundError) は正常: 重複なし。その他のエラーは再スロー
-          const isNotFound = err instanceof Error && err.constructor.name === "NotFoundError"
+          const isNotFound = err instanceof Error && err.name === "NotFoundError"
           if (!isNotFound) throw err
         }
       }
