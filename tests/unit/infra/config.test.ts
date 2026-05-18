@@ -170,6 +170,51 @@ describe("setConfigValue", () => {
   })
 })
 
+describe("setConfigValue - 新規 sandbox 設定フィールド", () => {
+  it("agent.defaultEnableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "agent.defaultEnableCommands", ["page.get", "page.list"])
+    expect(updated.agent?.defaultEnableCommands).toEqual(["page.get", "page.list"])
+  })
+
+  it("agent.defaultProjectPermission に read を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "agent.defaultProjectPermission", "read")
+    expect(updated.agent?.defaultProjectPermission).toBe("read")
+  })
+
+  it("agent.defaultProjectPermission に readwrite を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "agent.defaultProjectPermission", "readwrite")
+    expect(updated.agent?.defaultProjectPermission).toBe("readwrite")
+  })
+
+  it("agent.defaultProjectPermission に none を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "agent.defaultProjectPermission", "none")
+    expect(updated.agent?.defaultProjectPermission).toBe("none")
+  })
+
+  it("agent.defaultProjectPermission に不正な値を設定するとエラーになる", () => {
+    const config = {}
+    expect(() => setConfigValue(config, "agent.defaultProjectPermission", "admin")).toThrow()
+  })
+
+  it("projects.<name>.enableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "projects.マイプロジェクト.enableCommands", ["page.get"])
+    expect(updated.projects?.["マイプロジェクト"]?.enableCommands).toEqual(["page.get"])
+  })
+
+  it("projects.<name>.disableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "projects.マイプロジェクト.disableCommands", [
+      "page.delete",
+    ])
+    expect(updated.projects?.["マイプロジェクト"]?.disableCommands).toEqual(["page.delete"])
+  })
+})
+
 describe("prototype 汚染への防御", () => {
   afterAll(() => {
     // RED フェーズで汚染が発生した場合に備えてクリーンアップする

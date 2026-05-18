@@ -247,12 +247,40 @@ cos page list --project myproject --json | jq '.results[].title'
 ### sandbox でコマンドを制限
 
 ```bash
-# 読み取りのみ許可
+# 読み取りのみ許可 (CLI フラグ)
 cos --enable-commands "page.list,page.get,page.text,page.code" page list --project myproject
 
-# 削除を禁止
+# 削除を禁止 (CLI フラグ)
 cos --disable-commands "page.delete" page list --project myproject
 ```
+
+設定ファイルで永続化することもできます。
+
+```json5
+{
+  agent: {
+    // グローバルで許可するコマンドリスト (CLI/env 未指定時のデフォルト)
+    defaultEnableCommands: ["page.*", "search", "project.info"],
+    // グローバルで禁止するコマンドリスト
+    defaultDisableCommands: ["page.delete"],
+    // projects に未列挙のプロジェクトへの既定権限
+    // "read": 読み取り系コマンドのみ / "readwrite": 全許可 / "none": 全拒否
+    defaultProjectPermission: "read",
+  },
+  projects: {
+    // プロジェクト固有設定 (存在する場合はグローバル設定を完全に上書き)
+    myproject: {
+      enableCommands: ["*"],
+      disableCommands: ["page.delete"],
+    },
+    "read-only-project": {
+      enableCommands: ["page.get", "page.list", "search"],
+    },
+  },
+}
+```
+
+優先順位: **CLI フラグ > 環境変数 (`COS_ENABLE_COMMANDS` / `COS_DISABLE_COMMANDS`) > プロジェクト固有設定 > `defaultProjectPermission` > グローバル既定**
 
 sandbox 違反時は exit code 7 で終了します。
 

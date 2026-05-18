@@ -103,6 +103,18 @@ src/
 - 両方指定時: enable で絞ってから disable で削る
 - 違反時: exit 7 (PolicyDenied)、stderr に `[denied] <command> is disabled by policy`
 
+config 経由の設定:
+- `agent.defaultEnableCommands`: グローバルで許可するコマンドリスト (CLI/env 未指定時のデフォルト)
+- `agent.defaultDisableCommands`: グローバルで禁止するコマンドリスト
+- `agent.defaultProjectPermission`: 未列挙プロジェクトへの既定権限 (`"read"` / `"readwrite"` / `"none"`)
+- `projects.<name>.enableCommands` / `disableCommands`: プロジェクト固有設定 (グローバルを完全上書き)
+
+優先順位: CLI フラグ > 環境変数 (`COS_ENABLE_COMMANDS` / `COS_DISABLE_COMMANDS`) > プロジェクト固有 > `defaultProjectPermission` > グローバル既定
+
+プロジェクト名解決: `args.project` > `COS_PROJECT` 環境変数 (config.defaultProject はフォールバックとして使用しない)
+
+コマンド分類: `src/core/command-classification.ts` で read/write を一元管理
+
 ## 終了コード
 
 機械可読な一覧は `cos exit-codes --json` で取得できます（単一ソース: `src/core/exit-codes.ts`）。

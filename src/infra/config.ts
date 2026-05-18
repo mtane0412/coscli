@@ -15,11 +15,25 @@ import { z } from "zod"
 const ProjectConfigSchema = z.object({
   defaultSort: z.string().optional(),
   defaultLimit: z.number().optional(),
+  /** このプロジェクトで許可するコマンドリスト。設定時はグローバル設定を完全に上書きする。 */
+  enableCommands: z.array(z.string()).optional(),
+  /** このプロジェクトで禁止するコマンドリスト。設定時はグローバル設定を完全に上書きする。 */
+  disableCommands: z.array(z.string()).optional(),
 })
 
 /** AgentConfig は AI エージェント向けの設定。 */
 const AgentConfigSchema = z.object({
   defaultDisableCommands: z.array(z.string()).optional(),
+  /** グローバルで許可するコマンドリスト (CLI/env 未指定時のデフォルト)。 */
+  defaultEnableCommands: z.array(z.string()).optional(),
+  /**
+   * projects に未列挙のプロジェクトへの既定権限プリセット。
+   * "read": 読み取り系コマンドのみ許可。
+   * "readwrite": 全コマンド許可。
+   * "none": 全コマンド拒否。
+   * 未設定: グローバル enable/disable のみ適用 (後方互換)。
+   */
+  defaultProjectPermission: z.enum(["read", "readwrite", "none"]).optional(),
   maxChangesPerCommit: z.number().optional(),
 })
 
