@@ -189,11 +189,15 @@ export function checkSandbox(commandName: string, args: CommonArgs): void {
   let enableStr: string | undefined
   let disableStr: string | undefined
 
-  if (cliEnable !== undefined || envEnable !== undefined) {
-    // CLI/env フラグが指定された場合は config を無視
+  const hasCliOrEnvOverride =
+    cliEnable !== undefined ||
+    envEnable !== undefined ||
+    cliDisable !== undefined ||
+    envDisable !== undefined
+
+  if (hasCliOrEnvOverride) {
+    // CLI/env フラグが指定された場合は config を無視 (enable と disable は独立して解決する)
     enableStr = cliEnable ?? envEnable
-  } else if (cliDisable !== undefined || envDisable !== undefined) {
-    // CLI/env disable が指定された場合も config を無視
     disableStr = cliDisable ?? envDisable
   } else {
     // config からプロジェクト固有 → defaultPermission の順で解決
@@ -201,6 +205,15 @@ export function checkSandbox(commandName: string, args: CommonArgs): void {
       const { enable, disable } = expandPermissionPreset(projectConfig.permission)
       enableStr = enable?.join(",")
       disableStr = disable?.join(",")
+      // permission プリセットに対して enableCommands/disableCommands を追加合成する
+      if (projectConfig.enableCommands?.length) {
+        const extra = projectConfig.enableCommands.join(",")
+        enableStr = enableStr ? `${enableStr},${extra}` : extra
+      }
+      if (projectConfig.disableCommands?.length) {
+        const extra = projectConfig.disableCommands.join(",")
+        disableStr = disableStr ? `${disableStr},${extra}` : extra
+      }
     } else if (
       projectConfig?.enableCommands !== undefined ||
       projectConfig?.disableCommands !== undefined

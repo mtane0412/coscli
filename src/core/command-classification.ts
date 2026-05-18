@@ -70,13 +70,7 @@ export interface PresetExpansion {
   disable: string[] | undefined
 }
 
-/**
- * expandPermissionPreset はプリセット名を PolicyOptions 相当の展開値に変換する。
- *
- * "read"      → enable: READ_COMMANDS, disable: undefined
- * "readwrite" → enable: ["*"],          disable: undefined
- * "none"      → enable: undefined,      disable: ["*"]
- */
+/** expandPermissionPreset はプリセット名を enable/disable 配列に展開した PresetExpansion を返す。 */
 export function expandPermissionPreset(preset: PermissionPreset): PresetExpansion {
   switch (preset) {
     case "read":

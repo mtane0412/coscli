@@ -63,6 +63,13 @@ describe("READ_COMMANDS", () => {
 })
 
 describe("WRITE_COMMANDS", () => {
+  it("READ_COMMANDS と重複しない", () => {
+    const overlap = READ_COMMANDS.filter((command) =>
+      (WRITE_COMMANDS as readonly string[]).includes(command),
+    )
+    expect(overlap).toHaveLength(0)
+  })
+
   it("ページ書き込み系コマンドを含む", () => {
     expect(WRITE_COMMANDS).toContain("page.new")
     expect(WRITE_COMMANDS).toContain("page.delete")

@@ -14,6 +14,18 @@ import { z } from "zod"
 /** PermissionPreset はプロジェクトに適用できる権限プリセット。 */
 const PermissionPresetSchema = z.enum(["read", "readwrite", "none"])
 
+/**
+ * CommandPatternSchema はコマンドパターン文字列のバリデーションスキーマ。
+ * 許容形式: "*" / "all" / "noun" / "noun.verb" / "noun.*" / "noun.noun.verb" 等
+ */
+const CommandPatternSchema = z
+  .string()
+  .min(1)
+  .regex(
+    /^[a-z*][a-z0-9.*]*$|^all$/,
+    "コマンドパターンは noun.verb 形式、または * / all を指定してください (例: page.list)",
+  )
+
 /** ProjectConfig はプロジェクト固有の設定。 */
 const ProjectConfigSchema = z.object({
   defaultSort: z.string().optional(),
@@ -26,9 +38,9 @@ const ProjectConfigSchema = z.object({
    */
   permission: PermissionPresetSchema.optional(),
   /** このプロジェクトで許可するコマンドリスト (permission より細かい制御が必要な場合)。 */
-  enableCommands: z.array(z.string()).optional(),
+  enableCommands: z.array(CommandPatternSchema).optional(),
   /** このプロジェクトで禁止するコマンドリスト (permission より細かい制御が必要な場合)。 */
-  disableCommands: z.array(z.string()).optional(),
+  disableCommands: z.array(CommandPatternSchema).optional(),
 })
 
 /** SyncConfig はローカル同期に関する設定。 */
@@ -49,7 +61,7 @@ export const CoscliConfigSchema = z.object({
    */
   defaultPermission: PermissionPresetSchema.optional(),
   /** 全プロジェクト共通の絶対禁止コマンドリスト。CLI フラグで上書き可能。 */
-  disableCommands: z.array(z.string()).optional(),
+  disableCommands: z.array(CommandPatternSchema).optional(),
   projects: z.record(z.string(), ProjectConfigSchema).optional(),
   output: z
     .object({

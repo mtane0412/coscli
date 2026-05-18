@@ -313,7 +313,7 @@ cos config set <key> <value>  # 設定値を保存
 
 | キー | 型 | 説明 |
 |---|---|---|
-| `defaultProject` | string | `--project` 省略時のデフォルトプロジェクト名 |
+| `defaultProject` | string | `--project` 省略時のデフォルトプロジェクト名 (注: sandbox の権限解決では使用されない — `defaultPermission` はプロジェクトを明示指定した場合にのみ適用される) |
 | `defaultProfile` | string | 認証プロファイル名 (未設定: `"default"`) |
 
 #### 出力設定 (`output`)

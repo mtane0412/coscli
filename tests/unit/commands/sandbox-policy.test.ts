@@ -44,6 +44,7 @@ function writeTestConfig(config: CoscliConfig): void {
 
 let exitMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
+let stdoutMock: ReturnType<typeof spyOn>
 
 beforeEach(() => {
   process.env["XDG_CONFIG_HOME"] = TEST_CONFIG_DIR
@@ -52,11 +53,13 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_PROJECT")
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stderrMock = spyOn(process.stderr, "write").mockImplementation(() => true)
+  stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stderrMock.mockRestore()
+  stdoutMock.mockRestore()
   Reflect.deleteProperty(process.env, "XDG_CONFIG_HOME")
   try {
     rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
@@ -70,6 +73,9 @@ describe("checkSandbox - グローバル disableCommands", () => {
     writeTestConfig({ disableCommands: ["page.delete"] })
     expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
+    // stdout に拒否メッセージが JSON として出力されることを確認する (writeErrorJson は stdout に書く)
+    const stdoutOutput = stdoutMock.mock.calls.map((args: unknown[]) => String(args[0])).join("")
+    expect(stdoutOutput).toContain("[denied] page.delete is disabled by policy")
   })
 
   it("disableCommands に含まれないコマンドは通過する", () => {
@@ -209,6 +215,30 @@ describe("checkSandbox - defaultPermission (未設定プロジェクトの既定
   })
 })
 
+describe("checkSandbox - permission と enableCommands/disableCommands の合成", () => {
+  it("permission: read と disableCommands の組み合わせで特定の read コマンドを追加禁止できる", () => {
+    writeTestConfig({
+      projects: { 制限プロジェクト: { permission: "read", disableCommands: ["page.text"] } },
+    })
+    // page.get は read 系なので通過する
+    expect(() => checkSandbox("page.get", makeArgs({ project: "制限プロジェクト" }))).not.toThrow()
+    // page.text は read 系だが disableCommands で追加禁止されているので拒否される
+    expect(() => checkSandbox("page.text", makeArgs({ project: "制限プロジェクト" }))).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
+  })
+
+  it("permission: readwrite と disableCommands の組み合わせで特定コマンドを禁止できる", () => {
+    writeTestConfig({
+      projects: { 安全プロジェクト: { permission: "readwrite", disableCommands: ["page.delete"] } },
+    })
+    // page.new は通過する
+    expect(() => checkSandbox("page.new", makeArgs({ project: "安全プロジェクト" }))).not.toThrow()
+    // page.delete は disableCommands で禁止されているので拒否される
+    expect(() => checkSandbox("page.delete", makeArgs({ project: "安全プロジェクト" }))).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
+  })
+})
+
 describe("checkSandbox - COS_PROJECT 環境変数", () => {
   it("COS_PROJECT 環境変数でプロジェクトを指定してプロジェクト設定を適用できる", () => {
     writeTestConfig({
@@ -256,6 +286,26 @@ describe("checkSandbox - CLI フラグ優先度", () => {
       checkSandbox("page.delete", makeArgs({ "enable-commands": "page.delete" })),
     ).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
+  })
+
+  it("CLI --enable-commands と --disable-commands を同時指定した場合に両方が適用される", () => {
+    // enable に page.get と page.list を指定し、page.list だけ disable する
+    // → page.get は許可、page.list は拒否されるはず
+    expect(() =>
+      checkSandbox(
+        "page.get",
+        makeArgs({ "enable-commands": "page.get,page.list", "disable-commands": "page.list" }),
+      ),
+    ).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+
+    expect(() =>
+      checkSandbox(
+        "page.list",
+        makeArgs({ "enable-commands": "page.get,page.list", "disable-commands": "page.list" }),
+      ),
+    ).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
   })
 })
 
