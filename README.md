@@ -172,6 +172,16 @@ cos page text "ページタイトル" --format=md --bold-style=heading
 cos page edit "ページタイトル" --from-file page.md --input-format=md
 ```
 
+### ページ本文のラウンドトリップ (取得→編集)
+
+タイトル行を含まない本文のみを取得して、そのまま `cos page edit` に渡せます:
+
+```bash
+cos page text "ページタイトル" --body-only | cos page edit "ページタイトル" --from-file -
+```
+
+`--body-only` を指定しない場合は `cos page text` の出力にタイトル行が含まれるため、`cos page edit` 側でタイトル行が本文先頭に重複して挿入されます。
+
 ### stdin/stdout 純粋変換
 
 ```bash
