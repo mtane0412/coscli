@@ -102,9 +102,12 @@ export const pageTextCommand = defineCommand({
       const converted = convert(rawText, "scrapbox", "md", {
         boldStyle: a["bold-style"] as BoldStyle,
       })
-      // --body-only 指定時は MD 変換後に先頭の # タイトル行を除く
-      // (Scrapbox パーサーが lines[0] をタイトルとして扱うため変換前に除去すると見出しレベルがずれる)
-      outputText = a["body-only"] ? converted.split("\n").slice(1).join("\n") : converted
+      // --body-only 指定時は MD 変換後に先頭の # タイトル行と直後の空行を除く
+      // (Scrapbox パーサーが lines[0] をタイトルとして扱うため変換前に除去すると見出しレベルがずれる;
+      //  変換後は "# title\n\n## ..." の形式になるため slice(1) だけでは先頭が空行になる)
+      outputText = a["body-only"]
+        ? converted.split("\n").slice(1).join("\n").replace(/^\n+/, "")
+        : converted
     } else {
       // txt の場合はタイトル行が Scrapbox 記法に依存しないため変換前に除去できる
       outputText = a["body-only"] ? rawText.split("\n").slice(1).join("\n") : rawText

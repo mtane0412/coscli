@@ -214,7 +214,7 @@ describe("pageTextCommand", () => {
 
   it("--body-only --format=md のとき # タイトル行が含まれず本文 MD のみ出力される", async () => {
     // 前提: MD 変換後のタイトル行は "# テストページ" になる
-    // --body-only 指定時は MD 変換前にタイトル行を除くため "# テストページ" は出力されない
+    // --body-only 指定時は MD 変換後に先頭の # タイトル行と直後の空行を除くため "# テストページ" は出力されない
     try {
       await runText({
         title: TEST_TITLE,
