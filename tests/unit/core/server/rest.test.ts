@@ -5,7 +5,7 @@
  * 上流 Cosense REST は msw でモックし、ScrapboxWriter はインメモリモックを注入する。
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test"
+import { afterAll, afterEach, beforeAll, describe, expect, it, mock } from "bun:test"
 import { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
 import { createPolicy } from "@/core/sandbox"
@@ -13,6 +13,13 @@ import { createFetchHandler } from "@/core/server/rest"
 import type { ServerContext } from "@/core/server/types"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
+
+// bun --coverage モードでは複数テストファイルが同一プロセスで動作するため、
+// commands/page/*.test.ts の mock.module("@/core/pages", ...) が残留する場合がある。
+// エイリアスキーと異なる相対パスで require() することで残留モックをバイパスし、実実装を復元する。
+mock.module("@/core/pages", () => {
+  return require("../../../../src/core/pages") as typeof import("@/core/pages")
+})
 
 import pageDetailFixture from "../../../fixtures/page-detail.json"
 import pageListFixture from "../../../fixtures/page-list.json"

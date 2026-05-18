@@ -3,25 +3,26 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { contentToString, readLocalContent, sha256, writeLocalContent } from "@/core/sync/local"
 
-const TEST_DIR = join(tmpdir(), "coscli-local-test")
+let testDir: string
 
 beforeEach(() => {
-  mkdirSync(TEST_DIR, { recursive: true })
+  // 各テストに一意な一時ディレクトリを割り当てて並列実行時の競合を防ぐ
+  testDir = mkdtempSync(join(tmpdir(), "coscli-local-test-"))
 })
 
 afterEach(() => {
-  rmSync(TEST_DIR, { recursive: true, force: true })
+  rmSync(testDir, { recursive: true, force: true })
 })
 
 describe("writeLocalContent / readLocalContent", () => {
   test("本文を txt ファイルとして書き込める", () => {
-    writeLocalContent(TEST_DIR, "テストページ", "txt", ["行A", "行B", "行C"])
-    const filePath = join(TEST_DIR, "テストページ.txt")
+    writeLocalContent(testDir, "テストページ", "txt", ["行A", "行B", "行C"])
+    const filePath = join(testDir, "テストページ.txt")
     expect(existsSync(filePath)).toBe(true)
 
     const content = readFileSync(filePath, "utf-8")
@@ -29,25 +30,25 @@ describe("writeLocalContent / readLocalContent", () => {
   })
 
   test("readLocalContent でファイルの行配列を読み込める", () => {
-    writeFileSync(join(TEST_DIR, "ページA.txt"), "行1\n行2\n行3\n", "utf-8")
-    const lines = readLocalContent(TEST_DIR, "ページA", "txt")
+    writeFileSync(join(testDir, "ページA.txt"), "行1\n行2\n行3\n", "utf-8")
+    const lines = readLocalContent(testDir, "ページA", "txt")
     expect(lines).toEqual(["行1", "行2", "行3"])
   })
 
   test("readLocalContent はファイルが存在しない場合 null を返す", () => {
-    const result = readLocalContent(TEST_DIR, "存在しないページ", "txt")
+    const result = readLocalContent(testDir, "存在しないページ", "txt")
     expect(result).toBeNull()
   })
 
   test("空のファイルを書き込んで読み込める", () => {
-    writeLocalContent(TEST_DIR, "空ページ", "txt", [])
-    const lines = readLocalContent(TEST_DIR, "空ページ", "txt")
+    writeLocalContent(testDir, "空ページ", "txt", [])
+    const lines = readLocalContent(testDir, "空ページ", "txt")
     expect(lines).toEqual([])
   })
 
   test("末尾の空行は除去される", () => {
-    writeFileSync(join(TEST_DIR, "ページB.txt"), "行1\n行2\n\n", "utf-8")
-    const lines = readLocalContent(TEST_DIR, "ページB", "txt")
+    writeFileSync(join(testDir, "ページB.txt"), "行1\n行2\n\n", "utf-8")
+    const lines = readLocalContent(testDir, "ページB", "txt")
     // 末尾の空行は除去されて ["行1", "行2"] になる
     expect(lines).toEqual(["行1", "行2"])
   })
@@ -85,7 +86,7 @@ describe("contentToString", () => {
 
 describe("localFilePath", () => {
   test("writeLocalContent はタイトルにファイル名を使う", () => {
-    writeLocalContent(TEST_DIR, "マイページ", "txt", ["行1"])
-    expect(existsSync(join(TEST_DIR, "マイページ.txt"))).toBe(true)
+    writeLocalContent(testDir, "マイページ", "txt", ["行1"])
+    expect(existsSync(join(testDir, "マイページ.txt"))).toBe(true)
   })
 })

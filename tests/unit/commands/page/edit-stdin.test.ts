@@ -6,38 +6,22 @@
  * 既存の edit.test.ts はファイル I/O を使うため分離している。
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs"
 import { pageEditCommand } from "@/commands/page/edit"
+import * as pages from "@/core/pages"
 
 /** editPage に渡された引数をキャプチャする */
 const capturedEditPageCalls: { project: string; title: string; lines: string[] }[] = []
 
-// Bun は mock.module をファイル先頭にホイストするため import より前に評価される
-// 実ファイルは "fs" モジュール ("node:fs" と別レジストリ) 経由でパススルーする
-mock.module("node:fs", () => ({
-  readFileSync: (pathOrFd: number | string, encoding: string) => {
-    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
-    // "fs" は "node:fs" と Bun のモックレジストリ上で別エントリのためモックの影響外
-    // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
-    return (require("fs") as typeof import("node:fs")).readFileSync(
-      pathOrFd as Parameters<typeof import("node:fs").readFileSync>[0],
-      encoding as BufferEncoding,
-    )
-  },
-}))
-
-mock.module("@/core/pages", () => ({
-  editPage: mock(
-    async (_writer: unknown, opts: { project: string; title: string; lines: string[] }) => {
-      capturedEditPageCalls.push({ project: opts.project, title: opts.title, lines: opts.lines })
-      return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
-    },
-  ),
-}))
+// spyOn 前に実実装を保存する（モックが積み重なっても実ファイルアクセスができるように）
+const realReadFileSync = fs.readFileSync.bind(fs)
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
+let readFileSyncSpy: ReturnType<typeof spyOn>
+let editPageSpy: ReturnType<typeof spyOn>
 
 async function runEdit(args: Record<string, unknown>) {
   await (
@@ -58,12 +42,29 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   process.env["COS_SID"] = "s%3Atest-session-id"
   capturedEditPageCalls.splice(0)
+  // stdin (fd=0) から固定コンテンツを返す。実ファイルは realReadFileSync でパススルーする
+  readFileSyncSpy = spyOn(fs, "readFileSync").mockImplementation(((
+    pathOrFd: number | string,
+    encoding: string,
+  ) => {
+    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
+    return realReadFileSync(
+      pathOrFd as Parameters<typeof fs.readFileSync>[0],
+      encoding as BufferEncoding,
+    )
+  }) as typeof fs.readFileSync)
+  editPageSpy = spyOn(pages, "editPage").mockImplementation(async (_writer, opts) => {
+    capturedEditPageCalls.push({ project: opts.project, title: opts.title, lines: opts.lines })
+    return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
+  })
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
+  readFileSyncSpy.mockRestore()
+  editPageSpy.mockRestore()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
