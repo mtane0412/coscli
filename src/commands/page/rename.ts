@@ -4,8 +4,11 @@
  * ページタイトルを変更する。WebSocket commit で lines[0] を書き換えることで
  * @cosense/std が TitleChange を自動 emit する。
  *
- * --force-fallback なし時は変更前に新タイトルの重複チェックを行い、
- * 重複する場合は DUPLICATE_TITLE エラー (exit 5) で終了する。
+ * --dry-run 以外時は変更前に以下のチェックを行う:
+ * 1. リネーム元が persistent:false (プレースホルダー) または存在しない場合は
+ *    NOT_FOUND エラー (exit 4) で終了する。(issue #112)
+ * 2. --force-fallback なし時、リネーム先に実体ページが存在する場合は
+ *    DUPLICATE_TITLE エラー (exit 5) で終了する。(issue #57)
  */
 
 import {
@@ -19,6 +22,7 @@ import {
   dryRunArg,
   requireProject,
 } from "@/commands/_shared"
+import { EXIT_NOT_FOUND } from "@/core/exit-codes"
 import { renamePage } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -55,28 +59,58 @@ export const pageRenameCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    // dry-run 以外かつ同名でない場合は重複チェックを行う (同名は no-op なのでスキップ)
-    if (!a["dry-run"] && !a["force-fallback"] && a["new-title"] !== a.title) {
+    if (!a["dry-run"]) {
       const client = await buildRestClient(a)
+
+      // リネーム元の存在 + persistent チェック (issue #112)
+      // persistent:true 以外 (false / undefined) のページは実体がなく rename すると空ページが新規作成される。
+      // persistent が undefined のケースも安全側に倒して NOT_FOUND (exit 4) で終了する。
+      // 404 (NotFoundError) も同様にリネーム不可として NOT_FOUND (exit 4) で終了する。
       try {
-        const page = await client.getPage(project, a["new-title"])
-        // persistent !== false の場合のみ実体ページが存在するとみなす。
-        // Cosense REST API は存在しないページに persistent:false のスタブとして 200 を返すため、
-        // getPage の成功だけでは重複の証明にならない。(issue #57)
-        // persistent が undefined の場合も安全側に倒して実体ページ扱いにする。
-        if (page.persistent !== false) {
+        const srcPage = await client.getPage(project, a.title)
+        if (srcPage.persistent !== true) {
           writeErrorJson(
-            "DUPLICATE_TITLE",
-            `"${a["new-title"]}" は既に存在します`,
-            "別のタイトルを指定するか、--force-fallback を使用してください",
+            "NOT_FOUND",
+            `"${a.title}" は実体のないページのため rename できません`,
+            "cos page get で persistent の値を確認してください",
           )
-          process.exit(5)
+          process.exit(EXIT_NOT_FOUND)
           return
         }
       } catch (err) {
-        // 404 (NotFoundError) は正常: 重複なし。その他のエラーは再スロー
-        const isNotFound = err instanceof Error && err.constructor.name === "NotFoundError"
-        if (!isNotFound) throw err
+        const isNotFound = err instanceof Error && err.name === "NotFoundError"
+        if (isNotFound) {
+          writeErrorJson(
+            "NOT_FOUND",
+            `ページ "${a.title}" が見つかりません`,
+            "ページタイトルを確認してください",
+          )
+          process.exit(EXIT_NOT_FOUND)
+          return
+        }
+        throw err
+      }
+
+      // リネーム先の重複チェック (--force-fallback なし時、同名は no-op なのでスキップ)
+      // Cosense REST API は存在しないページに persistent:false のスタブとして 200 を返すため、
+      // getPage の成功だけでは重複の証明にならない。persistent !== false の場合のみ実体ページ扱い。(issue #57)
+      if (!a["force-fallback"] && a["new-title"] !== a.title) {
+        try {
+          const page = await client.getPage(project, a["new-title"])
+          if (page.persistent !== false) {
+            writeErrorJson(
+              "DUPLICATE_TITLE",
+              `"${a["new-title"]}" は既に存在します`,
+              "別のタイトルを指定するか、--force-fallback を使用してください",
+            )
+            process.exit(5)
+            return
+          }
+        } catch (err) {
+          // 404 (NotFoundError) は正常: 重複なし。その他のエラーは再スロー
+          const isNotFound = err instanceof Error && err.name === "NotFoundError"
+          if (!isNotFound) throw err
+        }
       }
     }
 
