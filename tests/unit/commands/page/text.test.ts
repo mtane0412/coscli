@@ -185,4 +185,81 @@ describe("pageTextCommand", () => {
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(calls).toContain("[*** 大見出し]")
   })
+
+  it("--body-only --format=txt のとき先頭のタイトル行が除外されて本文のみ出力される", async () => {
+    // 前提: SCRAPBOX_TEXT = "テストページ\n[*** 大見出し]\n本文テキスト"
+    // --body-only 指定時は先頭のタイトル行 "テストページ" を除いた本文を出力する
+    try {
+      await runText({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        format: "txt",
+        "bold-style": "auto",
+        "body-only": true,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // REST クライアント初期化中の throw は想定内
+    }
+    const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    // タイトル行を含まず、本文行は含む
+    const lines = output.split("\n")
+    expect(lines[0]).not.toBe(TEST_TITLE)
+    expect(output).toContain("[*** 大見出し]")
+    expect(output).toContain("本文テキスト")
+  })
+
+  it("--body-only --format=md のとき # タイトル行が含まれず本文 MD のみ出力される", async () => {
+    // 前提: MD 変換後のタイトル行は "# テストページ" になる
+    // --body-only 指定時は MD 変換前にタイトル行を除くため "# テストページ" は出力されない
+    try {
+      await runText({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        format: "md",
+        "bold-style": "auto",
+        "body-only": true,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // REST クライアント初期化中の throw は想定内
+    }
+    const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    // MD タイトル行 "# テストページ" が含まれず本文 MD は出力される
+    expect(output).not.toContain("# テストページ")
+    expect(output).toContain("## 大見出し")
+    expect(output).toContain("本文テキスト")
+  })
+
+  it("--body-only --json のとき envelope の data.text にタイトル行が含まれない", async () => {
+    // 前提: --json 出力時は JSON envelope を stdout に書き出す
+    // --body-only 指定時は data.text がタイトル行を除いた本文テキストになる
+    try {
+      await runText({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        format: "txt",
+        "bold-style": "auto",
+        "body-only": true,
+        json: true,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // REST クライアント初期化中の throw は想定内
+    }
+    const rawOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    const parsed = JSON.parse(rawOutput) as { data: { text: string } }
+    // data.text はタイトル行で始まらず、本文テキストを含む
+    expect(parsed.data.text).not.toMatch(/^テストページ/)
+    expect(parsed.data.text).toContain("[*** 大見出し]")
+    expect(parsed.data.text).toContain("本文テキスト")
+  })
 })
