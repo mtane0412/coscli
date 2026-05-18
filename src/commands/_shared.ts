@@ -164,54 +164,60 @@ export function buildLogger(args: CommonArgs): Logger {
  * checkSandbox はサンドボックスポリシーを確認する。
  * 拒否された場合は exit 7 で終了する。
  *
- * 優先順位: CLI フラグ > 環境変数 > プロジェクト固有設定 > defaultProjectPermission > グローバル既定
+ * 優先順位: CLI フラグ > 環境変数 > プロジェクト固有設定 > defaultPermission > 全許可
  *
- * プロジェクト固有設定 (projects.<name>.enableCommands / disableCommands) が存在する場合は
- * グローバル設定 (agent.defaultEnable/DisableCommands) を完全に上書きする。
+ * - CLI/env フラグが指定された場合はそれのみを使用 (config の disableCommands も無視)
+ * - プロジェクト固有の permission / enableCommands / disableCommands はグローバルより優先
+ * - defaultPermission はプロジェクト指定時のみ有効 (未指定コマンドには無効)
+ * - disableCommands はプロジェクト設定に重ねて常に適用される絶対禁止リスト
+ *
  * プロジェクト名は args.project > COS_PROJECT 環境変数 の順で解決し、
- * config.defaultProject はフォールバックとして使用しない (グローバルコマンドへの意図しない適用を防ぐ)。
+ * config.defaultProject はフォールバックとして使用しない。
  */
 export function checkSandbox(commandName: string, args: CommonArgs): void {
   const config = loadConfig()
 
-  // プロジェクト名解決: args > COS_PROJECT 環境変数 (config.defaultProject は使用しない)
+  // プロジェクト名解決 (config.defaultProject は使用しない)
   const projectName = args.project ?? process.env["COS_PROJECT"]
   const projectConfig = projectName ? (config.projects?.[projectName] ?? undefined) : undefined
-  const hasProjectOverride = !!(projectConfig?.enableCommands || projectConfig?.disableCommands)
 
   const cliEnable = args["enable-commands"]
   const envEnable = process.env["COS_ENABLE_COMMANDS"]
   const cliDisable = args["disable-commands"]
   const envDisable = process.env["COS_DISABLE_COMMANDS"]
 
-  // enable 優先順位: CLI > env > プロジェクト固有 > defaultProjectPermission プリセット > グローバル既定
   let enableStr: string | undefined
-  if (cliEnable !== undefined) {
-    enableStr = cliEnable
-  } else if (envEnable !== undefined) {
-    enableStr = envEnable
-  } else if (hasProjectOverride) {
-    enableStr = projectConfig?.enableCommands?.join(",")
-  } else if (projectName && config.agent?.defaultProjectPermission) {
-    const { enable } = expandPermissionPreset(config.agent.defaultProjectPermission)
-    enableStr = enable?.join(",")
-  } else {
-    enableStr = config.agent?.defaultEnableCommands?.join(",")
-  }
-
-  // disable 優先順位: CLI > env > プロジェクト固有 > defaultProjectPermission プリセット > グローバル既定
   let disableStr: string | undefined
-  if (cliDisable !== undefined) {
-    disableStr = cliDisable
-  } else if (envDisable !== undefined) {
-    disableStr = envDisable
-  } else if (hasProjectOverride) {
-    disableStr = projectConfig?.disableCommands?.join(",")
-  } else if (projectName && config.agent?.defaultProjectPermission) {
-    const { disable } = expandPermissionPreset(config.agent.defaultProjectPermission)
-    disableStr = disable?.join(",")
+
+  if (cliEnable !== undefined || envEnable !== undefined) {
+    // CLI/env フラグが指定された場合は config を無視
+    enableStr = cliEnable ?? envEnable
+  } else if (cliDisable !== undefined || envDisable !== undefined) {
+    // CLI/env disable が指定された場合も config を無視
+    disableStr = cliDisable ?? envDisable
   } else {
-    disableStr = config.agent?.defaultDisableCommands?.join(",")
+    // config からプロジェクト固有 → defaultPermission の順で解決
+    if (projectConfig?.permission) {
+      const { enable, disable } = expandPermissionPreset(projectConfig.permission)
+      enableStr = enable?.join(",")
+      disableStr = disable?.join(",")
+    } else if (
+      projectConfig?.enableCommands !== undefined ||
+      projectConfig?.disableCommands !== undefined
+    ) {
+      enableStr = projectConfig.enableCommands?.join(",")
+      disableStr = projectConfig.disableCommands?.join(",")
+    } else if (projectName && config.defaultPermission) {
+      const { enable, disable } = expandPermissionPreset(config.defaultPermission)
+      enableStr = enable?.join(",")
+      disableStr = disable?.join(",")
+    }
+
+    // 絶対禁止リストを重ねる (CLI/env 未指定時のみ)
+    if (config.disableCommands?.length) {
+      const globalDisable = config.disableCommands.join(",")
+      disableStr = disableStr ? `${disableStr},${globalDisable}` : globalDisable
+    }
   }
 
   if (!enableStr && !disableStr) return

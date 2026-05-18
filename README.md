@@ -258,29 +258,27 @@ cos --disable-commands "page.delete" page list --project myproject
 
 ```json5
 {
-  agent: {
-    // グローバルで許可するコマンドリスト (CLI/env 未指定時のデフォルト)
-    defaultEnableCommands: ["page.*", "search", "project.info"],
-    // グローバルで禁止するコマンドリスト
-    defaultDisableCommands: ["page.delete"],
-    // projects に未列挙のプロジェクトへの既定権限
-    // "read": 読み取り系コマンドのみ / "readwrite": 全許可 / "none": 全拒否
-    defaultProjectPermission: "read",
-  },
+  // 全プロジェクト共通の絶対禁止コマンド (CLI フラグで上書き可能)
+  disableCommands: ["page.delete"],
+  // projects に未列挙のプロジェクトへの既定権限
+  // "read": 読み取り系コマンドのみ / "readwrite": 全許可 / "none": 全拒否
+  defaultPermission: "read",
   projects: {
-    // プロジェクト固有設定 (存在する場合はグローバル設定を完全に上書き)
+    // プロジェクト固有設定 (defaultPermission を上書き)
     myproject: {
-      enableCommands: ["*"],
-      disableCommands: ["page.delete"],
+      permission: "readwrite",   // このプロジェクトは全許可 (disableCommands は引き続き適用)
     },
-    "read-only-project": {
-      enableCommands: ["page.get", "page.list", "search"],
+    "read-only-wiki": {
+      permission: "read",        // 読み取り専用
+    },
+    "locked-project": {
+      permission: "none",        // 完全ブロック
     },
   },
 }
 ```
 
-優先順位: **CLI フラグ > 環境変数 (`COS_ENABLE_COMMANDS` / `COS_DISABLE_COMMANDS`) > プロジェクト固有設定 > `defaultProjectPermission` > グローバル既定**
+優先順位: **CLI フラグ > 環境変数 (`COS_ENABLE_COMMANDS` / `COS_DISABLE_COMMANDS`) > プロジェクト固有設定 > `defaultPermission` > 全許可**
 
 sandbox 違反時は exit code 7 で終了します。
 
@@ -326,16 +324,14 @@ cos config set <key> <value>  # 設定値を保存
 | `output.json` | boolean | 常に `--json` を有効にする |
 | `output.plain` | boolean | 常に `--plain` を有効にする |
 
-#### sandbox / エージェント設定 (`agent`)
+#### コマンド権限設定
 
 | キー | 型 | 説明 |
 |---|---|---|
-| `agent.defaultEnableCommands` | string[] | グローバルで許可するコマンド (CLI/環境変数未指定時のデフォルト) |
-| `agent.defaultDisableCommands` | string[] | グローバルで禁止するコマンド |
-| `agent.defaultProjectPermission` | `"read"` \| `"readwrite"` \| `"none"` | `projects` に未列挙のプロジェクトへの既定権限 |
-| `agent.maxChangesPerCommit` | number | エージェント 1 コミットあたりの最大変更数 |
+| `disableCommands` | string[] | 全プロジェクト共通の絶対禁止コマンドリスト |
+| `defaultPermission` | `"read"` \| `"readwrite"` \| `"none"` | `projects` に未列挙のプロジェクトへの既定権限 (プロジェクト指定時のみ有効) |
 
-`defaultProjectPermission` の意味:
+`defaultPermission` / `projects.<name>.permission` の値の意味:
 
 | 値 | 効果 |
 |---|---|
@@ -349,8 +345,9 @@ cos config set <key> <value>  # 設定値を保存
 |---|---|---|
 | `projects.<name>.defaultSort` | string | ページ一覧のデフォルトソート順 |
 | `projects.<name>.defaultLimit` | number | ページ一覧のデフォルト件数 |
-| `projects.<name>.enableCommands` | string[] | このプロジェクトで許可するコマンド (**グローバル設定を上書き**) |
-| `projects.<name>.disableCommands` | string[] | このプロジェクトで禁止するコマンド (**グローバル設定を上書き**) |
+| `projects.<name>.permission` | `"read"` \| `"readwrite"` \| `"none"` | このプロジェクトの権限プリセット |
+| `projects.<name>.enableCommands` | string[] | このプロジェクトで許可するコマンド (細かい制御が必要な場合) |
+| `projects.<name>.disableCommands` | string[] | このプロジェクトで禁止するコマンド (細かい制御が必要な場合) |
 
 #### 同期設定 (`sync`)
 
@@ -379,37 +376,34 @@ AI エージェントに coscli を使わせる際は sandbox 設定で権限を
 // ~/.config/coscli/config.json5
 {
   defaultProject: "myproject",
-  agent: {
-    // グローバルでは読み取り + ページ作成のみ許可
-    defaultEnableCommands: ["page.get", "page.list", "page.text", "search", "page.new"],
-    // projects に未列挙のプロジェクトは読み取り専用
-    defaultProjectPermission: "read",
-  },
+  // page.delete は全プロジェクトで絶対禁止
+  disableCommands: ["page.delete"],
+  // projects に未列挙のプロジェクトは読み取り専用
+  defaultPermission: "read",
   projects: {
-    // myproject では全操作を許可し削除だけ禁止
-    myproject: {
-      enableCommands: ["*"],
-      disableCommands: ["page.delete"],
-    },
-    // sandbox プロジェクトはプリセット (read) が適用される
+    // myproject は全操作を許可 (disableCommands の page.delete は引き続き禁止)
+    myproject: { permission: "readwrite" },
+    // private-notes は完全ブロック
+    "private-notes": { permission: "none" },
+    // 未列挙プロジェクト → defaultPermission: "read" が適用される
   },
 }
 ```
 
-プロジェクト固有の `enableCommands` / `disableCommands` が存在する場合、`agent.defaultEnableCommands` / `defaultDisableCommands` は**完全に無視**されます。
+sandbox の優先順位: **CLI フラグ > 環境変数 > プロジェクト固有設定 > `defaultPermission` > 全許可**
 
-sandbox の優先順位: **CLI フラグ > 環境変数 > プロジェクト固有設定 > `defaultProjectPermission` > グローバル設定**
+`disableCommands` は CLI フラグ (`--enable-commands`) で上書き可能な絶対禁止リストです。プロジェクトの `permission: "readwrite"` でも無効にはなりません。
 
 #### 設定値を CLI で確認・変更する
 
 ```bash
 # 現在の設定を確認
 cos config get defaultProject
-cos config get agent.defaultProjectPermission
+cos config get defaultPermission
 
 # 配列は JSON 形式で渡す
-cos config set agent.defaultEnableCommands '["page.get","page.list","search"]'
-cos config set projects.myproject.disableCommands '["page.delete"]'
+cos config set disableCommands '["page.delete"]'
+cos config set projects.myproject.permission readwrite
 
 # 設定ファイルを直接エディタで開く
 $EDITOR "$(cos config path)"

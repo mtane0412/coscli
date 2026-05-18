@@ -58,7 +58,6 @@ afterEach(() => {
   exitMock.mockRestore()
   stderrMock.mockRestore()
   Reflect.deleteProperty(process.env, "XDG_CONFIG_HOME")
-  // テスト用設定ファイルを削除する
   try {
     rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
   } catch {
@@ -66,183 +65,165 @@ afterEach(() => {
   }
 })
 
-describe("checkSandbox - グローバル設定 (agent.defaultEnableCommands)", () => {
-  it("agent.defaultEnableCommands に含まれるコマンドは通過する", () => {
-    writeTestConfig({ agent: { defaultEnableCommands: ["page.get", "page.list"] } })
-    // page.get は許可リストに含まれるため通過する
-    expect(() => checkSandbox("page.get", makeArgs())).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
-  })
-
-  it("agent.defaultEnableCommands に含まれないコマンドは exit 7 で拒否される", () => {
-    writeTestConfig({ agent: { defaultEnableCommands: ["page.get", "page.list"] } })
-    // page.delete は許可リストに含まれないため拒否される
+describe("checkSandbox - グローバル disableCommands", () => {
+  it("disableCommands に含まれるコマンドは exit 7 で拒否される", () => {
+    writeTestConfig({ disableCommands: ["page.delete"] })
     expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it("agent.defaultDisableCommands に含まれるコマンドは exit 7 で拒否される", () => {
-    writeTestConfig({ agent: { defaultDisableCommands: ["page.delete"] } })
-    // page.delete は禁止リストに含まれるため拒否される
+  it("disableCommands に含まれないコマンドは通過する", () => {
+    writeTestConfig({ disableCommands: ["page.delete"] })
+    expect(() => checkSandbox("page.get", makeArgs())).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+  })
+
+  it("disableCommands はプロジェクト指定なしでも適用される", () => {
+    writeTestConfig({ disableCommands: ["page.delete"] })
     expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it("agent.defaultDisableCommands に含まれないコマンドは通過する", () => {
-    writeTestConfig({ agent: { defaultDisableCommands: ["page.delete"] } })
-    // page.get は禁止リストに含まれないため通過する
-    expect(() => checkSandbox("page.get", makeArgs())).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
+  it("disableCommands はプロジェクト permission: readwrite でも適用される", () => {
+    writeTestConfig({
+      disableCommands: ["page.delete"],
+      projects: { 全許可プロジェクト: { permission: "readwrite" } },
+    })
+    // readwrite でも disableCommands は絶対禁止リストとして機能する
+    expect(() => checkSandbox("page.delete", makeArgs({ project: "全許可プロジェクト" }))).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
   })
 })
 
-describe("checkSandbox - プロジェクト固有設定", () => {
+describe("checkSandbox - プロジェクト固有 permission", () => {
+  it("projects.<name>.permission: read が write コマンドを拒否する", () => {
+    writeTestConfig({ projects: { 読み取り専用: { permission: "read" } } })
+    expect(() => checkSandbox("page.new", makeArgs({ project: "読み取り専用" }))).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
+  })
+
+  it("projects.<name>.permission: read が read コマンドを許可する", () => {
+    writeTestConfig({ projects: { 読み取り専用: { permission: "read" } } })
+    expect(() => checkSandbox("page.get", makeArgs({ project: "読み取り専用" }))).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+  })
+
+  it("projects.<name>.permission: readwrite が全コマンドを許可する", () => {
+    writeTestConfig({ projects: { 全許可プロジェクト: { permission: "readwrite" } } })
+    expect(() =>
+      checkSandbox("page.delete", makeArgs({ project: "全許可プロジェクト" })),
+    ).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+  })
+
+  it("projects.<name>.permission: none が全コマンドを拒否する", () => {
+    writeTestConfig({ projects: { 完全ブロック: { permission: "none" } } })
+    expect(() => checkSandbox("page.get", makeArgs({ project: "完全ブロック" }))).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
+  })
+
   it("projects.<name>.disableCommands に含まれるコマンドはそのプロジェクトで拒否される", () => {
     writeTestConfig({
       projects: { 読み取り専用プロジェクト: { disableCommands: ["page.delete", "page.new"] } },
     })
-    // 読み取り専用プロジェクト向けの page.delete は拒否される
     expect(() =>
       checkSandbox("page.delete", makeArgs({ project: "読み取り専用プロジェクト" })),
     ).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it("projects.<name>.disableCommands に含まれないコマンドは通過する", () => {
-    writeTestConfig({
-      projects: { 読み取り専用プロジェクト: { disableCommands: ["page.delete"] } },
-    })
-    // page.get は禁止リストに含まれないため通過する
-    expect(() =>
-      checkSandbox("page.get", makeArgs({ project: "読み取り専用プロジェクト" })),
-    ).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
-  })
-
-  it("projects.<name>.enableCommands に含まれるコマンドのみ許可される", () => {
-    writeTestConfig({
-      projects: { 制限プロジェクト: { enableCommands: ["page.get", "page.list"] } },
-    })
-    // page.get は enable リストに含まれるため通過する
-    expect(() => checkSandbox("page.get", makeArgs({ project: "制限プロジェクト" }))).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
-  })
-
   it("projects.<name>.enableCommands に含まれないコマンドは拒否される", () => {
     writeTestConfig({
       projects: { 制限プロジェクト: { enableCommands: ["page.get", "page.list"] } },
     })
-    // page.delete は enable リストに含まれないため拒否される
     expect(() => checkSandbox("page.delete", makeArgs({ project: "制限プロジェクト" }))).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it("プロジェクト設定がグローバルの agent.defaultDisableCommands を上書きする", () => {
+  it("projects.<name>.enableCommands に含まれるコマンドは許可される", () => {
     writeTestConfig({
-      agent: { defaultDisableCommands: ["page.delete"] },
-      projects: {
-        // このプロジェクトでは page.delete を許可する (enableCommands で全許可)
-        書き込み可能プロジェクト: { enableCommands: ["*"] },
-      },
+      projects: { 制限プロジェクト: { enableCommands: ["page.get", "page.list"] } },
     })
-    // グローバルでは page.delete 禁止だが、プロジェクト設定で全許可されているので通過する
-    expect(() =>
-      checkSandbox("page.delete", makeArgs({ project: "書き込み可能プロジェクト" })),
-    ).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
-  })
-
-  it("プロジェクト設定がグローバルの agent.defaultEnableCommands を上書きする", () => {
-    writeTestConfig({
-      agent: { defaultEnableCommands: ["page.get"] },
-      projects: {
-        // このプロジェクトでは page.delete も許可する (上書き)
-        上書きプロジェクト: { enableCommands: ["page.get", "page.delete"] },
-      },
-    })
-    // グローバルでは page.delete は enable リスト外で拒否されるが、
-    // プロジェクト固有で許可されているため通過する
-    expect(() =>
-      checkSandbox("page.delete", makeArgs({ project: "上書きプロジェクト" })),
-    ).not.toThrow()
+    expect(() => checkSandbox("page.get", makeArgs({ project: "制限プロジェクト" }))).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
   })
 
   it("別プロジェクトの制限は対象プロジェクト以外に影響しない", () => {
     writeTestConfig({
-      projects: { 読み取り専用プロジェクト: { disableCommands: ["page.delete"] } },
+      projects: { 読み取り専用プロジェクト: { permission: "read" } },
     })
-    // 別プロジェクトを指定した場合は制限が適用されない
     expect(() => checkSandbox("page.delete", makeArgs({ project: "別プロジェクト" }))).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
   })
 })
 
-describe("checkSandbox - COS_PROJECT 環境変数によるプロジェクト特定", () => {
-  it("COS_PROJECT 環境変数でプロジェクトを指定してプロジェクト設定を適用できる", () => {
-    writeTestConfig({
-      projects: { 環境変数プロジェクト: { disableCommands: ["page.delete"] } },
-    })
-    process.env["COS_PROJECT"] = "環境変数プロジェクト"
-    // COS_PROJECT 経由でプロジェクト設定が適用される
-    expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
-    expect(exitMock).toHaveBeenCalledWith(7)
-  })
-})
-
-describe("checkSandbox - agent.defaultProjectPermission プリセット", () => {
-  it('"read" プリセットが未設定プロジェクトの write コマンドを拒否する', () => {
-    writeTestConfig({ agent: { defaultProjectPermission: "read" } })
-    // 未設定プロジェクトの page.new は write 系コマンドなので read プリセットで拒否される
+describe("checkSandbox - defaultPermission (未設定プロジェクトの既定権限)", () => {
+  it("defaultPermission: read が未設定プロジェクトの write コマンドを拒否する", () => {
+    writeTestConfig({ defaultPermission: "read" })
     expect(() => checkSandbox("page.new", makeArgs({ project: "未設定プロジェクト" }))).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it('"read" プリセットが未設定プロジェクトの read コマンドを許可する', () => {
-    writeTestConfig({ agent: { defaultProjectPermission: "read" } })
-    // page.get は read 系コマンドなので通過する
+  it("defaultPermission: read が未設定プロジェクトの read コマンドを許可する", () => {
+    writeTestConfig({ defaultPermission: "read" })
     expect(() =>
       checkSandbox("page.get", makeArgs({ project: "未設定プロジェクト" })),
     ).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
   })
 
-  it('"none" プリセットが未設定プロジェクトの全コマンドを拒否する', () => {
-    writeTestConfig({ agent: { defaultProjectPermission: "none" } })
-    // read 系も write 系もすべて拒否される
+  it("defaultPermission: none が未設定プロジェクトの全コマンドを拒否する", () => {
+    writeTestConfig({ defaultPermission: "none" })
     expect(() => checkSandbox("page.get", makeArgs({ project: "未設定プロジェクト" }))).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
 
-  it('"readwrite" プリセットは全コマンドを許可する', () => {
-    writeTestConfig({ agent: { defaultProjectPermission: "readwrite" } })
-    // write 系コマンドも許可される
+  it("defaultPermission: readwrite が未設定プロジェクトの全コマンドを許可する", () => {
+    writeTestConfig({ defaultPermission: "readwrite" })
     expect(() =>
       checkSandbox("page.delete", makeArgs({ project: "未設定プロジェクト" })),
     ).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
   })
 
-  it("明示的に設定されたプロジェクトには defaultProjectPermission が適用されない", () => {
+  it("明示的に設定されたプロジェクトには defaultPermission が適用されない", () => {
     writeTestConfig({
-      agent: { defaultProjectPermission: "read" },
+      defaultPermission: "read",
       projects: {
         // 明示設定で全許可
-        明示設定プロジェクト: { enableCommands: ["*"] },
+        明示設定プロジェクト: { permission: "readwrite" },
       },
     })
-    // 明示設定のプロジェクトには read プリセットが適用されず page.new も許可される
+    // 明示設定のプロジェクトには defaultPermission が適用されず page.new も許可される
     expect(() =>
       checkSandbox("page.new", makeArgs({ project: "明示設定プロジェクト" })),
     ).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
+  })
+
+  it("プロジェクト未指定では defaultPermission が適用されない", () => {
+    writeTestConfig({ defaultPermission: "read" })
+    // project が指定されていないため defaultPermission が適用されず write コマンドも許可される
+    expect(() => checkSandbox("page.new", makeArgs())).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("checkSandbox - COS_PROJECT 環境変数", () => {
+  it("COS_PROJECT 環境変数でプロジェクトを指定してプロジェクト設定を適用できる", () => {
+    writeTestConfig({
+      projects: { 環境変数プロジェクト: { permission: "read" } },
+    })
+    process.env["COS_PROJECT"] = "環境変数プロジェクト"
+    expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
+    expect(exitMock).toHaveBeenCalledWith(7)
   })
 })
 
 describe("checkSandbox - CLI フラグ優先度", () => {
   it("CLI --enable-commands フラグはプロジェクト設定より優先される", () => {
     writeTestConfig({
-      projects: { 制限プロジェクト: { enableCommands: ["page.get"] } },
+      projects: { 制限プロジェクト: { permission: "read" } },
     })
     // CLI フラグで page.delete を明示的に許可する
     expect(() =>
@@ -256,7 +237,7 @@ describe("checkSandbox - CLI フラグ優先度", () => {
 
   it("CLI --disable-commands フラグはプロジェクト設定より優先される", () => {
     writeTestConfig({
-      projects: { 全許可プロジェクト: { enableCommands: ["*"] } },
+      projects: { 全許可プロジェクト: { permission: "readwrite" } },
     })
     // プロジェクトは全許可だが CLI フラグで page.delete を禁止する
     expect(() =>
@@ -267,29 +248,30 @@ describe("checkSandbox - CLI フラグ優先度", () => {
     ).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
   })
+
+  it("CLI --enable-commands フラグはグローバル disableCommands より優先される", () => {
+    writeTestConfig({ disableCommands: ["page.delete"] })
+    // CLI フラグで page.delete を明示的に許可する
+    expect(() =>
+      checkSandbox("page.delete", makeArgs({ "enable-commands": "page.delete" })),
+    ).not.toThrow()
+    expect(exitMock).not.toHaveBeenCalled()
+  })
 })
 
-describe("checkSandbox - プロジェクト未指定の場合", () => {
+describe("checkSandbox - プロジェクト未指定", () => {
   it("プロジェクト未指定ではプロジェクト固有設定が適用されず全コマンドを許可する", () => {
     writeTestConfig({
-      projects: { マイプロジェクト: { disableCommands: ["page.delete"] } },
+      projects: { マイプロジェクト: { permission: "read" } },
     })
     // project が args にも env にもない場合は設定ファイルの projects を参照しない
     expect(() => checkSandbox("page.delete", makeArgs())).not.toThrow()
     expect(exitMock).not.toHaveBeenCalled()
   })
 
-  it("プロジェクト未指定でも agent.defaultDisableCommands は適用される", () => {
-    writeTestConfig({ agent: { defaultDisableCommands: ["page.delete"] } })
-    // グローバル設定は project 未指定でも適用される
+  it("プロジェクト未指定でも disableCommands は適用される", () => {
+    writeTestConfig({ disableCommands: ["page.delete"] })
     expect(() => checkSandbox("page.delete", makeArgs())).toThrow()
     expect(exitMock).toHaveBeenCalledWith(7)
-  })
-
-  it("プロジェクト未指定では defaultProjectPermission が適用されない", () => {
-    writeTestConfig({ agent: { defaultProjectPermission: "read" } })
-    // project が指定されていないため read プリセットが適用されず write コマンドも許可される
-    expect(() => checkSandbox("page.new", makeArgs())).not.toThrow()
-    expect(exitMock).not.toHaveBeenCalled()
   })
 })

@@ -11,30 +11,24 @@ import { dirname, join } from "node:path"
 import JSON5 from "json5"
 import { z } from "zod"
 
+/** PermissionPreset はプロジェクトに適用できる権限プリセット。 */
+const PermissionPresetSchema = z.enum(["read", "readwrite", "none"])
+
 /** ProjectConfig はプロジェクト固有の設定。 */
 const ProjectConfigSchema = z.object({
   defaultSort: z.string().optional(),
   defaultLimit: z.number().optional(),
-  /** このプロジェクトで許可するコマンドリスト。設定時はグローバル設定を完全に上書きする。 */
-  enableCommands: z.array(z.string()).optional(),
-  /** このプロジェクトで禁止するコマンドリスト。設定時はグローバル設定を完全に上書きする。 */
-  disableCommands: z.array(z.string()).optional(),
-})
-
-/** AgentConfig は AI エージェント向けの設定。 */
-const AgentConfigSchema = z.object({
-  defaultDisableCommands: z.array(z.string()).optional(),
-  /** グローバルで許可するコマンドリスト (CLI/env 未指定時のデフォルト)。 */
-  defaultEnableCommands: z.array(z.string()).optional(),
   /**
-   * projects に未列挙のプロジェクトへの既定権限プリセット。
+   * このプロジェクトの権限プリセット。
    * "read": 読み取り系コマンドのみ許可。
    * "readwrite": 全コマンド許可。
    * "none": 全コマンド拒否。
-   * 未設定: グローバル enable/disable のみ適用 (後方互換)。
    */
-  defaultProjectPermission: z.enum(["read", "readwrite", "none"]).optional(),
-  maxChangesPerCommit: z.number().optional(),
+  permission: PermissionPresetSchema.optional(),
+  /** このプロジェクトで許可するコマンドリスト (permission より細かい制御が必要な場合)。 */
+  enableCommands: z.array(z.string()).optional(),
+  /** このプロジェクトで禁止するコマンドリスト (permission より細かい制御が必要な場合)。 */
+  disableCommands: z.array(z.string()).optional(),
 })
 
 /** SyncConfig はローカル同期に関する設定。 */
@@ -48,8 +42,15 @@ const SyncConfigSchema = z.object({
 export const CoscliConfigSchema = z.object({
   defaultProject: z.string().optional(),
   defaultProfile: z.string().optional(),
+  /**
+   * projects に未列挙のプロジェクトへの既定権限プリセット。
+   * プロジェクト指定時のみ適用される (プロジェクト未指定コマンドには無効)。
+   * 未設定: 全コマンド許可 (後方互換)。
+   */
+  defaultPermission: PermissionPresetSchema.optional(),
+  /** 全プロジェクト共通の絶対禁止コマンドリスト。CLI フラグで上書き可能。 */
+  disableCommands: z.array(z.string()).optional(),
   projects: z.record(z.string(), ProjectConfigSchema).optional(),
-  agent: AgentConfigSchema.optional(),
   output: z
     .object({
       color: z.enum(["auto", "always", "never"]).optional(),
