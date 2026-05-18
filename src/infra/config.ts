@@ -11,16 +11,36 @@ import { dirname, join } from "node:path"
 import JSON5 from "json5"
 import { z } from "zod"
 
+/** PermissionPreset はプロジェクトに適用できる権限プリセット。 */
+const PermissionPresetSchema = z.enum(["read", "readwrite", "none"])
+
+/**
+ * CommandPatternSchema はコマンドパターン文字列のバリデーションスキーマ。
+ * 許容形式: "*" / "all" / "noun" / "noun.verb" / "noun.*" / "noun.noun.verb" 等
+ */
+const CommandPatternSchema = z
+  .string()
+  .min(1)
+  .regex(
+    /^[a-z*][a-z0-9.*]*$|^all$/,
+    "コマンドパターンは noun.verb 形式、または * / all を指定してください (例: page.list)",
+  )
+
 /** ProjectConfig はプロジェクト固有の設定。 */
 const ProjectConfigSchema = z.object({
   defaultSort: z.string().optional(),
   defaultLimit: z.number().optional(),
-})
-
-/** AgentConfig は AI エージェント向けの設定。 */
-const AgentConfigSchema = z.object({
-  defaultDisableCommands: z.array(z.string()).optional(),
-  maxChangesPerCommit: z.number().optional(),
+  /**
+   * このプロジェクトの権限プリセット。
+   * "read": 読み取り系コマンドのみ許可。
+   * "readwrite": 全コマンド許可。
+   * "none": 全コマンド拒否。
+   */
+  permission: PermissionPresetSchema.optional(),
+  /** このプロジェクトで許可するコマンドリスト (permission より細かい制御が必要な場合)。 */
+  enableCommands: z.array(CommandPatternSchema).optional(),
+  /** このプロジェクトで禁止するコマンドリスト (permission より細かい制御が必要な場合)。 */
+  disableCommands: z.array(CommandPatternSchema).optional(),
 })
 
 /** SyncConfig はローカル同期に関する設定。 */
@@ -34,8 +54,15 @@ const SyncConfigSchema = z.object({
 export const CoscliConfigSchema = z.object({
   defaultProject: z.string().optional(),
   defaultProfile: z.string().optional(),
+  /**
+   * projects に未列挙のプロジェクトへの既定権限プリセット。
+   * プロジェクト指定時のみ適用される (プロジェクト未指定コマンドには無効)。
+   * 未設定: 全コマンド許可 (後方互換)。
+   */
+  defaultPermission: PermissionPresetSchema.optional(),
+  /** 全プロジェクト共通の絶対禁止コマンドリスト。CLI フラグで上書き可能。 */
+  disableCommands: z.array(CommandPatternSchema).optional(),
   projects: z.record(z.string(), ProjectConfigSchema).optional(),
-  agent: AgentConfigSchema.optional(),
   output: z
     .object({
       color: z.enum(["auto", "always", "never"]).optional(),

@@ -8,6 +8,7 @@
 import { CosenseRestClient } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
 import { loadSession } from "@/core/auth/session"
+import { expandPermissionPreset } from "@/core/command-classification"
 import { PolicyError, createPolicy } from "@/core/sandbox"
 import { loadConfig } from "@/infra/config"
 import { createTokenStore } from "@/infra/keychain/index"
@@ -162,14 +163,75 @@ export function buildLogger(args: CommonArgs): Logger {
 /**
  * checkSandbox はサンドボックスポリシーを確認する。
  * 拒否された場合は exit 7 で終了する。
+ *
+ * 優先順位: CLI フラグ > 環境変数 > プロジェクト固有設定 > defaultPermission > 全許可
+ *
+ * - CLI/env フラグが指定された場合はそれのみを使用 (config の disableCommands も無視)
+ * - プロジェクト固有の permission / enableCommands / disableCommands はグローバルより優先
+ * - defaultPermission はプロジェクト指定時のみ有効 (未指定コマンドには無効)
+ * - disableCommands はプロジェクト設定に重ねて常に適用される絶対禁止リスト
+ *
+ * プロジェクト名は args.project > COS_PROJECT 環境変数 の順で解決し、
+ * config.defaultProject はフォールバックとして使用しない。
  */
 export function checkSandbox(commandName: string, args: CommonArgs): void {
   const config = loadConfig()
-  const enableStr = args["enable-commands"] ?? process.env["COS_ENABLE_COMMANDS"]
-  const disableStr =
-    args["disable-commands"] ??
-    process.env["COS_DISABLE_COMMANDS"] ??
-    config.agent?.defaultDisableCommands?.join(",")
+
+  // プロジェクト名解決 (config.defaultProject は使用しない)
+  const projectName = args.project ?? process.env["COS_PROJECT"]
+  const projectConfig = projectName ? (config.projects?.[projectName] ?? undefined) : undefined
+
+  const cliEnable = args["enable-commands"]
+  const envEnable = process.env["COS_ENABLE_COMMANDS"]
+  const cliDisable = args["disable-commands"]
+  const envDisable = process.env["COS_DISABLE_COMMANDS"]
+
+  let enableStr: string | undefined
+  let disableStr: string | undefined
+
+  const hasCliOrEnvOverride =
+    cliEnable !== undefined ||
+    envEnable !== undefined ||
+    cliDisable !== undefined ||
+    envDisable !== undefined
+
+  if (hasCliOrEnvOverride) {
+    // CLI/env フラグが指定された場合は config を無視 (enable と disable は独立して解決する)
+    enableStr = cliEnable ?? envEnable
+    disableStr = cliDisable ?? envDisable
+  } else {
+    // config からプロジェクト固有 → defaultPermission の順で解決
+    if (projectConfig?.permission) {
+      const { enable, disable } = expandPermissionPreset(projectConfig.permission)
+      enableStr = enable?.join(",")
+      disableStr = disable?.join(",")
+      // permission プリセットに対して enableCommands/disableCommands を追加合成する
+      if (projectConfig.enableCommands?.length) {
+        const extra = projectConfig.enableCommands.join(",")
+        enableStr = enableStr ? `${enableStr},${extra}` : extra
+      }
+      if (projectConfig.disableCommands?.length) {
+        const extra = projectConfig.disableCommands.join(",")
+        disableStr = disableStr ? `${disableStr},${extra}` : extra
+      }
+    } else if (
+      projectConfig?.enableCommands !== undefined ||
+      projectConfig?.disableCommands !== undefined
+    ) {
+      enableStr = projectConfig.enableCommands?.join(",")
+      disableStr = projectConfig.disableCommands?.join(",")
+    } else if (projectName && config.defaultPermission) {
+      const { enable, disable } = expandPermissionPreset(config.defaultPermission)
+      enableStr = enable?.join(",")
+      disableStr = disable?.join(",")
+    }
+
+    // 絶対禁止リストを重ねる (CLI/env 未指定時のみ)
+    if (config.disableCommands?.length) {
+      const globalDisable = config.disableCommands.join(",")
+      disableStr = disableStr ? `${disableStr},${globalDisable}` : globalDisable
+    }
+  }
 
   if (!enableStr && !disableStr) return
 

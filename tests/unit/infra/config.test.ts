@@ -170,6 +170,62 @@ describe("setConfigValue", () => {
   })
 })
 
+describe("setConfigValue - permission/disableCommands 設定フィールド", () => {
+  it("defaultPermission に read を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "defaultPermission", "read")
+    expect(updated.defaultPermission).toBe("read")
+  })
+
+  it("defaultPermission に readwrite を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "defaultPermission", "readwrite")
+    expect(updated.defaultPermission).toBe("readwrite")
+  })
+
+  it("defaultPermission に none を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "defaultPermission", "none")
+    expect(updated.defaultPermission).toBe("none")
+  })
+
+  it("defaultPermission に不正な値を設定するとエラーになる", () => {
+    const config = {}
+    expect(() => setConfigValue(config, "defaultPermission", "admin")).toThrow()
+  })
+
+  it("disableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "disableCommands", ["page.delete", "page.new"])
+    expect(updated.disableCommands).toEqual(["page.delete", "page.new"])
+  })
+
+  it("projects.<name>.permission に read を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "projects.マイプロジェクト.permission", "read")
+    expect(updated.projects?.["マイプロジェクト"]?.permission).toBe("read")
+  })
+
+  it("projects.<name>.permission に不正な値を設定するとエラーになる", () => {
+    const config = {}
+    expect(() => setConfigValue(config, "projects.マイプロジェクト.permission", "admin")).toThrow()
+  })
+
+  it("projects.<name>.enableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "projects.マイプロジェクト.enableCommands", ["page.get"])
+    expect(updated.projects?.["マイプロジェクト"]?.enableCommands).toEqual(["page.get"])
+  })
+
+  it("projects.<name>.disableCommands にコマンドリストを設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "projects.マイプロジェクト.disableCommands", [
+      "page.delete",
+    ])
+    expect(updated.projects?.["マイプロジェクト"]?.disableCommands).toEqual(["page.delete"])
+  })
+})
+
 describe("prototype 汚染への防御", () => {
   afterAll(() => {
     // RED フェーズで汚染が発生した場合に備えてクリーンアップする

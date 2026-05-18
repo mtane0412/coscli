@@ -247,12 +247,38 @@ cos page list --project myproject --json | jq '.results[].title'
 ### sandbox でコマンドを制限
 
 ```bash
-# 読み取りのみ許可
+# 読み取りのみ許可 (CLI フラグ)
 cos --enable-commands "page.list,page.get,page.text,page.code" page list --project myproject
 
-# 削除を禁止
+# 削除を禁止 (CLI フラグ)
 cos --disable-commands "page.delete" page list --project myproject
 ```
+
+設定ファイルで永続化することもできます。
+
+```json5
+{
+  // 全プロジェクト共通の絶対禁止コマンド (CLI フラグで上書き可能)
+  disableCommands: ["page.delete"],
+  // projects に未列挙のプロジェクトへの既定権限
+  // "read": 読み取り系コマンドのみ / "readwrite": 全許可 / "none": 全拒否
+  defaultPermission: "read",
+  projects: {
+    // プロジェクト固有設定 (defaultPermission を上書き)
+    myproject: {
+      permission: "readwrite",   // このプロジェクトは全許可 (disableCommands は引き続き適用)
+    },
+    "read-only-wiki": {
+      permission: "read",        // 読み取り専用
+    },
+    "locked-project": {
+      permission: "none",        // 完全ブロック
+    },
+  },
+}
+```
+
+優先順位: **CLI フラグ > 環境変数 (`COS_ENABLE_COMMANDS` / `COS_DISABLE_COMMANDS`) > プロジェクト固有設定 > `defaultPermission` > 全許可**
 
 sandbox 違反時は exit code 7 で終了します。
 
@@ -266,13 +292,121 @@ cos auth login --no-input --sid "$COS_SID"
 
 ## 設定
 
-設定ファイルは JSON5 形式です。`cos config path` でパスを確認できます。
+### 設定ファイルの場所
+
+設定ファイルは **JSON5 形式** (コメント・末尾カンマ可) です。
+
+| OS | デフォルトパス |
+|---|---|
+| macOS / Linux | `~/.config/coscli/config.json5` |
+| XDG 環境 | `$XDG_CONFIG_HOME/coscli/config.json5` |
+
+```bash
+cos config path          # 現在の設定ファイルパスを確認
+cos config get <key>     # 設定値を取得
+cos config set <key> <value>  # 設定値を保存
+```
+
+### 設定リファレンス
+
+#### 基本設定
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `defaultProject` | string | `--project` 省略時のデフォルトプロジェクト名 (注: sandbox の権限解決では使用されない — `defaultPermission` はプロジェクトを明示指定した場合にのみ適用される) |
+| `defaultProfile` | string | 認証プロファイル名 (未設定: `"default"`) |
+
+#### 出力設定 (`output`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `output.color` | `"auto"` \| `"always"` \| `"never"` | カラー出力モード (未設定: `"auto"`) |
+| `output.json` | boolean | 常に `--json` を有効にする |
+| `output.plain` | boolean | 常に `--plain` を有効にする |
+
+#### コマンド権限設定
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `disableCommands` | string[] | 全プロジェクト共通の絶対禁止コマンドリスト |
+| `defaultPermission` | `"read"` \| `"readwrite"` \| `"none"` | `projects` に未列挙のプロジェクトへの既定権限 (プロジェクト指定時のみ有効) |
+
+`defaultPermission` / `projects.<name>.permission` の値の意味:
+
+| 値 | 効果 |
+|---|---|
+| `"read"` | 読み取り系コマンドのみ許可 (page.get, page.list, search 等) |
+| `"readwrite"` | 全コマンドを許可 |
+| `"none"` | 全コマンドを拒否 |
+
+#### プロジェクト固有設定 (`projects.<name>`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `projects.<name>.defaultSort` | string | ページ一覧のデフォルトソート順 |
+| `projects.<name>.defaultLimit` | number | ページ一覧のデフォルト件数 |
+| `projects.<name>.permission` | `"read"` \| `"readwrite"` \| `"none"` | このプロジェクトの権限プリセット |
+| `projects.<name>.enableCommands` | string[] | このプロジェクトで許可するコマンド (細かい制御が必要な場合) |
+| `projects.<name>.disableCommands` | string[] | このプロジェクトで禁止するコマンド (細かい制御が必要な場合) |
+
+#### 同期設定 (`sync`)
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `sync.dir` | string | ローカル同期ディレクトリ |
+| `sync.format` | `"txt"` | 同期ファイル形式 |
+| `sync.retries` | number (≥0) | 同期失敗時のリトライ回数 |
+
+### 設定例
+
+#### 個人利用 — よく使うプロジェクトを省略する
+
+```bash
+cos config set defaultProject myproject
+cos config set output.color always
+```
+
+これで `--project myproject` を毎回指定しなくてよくなります。
+
+#### AI エージェント向け — コマンドを絞る
+
+AI エージェントに coscli を使わせる際は sandbox 設定で権限を限定できます。
 
 ```json5
+// ~/.config/coscli/config.json5
 {
-  // デフォルトプロジェクト
   defaultProject: "myproject",
+  // page.delete は全プロジェクトで絶対禁止
+  disableCommands: ["page.delete"],
+  // projects に未列挙のプロジェクトは読み取り専用
+  defaultPermission: "read",
+  projects: {
+    // myproject は全操作を許可 (disableCommands の page.delete は引き続き禁止)
+    myproject: { permission: "readwrite" },
+    // private-notes は完全ブロック
+    "private-notes": { permission: "none" },
+    // 未列挙プロジェクト → defaultPermission: "read" が適用される
+  },
 }
+```
+
+sandbox の優先順位: **CLI フラグ > 環境変数 > プロジェクト固有設定 > `defaultPermission` > 全許可**
+
+`disableCommands` は CLI フラグ (`--enable-commands`) で上書き可能な絶対禁止リストです。プロジェクトの `permission: "readwrite"` でも無効にはなりません。
+
+#### 設定値を CLI で確認・変更する
+
+```bash
+# 現在の設定を確認
+cos config get defaultProject
+cos config get defaultPermission
+
+# 配列は JSON 形式で渡す
+cos config set disableCommands '["page.delete"]'
+cos config set projects.myproject.permission readwrite
+
+# 設定ファイルを直接エディタで開く
+$EDITOR "$(cos config path)"
 ```
 
 ## 終了コード
