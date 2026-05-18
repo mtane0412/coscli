@@ -5,42 +5,23 @@
  * - --all モードでの不正ファイル名スキップ動作のテスト (issue #91)
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs"
 import { syncPushCommand } from "@/commands/sync/push"
+import * as syncEngine from "@/core/sync/engine"
 
 /** syncPush に渡された title をキャプチャする */
 const capturedPushTitles: string[] = []
 
-// Bun は mock.module をファイル先頭にホイストするため import より前に評価される
-// node:fs をモックして readdirSync / existsSync を差し替える。
-// realFs を spread して readFileSync 等の他メソッドは実装をそのまま使う。
-mock.module("node:fs", () => {
-  // biome-ignore lint/style/useNodejsImportProtocol: モックバイパスに "node:" なしが必要
-  const realFs = require("fs") as typeof import("node:fs")
-  return {
-    ...realFs,
-    // .coscli 配下のパスは同期メタディレクトリとして存在するものとみなす
-    existsSync: (p: unknown) => {
-      if (typeof p === "string" && p.includes(".coscli")) return true
-      return realFs.existsSync(p as Parameters<typeof realFs.existsSync>[0])
-    },
-    readdirSync: (_dir: unknown) => ["CON.json", "正常なページ.json"],
-  }
-})
-
-// syncPush をモックして実際の API コールを回避し、呼び出し引数をキャプチャする
-mock.module("@/core/sync/engine", () => ({
-  syncPush: mock(
-    async (_client: unknown, _writer: unknown, _dir: string, _project: string, title: string) => {
-      capturedPushTitles.push(title)
-      return { committed: true, status: "pushed", newCommitId: "テストコミットID" }
-    },
-  ),
-}))
+// spyOn 前に実実装を保存する（fs のメソッドが積み重なっても実ファイルアクセスができるように）
+const realExistsSync = fs.existsSync.bind(fs)
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
+let existsSyncSpy: ReturnType<typeof spyOn>
+let readdirSyncSpy: ReturnType<typeof spyOn>
+let syncPushSpy: ReturnType<typeof spyOn>
 
 async function runPush(args: Record<string, unknown>) {
   await (
@@ -89,12 +70,31 @@ beforeEach(() => {
   process.env["COS_SID"] = "s%3Atest-session-id"
   // 各テスト前にキャプチャを初期化する
   capturedPushTitles.length = 0
+  // .coscli 配下のパスは同期メタディレクトリとして存在するものとみなす
+  existsSyncSpy = spyOn(fs, "existsSync").mockImplementation((p) => {
+    if (typeof p === "string" && p.includes(".coscli")) return true
+    return realExistsSync(p as Parameters<typeof fs.existsSync>[0])
+  })
+  readdirSyncSpy = spyOn(fs, "readdirSync").mockImplementation(((_dir: unknown) => [
+    "CON.json",
+    "正常なページ.json",
+  ]) as unknown as typeof fs.readdirSync)
+  // syncPush をモックして実際の API コールを回避し、呼び出し引数をキャプチャする
+  syncPushSpy = spyOn(syncEngine, "syncPush").mockImplementation(
+    async (_client, _writer, _dir, _project, title) => {
+      capturedPushTitles.push(title)
+      return { committed: true, newCommitId: "テストコミットID" }
+    },
+  )
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
+  existsSyncSpy.mockRestore()
+  readdirSyncSpy.mockRestore()
+  syncPushSpy.mockRestore()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
@@ -144,7 +144,7 @@ describe("syncPushCommand バリデーション", () => {
 
 describe("syncPushCommand --all モード 不正ファイル名スキップ (issue #91)", () => {
   it("Windows 予約名 (CON) のメタファイルはスキップされ、正常なファイルだけ push される", async () => {
-    // Given: readdirSync が ["CON.json", "正常なページ.json"] を返す (mock.module で設定済み)
+    // Given: readdirSync が ["CON.json", "正常なページ.json"] を返す (beforeEach で設定済み)
     // When: --all で push する
     await runPush(
       defaultArgs({

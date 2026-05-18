@@ -5,36 +5,14 @@
  * issue #57: persistent:false のスタブページを重複と誤判定しないよう修正。
  *
  * - REST getPage は msw でモックする。
- * - WebSocket 書き込み (renamePage) は mock.module でモックして WS 接続を回避する。
+ * - WebSocket 書き込み (renamePage) は spyOn でモックして WS 接続を回避する。
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-  spyOn,
-} from "bun:test"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { pageRenameCommand } from "@/commands/page/rename"
+import * as pages from "@/core/pages"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
-
-// ---------------------------------------------------------------------------
-// @/core/pages の renamePage をモックして WebSocket 接続を回避する
-// Bun は mock.module をファイル先頭にホイストするため import より前に評価される
-// ---------------------------------------------------------------------------
-const renamePageMock = mock(async () => ({
-  commitId: "ダミーコミットID",
-  pageId: "ダミーページID",
-}))
-
-mock.module("@/core/pages", () => ({
-  renamePage: renamePageMock,
-}))
 
 const BASE_URL = "https://scrapbox.io"
 const TEST_PROJECT = "テストプロジェクト"
@@ -63,6 +41,7 @@ afterAll(() => server.close())
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
+let renamePageSpy: ReturnType<typeof spyOn>
 
 /** コマンド run ヘルパー */
 async function runRename(args: Record<string, unknown>) {
@@ -86,12 +65,17 @@ beforeEach(() => {
   Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
   Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
   process.env["COS_SID"] = "s%3Atest-session-id"
-  renamePageMock.mockClear()
+  // renamePage をモックして WebSocket 接続を回避する
+  renamePageSpy = spyOn(pages, "renamePage").mockImplementation(async () => ({
+    commitId: "ダミーコミットID",
+    pageId: "ダミーページID",
+  }))
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
+  renamePageSpy.mockRestore()
   server.resetHandlers()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
@@ -172,7 +156,7 @@ describe("pageRenameCommand", () => {
     expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
     expect(exitMock).not.toHaveBeenCalledWith(5)
     // persistent:false はスタブなので rename が実際に呼ばれることを確認する
-    expect(renamePageMock).toHaveBeenCalledTimes(1)
+    expect(renamePageSpy).toHaveBeenCalledTimes(1)
   })
 
   it("新タイトルが persistent:true のページを返す場合、DUPLICATE_TITLE エラー (exit 5) になる", async () => {
@@ -226,7 +210,7 @@ describe("pageRenameCommand", () => {
     const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(stdoutOutput).toContain("DUPLICATE_TITLE")
     // persistent:true は実体ページなので rename が呼ばれないことを確認する
-    expect(renamePageMock).not.toHaveBeenCalled()
+    expect(renamePageSpy).not.toHaveBeenCalled()
   })
 
   it("新タイトルが 404 NotFoundError を返す場合、重複なしとして rename が継続する", async () => {
@@ -259,7 +243,7 @@ describe("pageRenameCommand", () => {
     expect(stdoutOutput).not.toContain("DUPLICATE_TITLE")
     expect(exitMock).not.toHaveBeenCalledWith(5)
     // 404 は重複なしなので rename が実際に呼ばれることを確認する
-    expect(renamePageMock).toHaveBeenCalledTimes(1)
+    expect(renamePageSpy).toHaveBeenCalledTimes(1)
   })
 
   it("新タイトルが persistent フィールド欠落のページを返す場合、安全側に倒して DUPLICATE_TITLE エラー (exit 5) になる", async () => {
@@ -312,6 +296,6 @@ describe("pageRenameCommand", () => {
     const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     expect(stdoutOutput).toContain("DUPLICATE_TITLE")
     // 重複扱いなので rename は呼ばれない
-    expect(renamePageMock).not.toHaveBeenCalled()
+    expect(renamePageSpy).not.toHaveBeenCalled()
   })
 })

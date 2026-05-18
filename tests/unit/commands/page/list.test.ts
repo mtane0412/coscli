@@ -5,33 +5,18 @@
  * 有効値を渡した場合に正常動作することを検証する。
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { pageListCommand } from "@/commands/page/list"
+import * as pages from "@/core/pages"
 import pageListFixture from "../../../fixtures/page-list.json"
 
 /** listPages に渡された opts をキャプチャする */
 const capturedListPagesCalls: { limit?: number; skip?: number }[] = []
 
-// Bun は mock.module をファイル先頭にホイストするため import より前に評価される
-mock.module("@/core/pages", () => ({
-  listPages: mock(
-    async (
-      _client: unknown,
-      opts: { project: string; limit?: number; skip?: number; sort?: string },
-    ) => {
-      // exactOptionalPropertyTypes: true のためオプショナルプロパティへは条件付き代入を使う
-      const captured: { limit?: number; skip?: number } = {}
-      if (opts.limit !== undefined) captured.limit = opts.limit
-      if (opts.skip !== undefined) captured.skip = opts.skip
-      capturedListPagesCalls.push(captured)
-      return pageListFixture
-    },
-  ),
-}))
-
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
+let listPagesSpy: ReturnType<typeof spyOn>
 
 /** コマンド run ヘルパー */
 async function runList(args: Record<string, unknown>) {
@@ -59,12 +44,21 @@ beforeEach(() => {
   process.env["COS_SID"] = "s%3Atest-session-id"
   // 各テスト前にキャプチャを初期化する
   capturedListPagesCalls.length = 0
+  listPagesSpy = spyOn(pages, "listPages").mockImplementation(async (_client, opts) => {
+    // exactOptionalPropertyTypes: true のためオプショナルプロパティへは条件付き代入を使う
+    const captured: { limit?: number; skip?: number } = {}
+    if (opts.limit !== undefined) captured.limit = opts.limit
+    if (opts.skip !== undefined) captured.skip = opts.skip
+    capturedListPagesCalls.push(captured)
+    return pageListFixture
+  })
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
+  listPagesSpy.mockRestore()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
