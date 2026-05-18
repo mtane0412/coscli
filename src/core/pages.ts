@@ -141,6 +141,73 @@ export async function insertIntoPage(
   })
 }
 
+/**
+ * replaceLinesInPage は指定行範囲を新しい内容で置換する (WebSocket commit)。
+ *
+ * start / end は 1-indexed で両端含む。タイトル行 (start=1) は保護。
+ * end > existing.length の場合は update 関数内で Error を throw する。
+ */
+export async function replaceLinesInPage(
+  writer: ScrapboxWriter,
+  opts: {
+    project: string
+    title: string
+    start: number
+    end: number
+    lines: string[]
+    previewLines?: string[]
+  },
+) {
+  return writer.patch({
+    project: opts.project,
+    title: opts.title,
+    update: (existing) => {
+      if (opts.start < 2) {
+        throw new Error("タイトル行は編集できません (start は 2 以上を指定してください)")
+      }
+      if (opts.end > existing.length) {
+        throw new Error(`--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`)
+      }
+      return [
+        existing[0]?.text ?? opts.title,
+        ...existing.slice(1, opts.start - 1).map((l) => l.text),
+        ...opts.lines,
+        ...existing.slice(opts.end).map((l) => l.text),
+      ]
+    },
+    ...(opts.previewLines !== undefined && { previewLines: opts.previewLines }),
+  })
+}
+
+/**
+ * deleteLinesFromPage は指定行範囲を削除する (WebSocket commit)。
+ *
+ * start / end は 1-indexed で両端含む。タイトル行 (start=1) は保護。
+ * end > existing.length の場合は update 関数内で Error を throw する。
+ */
+export async function deleteLinesFromPage(
+  writer: ScrapboxWriter,
+  opts: { project: string; title: string; start: number; end: number },
+) {
+  return writer.patch({
+    project: opts.project,
+    title: opts.title,
+    update: (existing) => {
+      if (opts.start < 2) {
+        throw new Error("タイトル行は編集できません (start は 2 以上を指定してください)")
+      }
+      if (opts.end > existing.length) {
+        throw new Error(`--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`)
+      }
+      return [
+        existing[0]?.text ?? opts.title,
+        ...existing.slice(1, opts.start - 1).map((l) => l.text),
+        ...existing.slice(opts.end).map((l) => l.text),
+      ]
+    },
+  })
+}
+
 /** pinPage はページをピン留めする (WebSocket commit)。 */
 export async function pinPage(
   writer: ScrapboxWriter,

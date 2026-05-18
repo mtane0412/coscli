@@ -11,6 +11,7 @@ import type { ScrapboxWriter } from "@/core/api/ws"
 import {
   appendToPage,
   createPage,
+  deleteLinesFromPage,
   deletePage,
   editPage,
   getCodeBlock,
@@ -21,6 +22,7 @@ import {
   pinPage,
   prependToPage,
   renamePage,
+  replaceLinesInPage,
   unpinPage,
 } from "@/core/pages"
 
@@ -415,6 +417,185 @@ describe("insertIntoPage", () => {
       { id: "l2", text: "本文", userId: "u1", created: 0, updated: 0 },
     ]
     expect(() => capturedUpdate?.(existingLines)).toThrow("範囲外")
+  })
+})
+
+/** update 関数をキャプチャするライター生成ヘルパー */
+function createUpdateCapturingWriter() {
+  let capturedUpdate:
+    | ((
+        lines: { id: string; text: string; userId: string; created: number; updated: number }[],
+      ) => string[] | Promise<string[]>)
+    | undefined
+  const writer = createMockWriter({
+    patch: mock(async (opts) => {
+      capturedUpdate = opts.update
+      return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
+    }),
+  })
+  return { writer, getUpdate: () => capturedUpdate }
+}
+
+/** 5 行のサンプルページ (タイトル + 4 行の本文) */
+const sampleLines = [
+  { id: "l0", text: "サンプルページ", userId: "u1", created: 0, updated: 0 },
+  { id: "l1", text: "本文1行目", userId: "u1", created: 0, updated: 0 },
+  { id: "l2", text: "本文2行目", userId: "u1", created: 0, updated: 0 },
+  { id: "l3", text: "本文3行目", userId: "u1", created: 0, updated: 0 },
+  { id: "l4", text: "本文4行目", userId: "u1", created: 0, updated: 0 },
+]
+
+describe("replaceLinesInPage", () => {
+  it("単一行 (start=end=3) を置換する", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 3,
+      end: 3,
+      lines: ["置換後3行目"],
+    })
+    const result = await getUpdate()?.(sampleLines)
+    // 3行目が置換され、他の行は変わらない
+    expect(result).toEqual(["サンプルページ", "本文1行目", "置換後3行目", "本文3行目", "本文4行目"])
+  })
+
+  it("範囲 (start=2, end=3) を 2 行で置換する (行数同等)", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 3,
+      lines: ["置換A", "置換B"],
+    })
+    const result = await getUpdate()?.(sampleLines)
+    expect(result).toEqual(["サンプルページ", "置換A", "置換B", "本文3行目", "本文4行目"])
+  })
+
+  it("1 行を 2 行に置換する (行数増加)", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 2,
+      lines: ["増加A", "増加B"],
+    })
+    const result = await getUpdate()?.(sampleLines)
+    expect(result).toEqual([
+      "サンプルページ",
+      "増加A",
+      "増加B",
+      "本文2行目",
+      "本文3行目",
+      "本文4行目",
+    ])
+  })
+
+  it("3 行を 1 行に置換する (行数減少)", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 4,
+      lines: ["凝縮行"],
+    })
+    const result = await getUpdate()?.(sampleLines)
+    expect(result).toEqual(["サンプルページ", "凝縮行", "本文4行目"])
+  })
+
+  it("end が行数を超える場合は update 関数が例外をスローする", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 99,
+      lines: ["行"],
+    })
+    expect(() => getUpdate()?.(sampleLines)).toThrow("範囲外")
+  })
+
+  it("start=1 (タイトル行) の場合は update 関数が例外をスローする", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 1,
+      end: 1,
+      lines: ["タイトル変更試み"],
+    })
+    expect(() => getUpdate()?.(sampleLines)).toThrow("タイトル行")
+  })
+
+  it("previewLines として新しい行を渡す", async () => {
+    let capturedPreviewLines: string[] | undefined
+    const writer = createMockWriter({
+      patch: mock(async (opts) => {
+        capturedPreviewLines = opts.previewLines
+        return { commitId: "replace-commit", pageId: "page1" }
+      }),
+    })
+    await replaceLinesInPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 2,
+      lines: ["新しい行"],
+      previewLines: ["新しい行"],
+    })
+    expect(capturedPreviewLines).toEqual(["新しい行"])
+  })
+})
+
+describe("deleteLinesFromPage", () => {
+  it("単一行 (start=end=3) を削除する", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await deleteLinesFromPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 3,
+      end: 3,
+    })
+    const result = await getUpdate()?.(sampleLines)
+    // 3行目が削除され、他の行は変わらない
+    expect(result).toEqual(["サンプルページ", "本文1行目", "本文3行目", "本文4行目"])
+  })
+
+  it("範囲 (start=2, end=4) を削除する", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await deleteLinesFromPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 4,
+    })
+    const result = await getUpdate()?.(sampleLines)
+    expect(result).toEqual(["サンプルページ", "本文4行目"])
+  })
+
+  it("end が行数を超える場合は update 関数が例外をスローする", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await deleteLinesFromPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 2,
+      end: 99,
+    })
+    expect(() => getUpdate()?.(sampleLines)).toThrow("範囲外")
+  })
+
+  it("start=1 (タイトル行) の場合は update 関数が例外をスローする", async () => {
+    const { writer, getUpdate } = createUpdateCapturingWriter()
+    await deleteLinesFromPage(writer, {
+      project: "proj",
+      title: "サンプルページ",
+      start: 1,
+      end: 2,
+    })
+    expect(() => getUpdate()?.(sampleLines)).toThrow("タイトル行")
   })
 })
 

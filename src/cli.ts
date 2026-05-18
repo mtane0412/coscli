@@ -32,6 +32,9 @@ import { pageEditCommand } from "@/commands/page/edit"
 import { pageGetCommand } from "@/commands/page/get"
 import { pageIconCommand } from "@/commands/page/icon"
 import { pageInsertCommand } from "@/commands/page/insert"
+import { pageLineDeleteCommand } from "@/commands/page/line/delete"
+import { pageLineGetCommand } from "@/commands/page/line/get"
+import { pageLineReplaceCommand } from "@/commands/page/line/replace"
 // ページコマンド
 import { pageListCommand } from "@/commands/page/list"
 import { pageNewCommand } from "@/commands/page/new"
@@ -78,6 +81,17 @@ import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
 /** page サブコマンドグループ */
+/** page line サブコマンドグループ */
+const pageLineCommand = defineCommand({
+  meta: { name: "line", description: "行単位編集 (replace / delete / get)" },
+  subCommands: {
+    replace: pageLineReplaceCommand,
+    delete: pageLineDeleteCommand,
+    rm: pageLineDeleteCommand,
+    get: pageLineGetCommand,
+  },
+})
+
 const pageCommand = defineCommand({
   meta: { name: "page", description: "ページ操作コマンド" },
   subCommands: {
@@ -103,6 +117,7 @@ const pageCommand = defineCommand({
     rm: pageDeleteCommand,
     watch: pageWatchCommand,
     context: pageContextCommand,
+    line: pageLineCommand,
   },
 })
 
