@@ -24,6 +24,7 @@ import { ZodError } from "zod"
  * resolveExitCode はエラーの種類に応じた終了コードを返す。
  *
  * - ZodError → 5 (バリデーションエラー)
+ * - CommitConflictError → 6 (楽観ロック競合)
  * - AuthError → 2 (認証エラー)
  * - ForbiddenError → 3 (権限エラー)
  * - NotFoundError → 4 (NotFound)
