@@ -503,4 +503,59 @@ describe("pageRenameCommand", () => {
     // renamePage が呼ばれる (dry-run はスキップではなくプレビュー実行)
     expect(renamePageSpy).toHaveBeenCalledTimes(1)
   })
+
+  it("リネーム元が persistent フィールド欠落のページを返す場合、安全側に倒して exit 4 NOT_FOUND で終了し renamePage は呼ばれない (issue #112)", async () => {
+    // 前提: リネーム元タイトルが persistent フィールドを持たない (undefined) レスポンスを返す。
+    // 期待: persistent:true 以外は実体不明として NOT_FOUND エラー (exit 4) で終了し、
+    //       WebSocket commit (renamePage) は呼ばれない。
+    // 注記: persistent === undefined のケースは safe-side に倒して rename を禁止する。
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const project = decodeURIComponent(params["project"] as string)
+        const title = decodeURIComponent(params["title"] as string)
+        if (project === TEST_PROJECT && title === "persistentなしソースページ") {
+          // persistent フィールドを含まないレスポンス (undefined 扱い)
+          return HttpResponse.json({
+            id: "ambiguous-source-page-id",
+            title: "persistentなしソースページ",
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              {
+                id: "line-1",
+                text: "persistentなしソースページ",
+                userId: "user-1",
+                created: 1700000000,
+                updated: 1700000000,
+              },
+            ],
+          })
+        }
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+
+    try {
+      await runRename({
+        title: "persistentなしソースページ",
+        "new-title": "新しいタイトル",
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        quiet: false,
+        "force-fallback": false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+
+    // persistent が undefined でも安全側に倒して NOT_FOUND エラー (exit 4) で終了することを確認する
+    expect(exitMock).toHaveBeenCalledWith(4)
+    const stdoutOutput = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+    expect(stdoutOutput).toContain("NOT_FOUND")
+    // persistent が不明なページへの rename は実行されない
+    expect(renamePageSpy).not.toHaveBeenCalled()
+  })
 })

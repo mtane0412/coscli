@@ -63,14 +63,15 @@ export const pageRenameCommand = defineCommand({
       const client = await buildRestClient(a)
 
       // リネーム元の存在 + persistent チェック (issue #112)
-      // persistent:false はプレースホルダーページであり実体がないため、rename すると空ページが新規作成される。
+      // persistent:true 以外 (false / undefined) のページは実体がなく rename すると空ページが新規作成される。
+      // persistent が undefined のケースも安全側に倒して NOT_FOUND (exit 4) で終了する。
       // 404 (NotFoundError) も同様にリネーム不可として NOT_FOUND (exit 4) で終了する。
       try {
         const srcPage = await client.getPage(project, a.title)
-        if (srcPage.persistent === false) {
+        if (srcPage.persistent !== true) {
           writeErrorJson(
             "NOT_FOUND",
-            `"${a.title}" は実体のないプレースホルダーページです`,
+            `"${a.title}" は実体のないページのため rename できません`,
             "cos page get で persistent の値を確認してください",
           )
           process.exit(EXIT_NOT_FOUND)
