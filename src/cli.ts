@@ -80,7 +80,6 @@ import { exitCodesCommand } from "@/commands/exit-codes"
 import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
-/** page サブコマンドグループ */
 /** page line サブコマンドグループ */
 const pageLineCommand = defineCommand({
   meta: { name: "line", description: "行単位編集 (replace / delete / get)" },
@@ -92,6 +91,7 @@ const pageLineCommand = defineCommand({
   },
 })
 
+/** page サブコマンドグループ */
 const pageCommand = defineCommand({
   meta: { name: "page", description: "ページ操作コマンド" },
   subCommands: {

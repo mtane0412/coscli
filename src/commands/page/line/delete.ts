@@ -15,6 +15,7 @@ import {
   dryRunArg,
   requireProject,
 } from "@/commands/_shared"
+import { PageLineError } from "@/core/errors"
 import { deleteLinesFromPage } from "@/core/pages"
 import { RangeSpecError, parseLineSpec } from "@/core/range"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -38,23 +39,12 @@ export const pageLineDeleteCommand = defineCommand({
       type: "string",
       description: "削除する行範囲 (例: 3:7)",
     },
-    "expect-commit": {
-      type: "string",
-      description: "期待する commitId (楽観ロック用)",
-    },
-    force: {
-      type: "boolean",
-      description: "楽観ロックを無効化して強制上書きする",
-      default: false,
-    },
   },
   async run({ args }) {
     const a = args as WriteCommonArgs & {
       title: string
       line?: string
       range?: string
-      "expect-commit"?: string
-      force: boolean
     }
     checkSandbox("page.line.delete", a)
     const logger = buildLogger(a)
@@ -92,11 +82,7 @@ export const pageLineDeleteCommand = defineCommand({
         end,
       })
     } catch (err) {
-      if (
-        err instanceof Error &&
-        (err.message.startsWith("--range/--line の値が範囲外です") ||
-          err.message.startsWith("タイトル行は編集できません"))
-      ) {
+      if (err instanceof PageLineError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
         process.exit(5)
         return

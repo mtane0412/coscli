@@ -7,6 +7,7 @@
 
 import type { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
+import { PageLineError } from "@/core/errors"
 
 /** listPages はプロジェクトのページ一覧を取得する。 */
 export async function listPages(
@@ -163,10 +164,12 @@ export async function replaceLinesInPage(
     title: opts.title,
     update: (existing) => {
       if (opts.start < 2) {
-        throw new Error("タイトル行は編集できません (start は 2 以上を指定してください)")
+        throw new PageLineError("タイトル行は編集できません (start は 2 以上を指定してください)")
       }
       if (opts.end > existing.length) {
-        throw new Error(`--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`)
+        throw new PageLineError(
+          `--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`,
+        )
       }
       return [
         existing[0]?.text ?? opts.title,
@@ -194,10 +197,12 @@ export async function deleteLinesFromPage(
     title: opts.title,
     update: (existing) => {
       if (opts.start < 2) {
-        throw new Error("タイトル行は編集できません (start は 2 以上を指定してください)")
+        throw new PageLineError("タイトル行は編集できません (start は 2 以上を指定してください)")
       }
       if (opts.end > existing.length) {
-        throw new Error(`--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`)
+        throw new PageLineError(
+          `--range/--line の値が範囲外です (1〜${existing.length} の行が存在します)`,
+        )
       }
       return [
         existing[0]?.text ?? opts.title,

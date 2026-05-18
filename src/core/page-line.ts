@@ -17,6 +17,8 @@ import type { Line } from "@/schemas/page"
  * @returns { start, end, lines } — 指定範囲の行データ
  * @throws Error end > ページ行数 の場合
  * @throws NotFoundError ページが存在しない場合
+ * @remarks start <= end は parseLineSpec により呼び出し側で保証される前提。
+ *   end チェックで start の範囲外も間接的にカバーされる。
  */
 export async function getLineRange(
   client: CosenseRestClient,

@@ -21,6 +21,7 @@ import {
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
+import { PageLineError } from "@/core/errors"
 import { lintNotation } from "@/core/notation/lint"
 import { replaceLinesInPage } from "@/core/pages"
 import { RangeSpecError, parseLineSpec } from "@/core/range"
@@ -56,15 +57,6 @@ export const pageLineReplaceCommand = defineCommand({
       type: "string",
       description: "置換内容のファイルパス (- で stdin)",
     },
-    "expect-commit": {
-      type: "string",
-      description: "期待する commitId (楽観ロック用)",
-    },
-    force: {
-      type: "boolean",
-      description: "楽観ロックを無効化して強制上書きする",
-      default: false,
-    },
   },
   async run({ args }) {
     const a = args as WriteCommonArgs &
@@ -75,8 +67,6 @@ export const pageLineReplaceCommand = defineCommand({
         text?: string
         "from-file"?: string
         "allow-unsafe-read": boolean
-        "expect-commit"?: string
-        force: boolean
       }
     checkSandbox("page.line.replace", a)
     const logger = buildLogger(a)
@@ -200,11 +190,7 @@ export const pageLineReplaceCommand = defineCommand({
         previewLines: lines,
       })
     } catch (err) {
-      if (
-        err instanceof Error &&
-        (err.message.startsWith("--range/--line の値が範囲外です") ||
-          err.message.startsWith("タイトル行は編集できません"))
-      ) {
+      if (err instanceof PageLineError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
         process.exit(5)
         return
