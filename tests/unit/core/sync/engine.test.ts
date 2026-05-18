@@ -12,6 +12,13 @@ import { join } from "node:path"
 import type { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
 import { syncDiff, syncPull, syncPush } from "@/core/sync/engine"
+
+// bun --coverage モードでは複数テストファイルが同一プロセスで動作するため、
+// commands/sync/push.test.ts の mock.module("@/core/sync/engine", ...) が残留する場合がある。
+// エイリアスキーと異なる相対パスで require() することで残留モックをバイパスし、実実装を復元する。
+mock.module("@/core/sync/engine", () => {
+  return require("../../../../src/core/sync/engine") as typeof import("@/core/sync/engine")
+})
 import type { SyncMeta } from "@/core/sync/meta"
 import { readMeta, writeMeta } from "@/core/sync/meta"
 import type { Page } from "@/schemas/page"
