@@ -114,16 +114,20 @@ cos page new --project myproject --title "新しいページ" --body "本文"
 ## コマンド一覧
 
 ```
-cos page list     ページ一覧を取得
-cos page get      ページ本文を取得
-cos page text     ページのテキスト (コードブロックなし) を取得
-cos page context  ページ起点の Smart Context (リンク先本文) を取得
-cos page code     ページのコードブロックを取得
-cos page url      ページの URL を表示
-cos page new      ページを作成
-cos page edit     ページを編集
-cos page append   ページ末尾に行を追記
-cos page delete   ページを削除
+cos page list           ページ一覧を取得
+cos page get            ページ本文を取得
+cos page text           ページのテキスト (コードブロックなし) を取得
+cos page context        ページ起点の Smart Context (リンク先本文) を取得
+cos page code           ページのコードブロックを取得
+cos page url            ページの URL を表示
+cos page new            ページを作成
+cos page edit           ページを編集 (楽観ロック付き)
+cos page append         ページ末尾に行を追記
+cos page delete         ページを削除
+
+cos page line get       指定行または範囲を取得
+cos page line replace   指定行または範囲を置換 (rm エイリアスあり)
+cos page line delete    指定行または範囲を削除
 
 cos project list  参加プロジェクト一覧を取得
 cos project info  プロジェクト情報を取得
@@ -170,6 +174,22 @@ cos page text "ページタイトル" --format=md --bold-style=heading
 
 ```bash
 cos page edit "ページタイトル" --from-file page.md --input-format=md
+```
+
+> **v0.4.0 非互換変更**: `page edit` はデフォルトで楽観ロックを有効化しました。
+> 編集中に他者がページを更新した場合は **exit 6** で停止します。
+> 従来の上書き挙動に戻すには `--force` を指定してください。
+
+```bash
+# デフォルト: 競合を検知したら exit 6 で停止する
+cos page edit "ページタイトル" --from-file new-content.txt
+
+# --force: 他者の編集を上書きする (従来挙動)
+cos page edit "ページタイトル" --from-file new-content.txt --force
+
+# --expect-commit: 取得時の commitId を指定して、ページが変わっていれば止める
+COMMIT=$(cos page get "ページタイトル" --json | jq -r '.result.commitId')
+cos page edit "ページタイトル" --from-file new-content.txt --expect-commit "$COMMIT"
 ```
 
 ### ページ本文のラウンドトリップ (取得→編集)

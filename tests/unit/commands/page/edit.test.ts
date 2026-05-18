@@ -2,7 +2,8 @@
  * page/edit.test.ts — `cos page edit <title>` コマンドのテスト。
  *
  * バリデーション (--input-format の無効値、空コンテンツ) と
- * Cosense 記法 lint 統合 (warnings / --strict-notation) を検証する。
+ * Cosense 記法 lint 統合 (warnings / --strict-notation) および
+ * 楽観ロック (CommitConflictError → exit 6 / --force / --expect-commit) を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -10,9 +11,12 @@ import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pageEditCommand } from "@/commands/page/edit"
+import { CommitConflictError } from "@/core/errors"
+import * as pages from "@/core/pages"
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
+let editPageSpy: ReturnType<typeof spyOn> | undefined
 
 async function runEdit(args: Record<string, unknown>) {
   await (
@@ -37,6 +41,8 @@ beforeEach(() => {
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
+  editPageSpy?.mockRestore()
+  editPageSpy = undefined
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
@@ -180,6 +186,64 @@ describe("pageEditCommand", () => {
       expect(exitMock).toHaveBeenCalledWith(5)
       const out = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
       expect(out).toContain("NOTATION_LINT")
+    })
+  })
+
+  describe("楽観ロック", () => {
+    /** 楽観ロックテスト用の共通 args (--dry-run は使わず editPage をモックする) */
+    function makeConflictArgs(extra: Record<string, unknown> = {}) {
+      const tmpFile = join(tmpdir(), `cos-test-edit-conflict-${Date.now()}.txt`)
+      writeFileSync(tmpFile, "テスト本文\n")
+      return {
+        title: "テストページ",
+        "from-file": tmpFile,
+        "input-format": "txt",
+        project: "テストプロジェクト",
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        "strict-notation": false,
+        quiet: false,
+        ...extra,
+      }
+    }
+
+    it("editPage が CommitConflictError をスローした場合は exit 6 で終了する", async () => {
+      // editPage をモックして CommitConflictError を投げさせる
+      editPageSpy = spyOn(pages, "editPage").mockImplementation(async () => {
+        throw new CommitConflictError("編集中に他者がページを更新しました (attempts=1)")
+      })
+      try {
+        await runEdit(makeConflictArgs())
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(6)
+      const out = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      expect(out).toContain("CONFLICT")
+    })
+
+    it("--force を指定した場合は editPage が force: true で呼ばれる", async () => {
+      // --force 時は楽観ロックを無効化して呼び出すこと
+      const capturedForce: (boolean | undefined)[] = []
+      editPageSpy = spyOn(pages, "editPage").mockImplementation(async (_writer, opts) => {
+        capturedForce.push(opts.force)
+        return { commitId: "コミット", pageId: "ページ" }
+      })
+      await runEdit(makeConflictArgs({ force: true }))
+      expect(capturedForce[0]).toBe(true)
+    })
+
+    it("--expect-commit を指定した場合は editPage が expectCommitId 付きで呼ばれる", async () => {
+      // --expect-commit で指定した commitId が editPage に伝播すること
+      const capturedExpectCommitId: (string | undefined)[] = []
+      editPageSpy = spyOn(pages, "editPage").mockImplementation(async (_writer, opts) => {
+        capturedExpectCommitId.push(opts.expectCommitId)
+        return { commitId: "コミット", pageId: "ページ" }
+      })
+      await runEdit(makeConflictArgs({ "expect-commit": "abc123" }))
+      expect(capturedExpectCommitId[0]).toBe("abc123")
     })
   })
 })

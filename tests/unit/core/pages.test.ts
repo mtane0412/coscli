@@ -7,7 +7,8 @@
 
 import { describe, expect, it, mock } from "bun:test"
 import type { CosenseRestClient } from "@/core/api/rest"
-import type { ScrapboxWriter } from "@/core/api/ws"
+import type { PatchMetadata, ScrapboxWriter } from "@/core/api/ws"
+import { CommitConflictError } from "@/core/errors"
 import {
   appendToPage,
   createPage,
@@ -199,6 +200,18 @@ describe("getCodeBlock", () => {
   })
 })
 
+/** update クロージャを実際に呼び出すモックライター生成ヘルパー */
+function createMetadataInvokingWriter(metadata: PatchMetadata) {
+  const writer = createMockWriter({
+    patch: mock(async (opts) => {
+      // @cosense/std の retry 動作をシミュレートするため update を metadata 付きで呼び出す
+      await opts.update([], metadata)
+      return { commitId: "更新後コミット", pageId: "page1" }
+    }),
+  })
+  return writer
+}
+
 describe("editPage", () => {
   it("Writer の patch を呼んでページを全置換する", async () => {
     const writer = createMockWriter()
@@ -216,6 +229,57 @@ describe("editPage", () => {
     })
     await editPage(writer, { project: "proj", title: "既存ページ", lines: ["新しい内容"] })
     expect(capturedPreviewLines).toEqual(["新しい内容"])
+  })
+
+  it("force: false (デフォルト), attempts: 0 の場合は正常に完了する", async () => {
+    // リトライなし (attempts=0) は競合なしとみなして正常終了すること
+    const writer = createMetadataInvokingWriter({ attempts: 0, commitId: "コミット" })
+    await expect(
+      editPage(writer, { project: "proj", title: "ページ", lines: ["内容"] }),
+    ).resolves.toMatchObject({ commitId: "更新後コミット" })
+  })
+
+  it("force: false, attempts: 1 の場合は CommitConflictError をスローする (楽観ロック)", async () => {
+    // attempts=1 は他者がページを更新してリトライが発生したことを示す → CommitConflictError
+    const writer = createMetadataInvokingWriter({ attempts: 1, commitId: "競合コミット" })
+    await expect(
+      editPage(writer, { project: "proj", title: "ページ", lines: ["内容"], force: false }),
+    ).rejects.toBeInstanceOf(CommitConflictError)
+  })
+
+  it("force: true, attempts: 1 の場合は CommitConflictError をスローしない (上書き許可)", async () => {
+    // --force 時は楽観ロックを無効化して上書きを許可する
+    const writer = createMetadataInvokingWriter({ attempts: 1, commitId: "競合コミット" })
+    await expect(
+      editPage(writer, { project: "proj", title: "ページ", lines: ["内容"], force: true }),
+    ).resolves.toMatchObject({ commitId: "更新後コミット" })
+  })
+
+  it("expectCommitId が一致する場合は正常に完了する", async () => {
+    // --expect-commit で指定した commitId とサーバーの commitId が一致 → 正常
+    const writer = createMetadataInvokingWriter({ attempts: 0, commitId: "期待コミット" })
+    await expect(
+      editPage(writer, {
+        project: "proj",
+        title: "ページ",
+        lines: ["内容"],
+        expectCommitId: "期待コミット",
+      }),
+    ).resolves.toMatchObject({ commitId: "更新後コミット" })
+  })
+
+  it("expectCommitId が不一致の場合は CommitConflictError をスローする", async () => {
+    // --expect-commit の値とサーバーの commitId が不一致 → CommitConflictError
+    const writer = createMetadataInvokingWriter({ attempts: 0, commitId: "実際のコミット" })
+    const err = await editPage(writer, {
+      project: "proj",
+      title: "ページ",
+      lines: ["内容"],
+      expectCommitId: "期待コミット",
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(CommitConflictError)
+    expect((err as CommitConflictError).expectedCommitId).toBe("期待コミット")
+    expect((err as CommitConflictError).actualCommitId).toBe("実際のコミット")
   })
 })
 

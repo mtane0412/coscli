@@ -5,6 +5,9 @@
  * --from-file でファイルから、- で stdin から新しい本文を読み込む。
  * --input-format=md を指定すると Markdown ファイルを Scrapbox 記法に変換して書き込む。
  * --dry-run で変更内容のプレビューのみ表示する。
+ *
+ * デフォルトで楽観ロックが有効。編集中に他者がページを更新した場合は exit 6 で停止する。
+ * --force で従来の上書き挙動に戻す。--expect-commit で期待 commitId を明示指定できる。
  */
 
 import {
@@ -22,6 +25,7 @@ import {
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
+import { CommitConflictError } from "@/core/errors"
 import { convert } from "@/core/format/index"
 import { lintNotation } from "@/core/notation/lint"
 import { editPage } from "@/core/pages"
@@ -53,6 +57,15 @@ export const pageEditCommand = defineCommand({
       description: "入力ファイルのフォーマット (txt | md)",
       default: "txt",
     },
+    force: {
+      type: "boolean",
+      description: "楽観ロックを無効化して上書きする (競合時も続行)",
+      default: false,
+    },
+    "expect-commit": {
+      type: "string",
+      description: "期待する commitId (不一致なら exit 6 で停止)",
+    },
   },
   async run({ args }) {
     const a = args as WriteCommonArgs &
@@ -61,6 +74,8 @@ export const pageEditCommand = defineCommand({
         "from-file": string
         "input-format": string
         "allow-unsafe-read": boolean
+        force: boolean
+        "expect-commit"?: string
       }
     checkSandbox("page.edit", a)
     const logger = buildLogger(a)
@@ -137,7 +152,23 @@ export const pageEditCommand = defineCommand({
     logger.info(`"${a.title}" を編集中...`)
 
     const writer = await buildWriter(a)
-    const result = await editPage(writer, { project, title: a.title, lines })
+    let result: Awaited<ReturnType<typeof editPage>>
+    try {
+      result = await editPage(writer, {
+        project,
+        title: a.title,
+        lines,
+        force: a.force,
+        ...(a["expect-commit"] !== undefined && { expectCommitId: a["expect-commit"] }),
+      })
+    } catch (err) {
+      if (err instanceof CommitConflictError) {
+        writeErrorJson("CONFLICT", err.message)
+        process.exit(6)
+        return
+      }
+      throw err
+    }
 
     if (a.json || a["dry-run"]) {
       writeJson(result, { command: "page.edit", startTime, warnings }, buildJsonOpts(a))
