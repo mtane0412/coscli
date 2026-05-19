@@ -4,10 +4,10 @@
  * msw でモックサーバーを立て、REST クライアントの動作を検証する。
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test"
+import { describe, expect, it } from "bun:test"
 import { CosenseApiError, CosenseRestClient, NotFoundError } from "@/core/api/rest"
 import { http, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
+import { useMswServer } from "../../../helpers/msw"
 
 import meFixture from "../../../fixtures/me.json"
 import pageDetailFixture from "../../../fixtures/page-detail.json"
@@ -21,7 +21,7 @@ const BASE_URL = "https://scrapbox.io"
 const TEST_PROJECT = "テストプロジェクト"
 const TEST_SID = "s%3Atest-connect-sid"
 
-const server = setupServer(
+const server = useMswServer([
   http.get(`${BASE_URL}/api/users/me`, ({ request }) => {
     const cookie = request.headers.get("Cookie")
     if (!cookie?.includes("connect.sid")) {
@@ -187,11 +187,7 @@ const server = setupServer(
     }
     return HttpResponse.json([], { status: 200 })
   }),
-)
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+])
 
 describe("CosenseRestClient", () => {
   describe("getMe", () => {

@@ -6,13 +6,13 @@
  * 認証 API は msw でモックする。
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { createAuthLoginCommand } from "@/commands/auth/login"
 import type { BrowserLoginDeps } from "@/core/auth/browser-login"
 import { InMemoryTokenStore } from "@/core/auth/store"
 import { runCommand } from "citty"
 import { http, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
+import { useMswServer } from "../../../helpers/msw"
 
 // ---------------------------------------------------------------------------
 // MSW サーバーセットアップ
@@ -23,7 +23,7 @@ const testUserDisplayName = "田中花子"
 // SID はHTTPヘッダーに設定されるため ASCII のみ使用する
 const testSid = "s%3Atest-browser-sid-xyz987"
 
-const server = setupServer(
+useMswServer([
   http.get(`${BASE_URL}/api/users/me`, () => {
     return HttpResponse.json({
       id: "tanaka-hanako-id",
@@ -32,10 +32,7 @@ const server = setupServer(
       csrfToken: "test-csrf-token",
     })
   }),
-)
-
-beforeAll(() => server.listen())
-afterAll(() => server.close())
+])
 
 // ---------------------------------------------------------------------------
 // テストヘルパー
@@ -95,7 +92,6 @@ afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
-  server.resetHandlers()
 })
 
 // ---------------------------------------------------------------------------

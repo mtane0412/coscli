@@ -8,19 +8,13 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { CosenseRestClient } from "@/core/api/rest"
-import type { ScrapboxWriter } from "@/core/api/ws"
 import { createPolicy } from "@/core/sandbox"
 import { createFetchHandler } from "@/core/server/rest"
 import type { ServerContext } from "@/core/server/types"
+import { createTestWriter } from "../helpers/scrapbox-writer"
 
 /** スモークテスト用のダミー ScrapboxWriter。実際の WS 接続は行わない。 */
-const dummyWriter: ScrapboxWriter = {
-  patch: async () => ({ commitId: "dummy", pageId: "dummy" }),
-  insertLines: async () => ({ commitId: "dummy" }),
-  deletePage: async () => ({ title: "dummy" }),
-  pinPage: async () => ({ title: "dummy" }),
-  unpinPage: async () => ({ title: "dummy" }),
-}
+const dummyWriter = createTestWriter()
 
 let server: ReturnType<typeof Bun.serve>
 let assignedPort = 0

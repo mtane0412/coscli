@@ -5,14 +5,14 @@
  * 上流 Cosense REST は msw でモックし、ScrapboxWriter はインメモリモックを注入する。
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, mock } from "bun:test"
+import { describe, expect, it, mock } from "bun:test"
 import { CosenseRestClient } from "@/core/api/rest"
-import type { ScrapboxWriter } from "@/core/api/ws"
 import { createPolicy } from "@/core/sandbox"
 import { createFetchHandler } from "@/core/server/rest"
 import type { ServerContext } from "@/core/server/types"
 import { http, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
+import { useMswServer } from "../../../helpers/msw"
+import { createTestWriter } from "../../../helpers/scrapbox-writer"
 
 // bun --coverage モードでは複数テストファイルが同一プロセスで動作するため、
 // commands/page/*.test.ts の mock.module("@/core/pages", ...) が残留する場合がある。
@@ -30,16 +30,16 @@ const TEST_SID = "s%3Atest-connect-sid"
 const TEST_TITLE_RAW = "Hello World"
 const TEST_TITLE_ENCODED = "Hello%20World"
 
-// msw でモック ScrapboxWriter（WS 層のスタブ）
-const mockWriter: ScrapboxWriter = {
-  patch: async () => ({ commitId: "commit-abc", pageId: "page-id-abc" }),
-  insertLines: async () => ({ commitId: "commit-insert" }),
-  deletePage: async () => ({ title: TEST_TITLE_RAW }),
-  pinPage: async () => ({ title: TEST_TITLE_RAW }),
-  unpinPage: async () => ({ title: TEST_TITLE_RAW }),
-}
+// WS 層のスタブ (patch/insertLines/deletePage/pinPage/unpinPage の各メソッドをモック)
+// 各テストが期待する戻り値を override で明示する
+const mockWriter = createTestWriter({
+  patch: mock(async () => ({ commitId: "commit-abc", pageId: "page-id-abc" })),
+  deletePage: mock(async () => ({ title: TEST_TITLE_RAW })),
+  pinPage: mock(async () => ({ title: TEST_TITLE_RAW })),
+  unpinPage: mock(async () => ({ title: TEST_TITLE_RAW })),
+})
 
-const server = setupServer(
+useMswServer([
   // msw は :project をデコードして params に渡すため、TEST_PROJECT（日本語）とそのまま比較する
   http.get(`${BASE_URL}/api/pages/:project`, ({ params }) => {
     if (params["project"] === TEST_PROJECT) {
@@ -66,11 +66,7 @@ const server = setupServer(
     }
     return new HttpResponse("Not found", { status: 404 })
   }),
-)
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+])
 
 /** テスト用のデフォルト ServerContext を生成する。 */
 function makeContext(overrides?: Partial<ServerContext>): ServerContext {
