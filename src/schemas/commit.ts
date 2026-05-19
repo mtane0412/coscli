@@ -15,7 +15,7 @@ import { z } from "zod"
  */
 export const commitSchema = z.object({
   id: z.string(),
-  parentId: z.string().optional(),
+  parentId: z.string().nullish(),
   pageId: z.string(),
   userId: z.string(),
   created: z.number(),

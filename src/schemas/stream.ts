@@ -10,6 +10,17 @@ import { PageSummarySchema } from "@/schemas/page"
 import { z } from "zod"
 
 /**
+ * StreamPageSummarySchema は stream API の pages[] 要素を表す。
+ *
+ * /api/stream/:project/ は /api/pages/:project/ と異なり、
+ * created / updated を省略することがあるため optional に緩和する。
+ */
+const StreamPageSummarySchema = PageSummarySchema.extend({
+  created: z.number().optional(),
+  updated: z.number().optional(),
+})
+
+/**
  * ProjectEventBaseSchema はすべてのプロジェクトイベントに共通するフィールド定義。
  *
  * @cosense/types の ProjectEvent interface に対応する。
@@ -61,7 +72,7 @@ export type ProjectUpdatesStreamEvent = z.infer<typeof ProjectUpdatesStreamEvent
 export const StreamResponseSchema = z.object({
   projectName: z.string(),
   end: z.number(),
-  pages: z.array(PageSummarySchema),
+  pages: z.array(StreamPageSummarySchema),
   events: z.array(ProjectUpdatesStreamEventSchema),
 })
 export type StreamResponse = z.infer<typeof StreamResponseSchema>
