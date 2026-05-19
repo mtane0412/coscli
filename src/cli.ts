@@ -54,6 +54,7 @@ import { projectGraphCommand } from "@/commands/project/graph"
 import { projectInfoCommand } from "@/commands/project/info"
 // プロジェクトコマンド
 import { projectListCommand } from "@/commands/project/list"
+import { projectSearchCommand } from "@/commands/project/search"
 import { projectStreamCommand } from "@/commands/project/stream"
 
 // 検索コマンド
@@ -148,6 +149,7 @@ const projectCommand = defineCommand({
     info: projectInfoCommand,
     graph: projectGraphCommand,
     stream: projectStreamCommand,
+    search: projectSearchCommand,
   },
 })
 
