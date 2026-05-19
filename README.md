@@ -129,8 +129,9 @@ cos page line get       指定行または範囲を取得
 cos page line replace   指定行または範囲を置換 (rm エイリアスあり)
 cos page line delete    指定行または範囲を削除
 
-cos project list  参加プロジェクト一覧を取得
-cos project info  プロジェクト情報を取得
+cos project list    参加プロジェクト一覧を取得
+cos project info    プロジェクト情報を取得
+cos project stream  プロジェクトの最近更新フィードを取得 (--watch でポーリング監視)
 
 cos search        全文検索
 
