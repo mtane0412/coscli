@@ -145,6 +145,26 @@ const server = setupServer(
     },
   ),
 
+  http.get(`${BASE_URL}/api/projects/search/query`, ({ request }) => {
+    const cookie = request.headers.get("Cookie")
+    if (!cookie?.includes("connect.sid")) {
+      return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    const url = new URL(request.url)
+    const query = url.searchParams.get("q")
+    return HttpResponse.json({
+      searchQuery: query ?? "",
+      query: { words: query ? [query] : [], excludes: [] },
+      projects:
+        query === "hello"
+          ? [
+              { _id: "project-id-my", name: "myproject", displayName: "マイプロジェクト" },
+              { _id: "project-id-help", name: "helpproject", displayName: "ヘルプ" },
+            ]
+          : [],
+    })
+  }),
+
   http.get(`${BASE_URL}/api/pages/:project/search/titles`, ({ request, params }) => {
     const cookie = request.headers.get("Cookie")
     if (!cookie?.includes("connect.sid")) {
@@ -357,6 +377,44 @@ describe("CosenseRestClient", () => {
     it("未認証の場合は AuthError をスローする", async () => {
       const client = new CosenseRestClient({ sid: "" })
       await expect(client.searchTitles(TEST_PROJECT)).rejects.toThrow()
+    })
+  })
+
+  describe("searchJoinedProjects", () => {
+    it("クエリにマッチするプロジェクト一覧を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.searchJoinedProjects("hello")
+      expect(result.projects).toHaveLength(2)
+      expect(result.projects[0]?.name).toBe("myproject")
+      expect(result.projects[0]?.displayName).toBe("マイプロジェクト")
+      expect(result.projects[1]?.name).toBe("helpproject")
+    })
+
+    it("マッチしないクエリは空の projects 配列を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.searchJoinedProjects("存在しないキーワード")
+      expect(result.projects).toHaveLength(0)
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(client.searchJoinedProjects("hello")).rejects.toThrow()
+    })
+
+    it("5xx エラーの CosenseApiError メッセージにクエリ文字列 (?q=...) が含まれない", async () => {
+      // 500 を返すハンドラーで一時上書き (afterEach で自動リセットされる)
+      server.use(
+        http.get(`${BASE_URL}/api/projects/search/query`, () => {
+          return HttpResponse.json({ message: "Internal Server Error" }, { status: 500 })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const error = await client.searchJoinedProjects("検索キーワード").catch((e) => e)
+      expect(error).toBeInstanceOf(CosenseApiError)
+      // pathname は含まれること
+      expect(error.message).toContain("/api/projects/")
+      // クエリ文字列は含まれないこと
+      expect(error.message).not.toContain("?")
     })
   })
 

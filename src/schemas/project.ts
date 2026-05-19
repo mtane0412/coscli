@@ -36,3 +36,34 @@ export const ProjectListResponseSchema = z.object({
   projects: z.array(ProjectSchema),
 })
 export type ProjectListResponse = z.infer<typeof ProjectListResponseSchema>
+
+/**
+ * FoundProjectSchema は /api/projects/search/query と /api/projects/search/watch-list
+ * のレスポンス内の各プロジェクト要素。
+ * @cosense/types の FoundProject interface に対応する。
+ */
+export const FoundProjectSchema = z.object({
+  _id: z.string(),
+  name: z.string(),
+  displayName: z.string(),
+  image: z.string().nullable().optional(),
+})
+export type FoundProject = z.infer<typeof FoundProjectSchema>
+
+/**
+ * ProjectSearchResultSchema は /api/projects/search/query のレスポンス全体。
+ *
+ * 既知フィールドのみ受理し、未知キーはストリップする（passthrough を使用しない）。
+ */
+export const ProjectSearchResultSchema = z.object({
+  searchQuery: z.string(),
+  // 認証時は object 形式、未認証または旧バージョンでは string 形式が返る場合がある
+  query: z
+    .union([
+      z.string(),
+      z.object({ words: z.array(z.string()).optional(), excludes: z.array(z.string()).optional() }),
+    ])
+    .optional(),
+  projects: z.array(FoundProjectSchema),
+})
+export type ProjectSearchResult = z.infer<typeof ProjectSearchResultSchema>

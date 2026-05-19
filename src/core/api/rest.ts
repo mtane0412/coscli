@@ -15,8 +15,12 @@ import {
   TitleSearchResultSchema,
 } from "@/schemas/page"
 import type { Page, PageListResponse, SearchResult, TitleSearchResult } from "@/schemas/page"
-import { ProjectListResponseSchema, ProjectSchema } from "@/schemas/project"
-import type { Project, ProjectListResponse } from "@/schemas/project"
+import {
+  ProjectListResponseSchema,
+  ProjectSchema,
+  ProjectSearchResultSchema,
+} from "@/schemas/project"
+import type { Project, ProjectListResponse, ProjectSearchResult } from "@/schemas/project"
 import { PageSnapshotListSchema, PageSnapshotResultSchema } from "@/schemas/snapshot"
 import type { PageSnapshotList, PageSnapshotResult } from "@/schemas/snapshot"
 import { StreamResponseSchema } from "@/schemas/stream"
@@ -168,6 +172,13 @@ export class CosenseRestClient {
       `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/query?${params.toString()}`,
     )
     return SearchResultSchema.parse(data)
+  }
+
+  /** searchJoinedProjects は /api/projects/search/query を叩いて参加プロジェクト横断検索を行い、マッチしたプロジェクト一覧を返す。 */
+  async searchJoinedProjects(query: string): Promise<ProjectSearchResult> {
+    const params = new URLSearchParams({ q: query })
+    const data = await this.fetchJson(`${BASE_URL}/api/projects/search/query?${params.toString()}`)
+    return ProjectSearchResultSchema.parse(data)
   }
 
   /**
