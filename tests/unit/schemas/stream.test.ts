@@ -113,6 +113,22 @@ describe("StreamResponseSchema", () => {
     expect(types).toContain("owner.set")
   })
 
+  it("pages の created/updated が省略されたペイロードをパースできる (stream API の実挙動)", () => {
+    // 実 API は stream レスポンスの pages[] で created/updated を省略する場合がある
+    const result = StreamResponseSchema.safeParse({
+      projectName: "テストプロジェクト",
+      end: 1700000000,
+      pages: [{ id: "ページID-001", title: "テストページ" }],
+      events: [],
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.pages[0]?.created).toBeUndefined()
+      expect(result.data.pages[0]?.updated).toBeUndefined()
+    }
+  })
+
   it("end が文字列の場合はパースエラーになる", () => {
     expect(() =>
       StreamResponseSchema.parse({
