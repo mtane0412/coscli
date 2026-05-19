@@ -142,6 +142,50 @@ describe("pageTableCommand", () => {
     expect(exitMock).toHaveBeenCalledWith(4)
   })
 
+  it("未認証 (401) の場合は exit 2 で終了する", async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/table/:project/:title/:filename`, () => {
+        return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+      }),
+    )
+    try {
+      await runTable({
+        title: TEST_TITLE,
+        filename: TEST_FILENAME,
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(2)
+  })
+
+  it("権限なし (403) の場合は exit 3 で終了する", async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/table/:project/:title/:filename`, () => {
+        return HttpResponse.json({ message: "Forbidden" }, { status: 403 })
+      }),
+    )
+    try {
+      await runTable({
+        title: TEST_TITLE,
+        filename: TEST_FILENAME,
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(3)
+  })
+
   it("--disable-commands page.table 指定時は exit 7 で終了する", async () => {
     try {
       await runTable({

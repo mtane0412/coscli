@@ -47,7 +47,7 @@ export async function getCodeBlock(
   return client.getCodeBlock(opts.project, opts.title, opts.filename)
 }
 
-/** getTable はページ内のテーブルを CSV テキストで取得する。 */
+/** getTable はページ内のテーブルを CSV テキストで返す。 */
 export async function getTable(
   client: CosenseRestClient,
   opts: { project: string; title: string; filename: string },
