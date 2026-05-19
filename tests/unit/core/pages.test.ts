@@ -7,7 +7,7 @@
 
 import { describe, expect, it, mock } from "bun:test"
 import type { CosenseRestClient } from "@/core/api/rest"
-import type { PatchMetadata, ScrapboxWriter } from "@/core/api/ws"
+import type { PatchMetadata } from "@/core/api/ws"
 import { CommitConflictError } from "@/core/errors"
 import {
   appendToPage,
@@ -27,6 +27,7 @@ import {
   replaceLinesInPage,
   unpinPage,
 } from "@/core/pages"
+import { createTestWriter } from "../../helpers/scrapbox-writer"
 
 /** REST クライアントのモック */
 function createMockRestClient(overrides: Partial<CosenseRestClient> = {}): CosenseRestClient {
@@ -103,18 +104,6 @@ function createMockRestClient(overrides: Partial<CosenseRestClient> = {}): Cosen
   } as unknown as CosenseRestClient
 }
 
-/** Writer のモック */
-function createMockWriter(overrides: Partial<ScrapboxWriter> = {}): ScrapboxWriter {
-  return {
-    patch: mock(async () => ({ commitId: "commit1", pageId: "page1" })),
-    insertLines: mock(async () => ({ commitId: "commit1" })),
-    deletePage: mock(async () => ({ title: "テストページ" })),
-    pinPage: mock(async () => ({ title: "ピン留めページ" })),
-    unpinPage: mock(async () => ({ title: "ピン解除ページ" })),
-    ...overrides,
-  } as unknown as ScrapboxWriter
-}
-
 describe("listPages", () => {
   it("REST クライアントから pages リストを取得して返す", async () => {
     const client = createMockRestClient()
@@ -141,19 +130,19 @@ describe("getPage", () => {
 
 describe("createPage", () => {
   it("Writer の patch を呼んでページを作成する", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     const result = await createPage(writer, {
       project: "proj",
       title: "新しいページ",
       lines: ["行1", "行2"],
     })
     expect(writer.patch).toHaveBeenCalledTimes(1)
-    expect(result).toMatchObject({ commitId: "commit1" })
+    expect(result).toMatchObject({ commitId: "commitId1" })
   })
 
   it("patch に previewLines としてコンテンツ行を渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "create-commit", pageId: "page1" }
@@ -166,7 +155,7 @@ describe("createPage", () => {
 
 describe("appendToPage", () => {
   it("Writer の insertLines を呼んで行を追加する", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     await appendToPage(writer, {
       project: "proj",
       title: "既存ページ",
@@ -217,7 +206,7 @@ describe("getTable", () => {
 
 /** update クロージャを実際に呼び出すモックライター生成ヘルパー */
 function createMetadataInvokingWriter(metadata: PatchMetadata) {
-  const writer = createMockWriter({
+  const writer = createTestWriter({
     patch: mock(async (opts) => {
       // @cosense/std の retry 動作をシミュレートするため update を metadata 付きで呼び出す
       await opts.update([], metadata)
@@ -229,14 +218,14 @@ function createMetadataInvokingWriter(metadata: PatchMetadata) {
 
 describe("editPage", () => {
   it("Writer の patch を呼んでページを全置換する", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     await editPage(writer, { project: "proj", title: "既存ページ", lines: ["新しい内容"] })
     expect(writer.patch).toHaveBeenCalledTimes(1)
   })
 
   it("patch に previewLines として新しいコンテンツ行を渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "edit-commit", pageId: "page1" }
@@ -300,7 +289,7 @@ describe("editPage", () => {
 
 describe("deletePage", () => {
   it("Writer の deletePage を呼んでページを削除する", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     await deletePage(writer, { project: "proj", title: "削除ページ" })
     expect(writer.deletePage).toHaveBeenCalledWith({ project: "proj", title: "削除ページ" })
   })
@@ -309,7 +298,7 @@ describe("deletePage", () => {
 describe("renamePage", () => {
   it("patch に previewLines として新タイトルを渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "rename-commit", pageId: "page1" }
@@ -327,7 +316,7 @@ describe("renamePage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "rename-commit", pageId: "page1" }
@@ -350,7 +339,7 @@ describe("renamePage", () => {
 describe("prependToPage", () => {
   it("patch に previewLines として挿入行を渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "prepend-commit", pageId: "page1" }
@@ -370,7 +359,7 @@ describe("prependToPage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "prepend-commit", pageId: "page1" }
@@ -397,7 +386,7 @@ describe("prependToPage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "prepend-commit", pageId: "page1" }
@@ -415,7 +404,7 @@ describe("prependToPage", () => {
 describe("insertIntoPage", () => {
   it("patch に previewLines として挿入行を渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "insert-commit", pageId: "page1" }
@@ -436,7 +425,7 @@ describe("insertIntoPage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "insert-commit", pageId: "page1" }
@@ -465,7 +454,7 @@ describe("insertIntoPage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "insert-commit", pageId: "page1" }
@@ -483,7 +472,7 @@ describe("insertIntoPage", () => {
           lines: { id: string; text: string; userId: string; created: number; updated: number }[],
         ) => string[] | Promise<string[]>)
       | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedUpdate = opts.update
         return { commitId: "insert-commit", pageId: "page1" }
@@ -506,7 +495,7 @@ function createUpdateCapturingWriter() {
         lines: { id: string; text: string; userId: string; created: number; updated: number }[],
       ) => string[] | Promise<string[]>)
     | undefined
-  const writer = createMockWriter({
+  const writer = createTestWriter({
     patch: mock(async (opts) => {
       capturedUpdate = opts.update
       return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
@@ -611,7 +600,7 @@ describe("replaceLinesInPage", () => {
 
   it("previewLines として新しい行を渡す", async () => {
     let capturedPreviewLines: string[] | undefined
-    const writer = createMockWriter({
+    const writer = createTestWriter({
       patch: mock(async (opts) => {
         capturedPreviewLines = opts.previewLines
         return { commitId: "replace-commit", pageId: "page1" }
@@ -680,7 +669,7 @@ describe("deleteLinesFromPage", () => {
 
 describe("pinPage", () => {
   it("Writer の pinPage を正しい引数で呼ぶ", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     await pinPage(writer, { project: "proj", title: "ピンページ", create: true })
     expect(writer.pinPage).toHaveBeenCalledWith({
       project: "proj",
@@ -692,7 +681,7 @@ describe("pinPage", () => {
 
 describe("unpinPage", () => {
   it("Writer の unpinPage を正しい引数で呼ぶ", async () => {
-    const writer = createMockWriter()
+    const writer = createTestWriter()
     await unpinPage(writer, { project: "proj", title: "ピン解除ページ" })
     expect(writer.unpinPage).toHaveBeenCalledWith({
       project: "proj",

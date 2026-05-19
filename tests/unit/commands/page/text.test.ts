@@ -5,10 +5,10 @@
  * --format=md による変換動作を検証する。
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { pageTextCommand } from "@/commands/page/text"
 import { http, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
+import { useMswServer } from "../../../helpers/msw"
 
 const BASE_URL = "https://scrapbox.io"
 const TEST_PROJECT = "テストプロジェクト"
@@ -16,7 +16,7 @@ const TEST_TITLE = "テストページ"
 // テキストエンドポイントが返す Scrapbox 本文 (タイトル行含む)
 const SCRAPBOX_TEXT = `${TEST_TITLE}\n[*** 大見出し]\n本文テキスト`
 
-const server = setupServer(
+useMswServer([
   // /api/pages/:project/:title/text モック
   http.get(`${BASE_URL}/api/pages/:project/:title/text`, ({ params }) => {
     if (
@@ -31,10 +31,7 @@ const server = setupServer(
   http.get(`${BASE_URL}/api/users/me`, () => {
     return HttpResponse.json({ id: "テストユーザーID", name: "テストユーザー" })
   }),
-)
-
-beforeAll(() => server.listen())
-afterAll(() => server.close())
+])
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
@@ -62,7 +59,6 @@ beforeEach(() => {
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
-  server.resetHandlers()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
