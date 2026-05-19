@@ -1,0 +1,8 @@
+{
+  "pageId": "page-id-hello",
+  "timestamps": [
+    { "id": "1700000000-snap2", "created": 1700000000 },
+    { "id": "1690000000-snap1", "created": 1690000000 },
+    { "id": "1680000000-snap0", "created": 1680000000 }
+  ]
+}

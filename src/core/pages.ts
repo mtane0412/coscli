@@ -56,6 +56,22 @@ export async function getPageCommits(
   return client.getCommits(project, pageId, head !== undefined ? { head } : {})
 }
 
+/** getPageSnapshotList はページのスナップショット一覧 (timestamp ID 群) を返す。 */
+export async function getPageSnapshotList(
+  client: CosenseRestClient,
+  opts: { project: string; pageId: string },
+) {
+  return client.getSnapshotList(opts.project, opts.pageId)
+}
+
+/** getPageSnapshot は指定 timestampId のスナップショット詳細を返す。 */
+export async function getPageSnapshot(
+  client: CosenseRestClient,
+  opts: { project: string; pageId: string; timestampId: string },
+) {
+  return client.getSnapshot(opts.project, opts.pageId, opts.timestampId)
+}
+
 /** createPage は新規ページを作成する (WebSocket commit)。 */
 export async function createPage(
   writer: ScrapboxWriter,

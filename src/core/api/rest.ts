@@ -17,6 +17,8 @@ import {
 import type { Page, PageListResponse, SearchResult, TitleSearchResult } from "@/schemas/page"
 import { ProjectListResponseSchema, ProjectSchema } from "@/schemas/project"
 import type { Project, ProjectListResponse } from "@/schemas/project"
+import { PageSnapshotListSchema, PageSnapshotResultSchema } from "@/schemas/snapshot"
+import type { PageSnapshotList, PageSnapshotResult } from "@/schemas/snapshot"
 import { StreamResponseSchema } from "@/schemas/stream"
 import type { StreamResponse } from "@/schemas/stream"
 import { type Me, MeSchema } from "@/schemas/user"
@@ -210,6 +212,29 @@ export class CosenseRestClient {
       `${BASE_URL}/api/commits/${encodeURIComponent(project)}/${encodeURIComponent(pageId)}${query}`,
     )
     return commitsResponseSchema.parse(data)
+  }
+
+  /** getSnapshotList は /api/page-snapshots/:project/:pageId を叩いてスナップショット一覧を返す。 */
+  async getSnapshotList(project: string, pageId: string): Promise<PageSnapshotList> {
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/page-snapshots/${encodeURIComponent(project)}/${encodeURIComponent(pageId)}`,
+    )
+    return PageSnapshotListSchema.parse(data)
+  }
+
+  /**
+   * getSnapshot は /api/page-snapshots/:project/:pageId/:timestampId を叩いて
+   * 指定タイムスタンプのスナップショット詳細を返す。
+   */
+  async getSnapshot(
+    project: string,
+    pageId: string,
+    timestampId: string,
+  ): Promise<PageSnapshotResult> {
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/page-snapshots/${encodeURIComponent(project)}/${encodeURIComponent(pageId)}/${encodeURIComponent(timestampId)}`,
+    )
+    return PageSnapshotResultSchema.parse(data)
   }
 
   /** getProjectStream は /api/stream/:project/ を叩いてプロジェクトの最近更新フィードを返す。 */

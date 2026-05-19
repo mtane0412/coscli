@@ -42,6 +42,8 @@ import { pageNewCommand } from "@/commands/page/new"
 import { pagePinCommand } from "@/commands/page/pin"
 import { pagePrependCommand } from "@/commands/page/prepend"
 import { pageRenameCommand } from "@/commands/page/rename"
+import { pageSnapshotGetCommand } from "@/commands/page/snapshot/get"
+import { pageSnapshotListCommand } from "@/commands/page/snapshot/list"
 import { pageTextCommand } from "@/commands/page/text"
 import { pageUnpinCommand } from "@/commands/page/unpin"
 import { pageUrlCommand } from "@/commands/page/url"
@@ -93,6 +95,16 @@ const pageLineCommand = defineCommand({
   },
 })
 
+/** page snapshot サブコマンドグループ */
+const pageSnapshotCommand = defineCommand({
+  meta: { name: "snapshot", description: "ページのスナップショット (list / get)" },
+  subCommands: {
+    list: pageSnapshotListCommand,
+    ls: pageSnapshotListCommand,
+    get: pageSnapshotGetCommand,
+  },
+})
+
 /** page サブコマンドグループ */
 const pageCommand = defineCommand({
   meta: { name: "page", description: "ページ操作コマンド" },
@@ -116,6 +128,7 @@ const pageCommand = defineCommand({
     unpin: pageUnpinCommand,
     icon: pageIconCommand,
     history: pageHistoryCommand,
+    snapshot: pageSnapshotCommand,
     delete: pageDeleteCommand,
     rm: pageDeleteCommand,
     watch: pageWatchCommand,

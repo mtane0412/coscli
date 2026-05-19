@@ -14,6 +14,8 @@ import pageDetailFixture from "../../../fixtures/page-detail.json"
 import pageListFixture from "../../../fixtures/page-list.json"
 import searchTitlesPage2Fixture from "../../../fixtures/search-titles-page2.json"
 import searchTitlesFixture from "../../../fixtures/search-titles.json"
+import pageSnapshotResultFixture from "../../../fixtures/snapshots/page-snapshot-result.json"
+import pageSnapshotsListFixture from "../../../fixtures/snapshots/page-snapshots-list.json"
 
 const BASE_URL = "https://scrapbox.io"
 const TEST_PROJECT = "テストプロジェクト"
@@ -113,6 +115,35 @@ const server = setupServer(
     }
     return HttpResponse.json({ message: "Not found" }, { status: 404 })
   }),
+
+  http.get(`${BASE_URL}/api/page-snapshots/:project/:pageId`, ({ params, request }) => {
+    const cookie = request.headers.get("Cookie")
+    if (!cookie?.includes("connect.sid")) {
+      return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    if (params["project"] === TEST_PROJECT && params["pageId"] === "page-id-hello") {
+      return HttpResponse.json(pageSnapshotsListFixture)
+    }
+    return HttpResponse.json({ message: "Not found" }, { status: 404 })
+  }),
+
+  http.get(
+    `${BASE_URL}/api/page-snapshots/:project/:pageId/:timestampId`,
+    ({ params, request }) => {
+      const cookie = request.headers.get("Cookie")
+      if (!cookie?.includes("connect.sid")) {
+        return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+      }
+      if (
+        params["project"] === TEST_PROJECT &&
+        params["pageId"] === "page-id-hello" &&
+        params["timestampId"] === "1700000000-snap2"
+      ) {
+        return HttpResponse.json(pageSnapshotResultFixture)
+      }
+      return HttpResponse.json({ message: "Not found" }, { status: 404 })
+    },
+  ),
 
   http.get(`${BASE_URL}/api/pages/:project/search/titles`, ({ request, params }) => {
     const cookie = request.headers.get("Cookie")
@@ -326,6 +357,52 @@ describe("CosenseRestClient", () => {
     it("未認証の場合は AuthError をスローする", async () => {
       const client = new CosenseRestClient({ sid: "" })
       await expect(client.searchTitles(TEST_PROJECT)).rejects.toThrow()
+    })
+  })
+
+  describe("getSnapshotList", () => {
+    it("スナップショット一覧 (pageId + timestamps) を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.getSnapshotList(TEST_PROJECT, "page-id-hello")
+      expect(result.pageId).toBe("page-id-hello")
+      expect(result.timestamps).toHaveLength(3)
+      expect(result.timestamps[0]?.id).toBe("1700000000-snap2")
+      expect(result.timestamps[0]?.created).toBe(1700000000)
+    })
+
+    it("存在しない pageId は NotFoundError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await expect(client.getSnapshotList(TEST_PROJECT, "存在しないページID")).rejects.toThrow()
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(client.getSnapshotList(TEST_PROJECT, "page-id-hello")).rejects.toThrow()
+    })
+  })
+
+  describe("getSnapshot", () => {
+    it("指定 timestampId のスナップショット詳細を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.getSnapshot(TEST_PROJECT, "page-id-hello", "1700000000-snap2")
+      expect(result.page.title).toBe("Hello World")
+      expect(result.snapshot.title).toBe("Hello World")
+      expect(result.snapshot.lines).toHaveLength(3)
+      expect(result.snapshot.lines[1]?.text).toBe("最初の行のスナップショット内容")
+    })
+
+    it("存在しない timestampId は NotFoundError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await expect(
+        client.getSnapshot(TEST_PROJECT, "page-id-hello", "存在しないtimestampId"),
+      ).rejects.toThrow()
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(
+        client.getSnapshot(TEST_PROJECT, "page-id-hello", "1700000000-snap2"),
+      ).rejects.toThrow()
     })
   })
 })

@@ -1,0 +1,46 @@
+{
+  "page": {
+    "id": "page-id-hello",
+    "title": "Hello World",
+    "image": null,
+    "descriptions": ["最初の行", "2行目"],
+    "user": { "id": "user-id-1" },
+    "lastupdateUser": { "id": "user-id-1" },
+    "pin": 0,
+    "views": 10,
+    "linked": 3,
+    "commitId": "commit-abc",
+    "created": 1700000000,
+    "updated": 1700100000,
+    "accessed": 1700200000,
+    "snapshotCreated": 1700000000,
+    "pageRank": 0.5
+  },
+  "snapshot": {
+    "title": "Hello World",
+    "created": 1700000000,
+    "lines": [
+      {
+        "id": "line-id-1",
+        "text": "Hello World",
+        "userId": "user-id-1",
+        "created": 1700000000,
+        "updated": 1700000000
+      },
+      {
+        "id": "line-id-2",
+        "text": "最初の行のスナップショット内容",
+        "userId": "user-id-1",
+        "created": 1700000000,
+        "updated": 1700000000
+      },
+      {
+        "id": "line-id-3",
+        "text": "2行目のスナップショット内容",
+        "userId": "user-id-1",
+        "created": 1700000000,
+        "updated": 1700000000
+      }
+    ]
+  }
+}
