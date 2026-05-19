@@ -8,8 +8,8 @@
 import { CosenseRestClient } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
 import { loadSession } from "@/core/auth/session"
-import { expandPermissionPreset } from "@/core/command-classification"
 import { PolicyError, createPolicy } from "@/core/sandbox"
+import { resolvePolicy } from "@/core/sandbox/resolve"
 import { loadConfig } from "@/infra/config"
 import { createTokenStore } from "@/infra/keychain/index"
 import { Logger } from "@/infra/logger"
@@ -175,69 +175,31 @@ export function buildLogger(args: CommonArgs): Logger {
  * config.defaultProject はフォールバックとして使用しない。
  */
 export function checkSandbox(commandName: string, args: CommonArgs): void {
-  const config = loadConfig()
+  const resolved = resolvePolicy({
+    cli: {
+      ...(args["enable-commands"] !== undefined && { enable: args["enable-commands"] }),
+      ...(args["disable-commands"] !== undefined && { disable: args["disable-commands"] }),
+      ...(args.project !== undefined && { project: args.project }),
+    },
+    env: {
+      ...(process.env["COS_ENABLE_COMMANDS"] !== undefined && {
+        COS_ENABLE_COMMANDS: process.env["COS_ENABLE_COMMANDS"],
+      }),
+      ...(process.env["COS_DISABLE_COMMANDS"] !== undefined && {
+        COS_DISABLE_COMMANDS: process.env["COS_DISABLE_COMMANDS"],
+      }),
+      ...(process.env["COS_PROJECT"] !== undefined && {
+        COS_PROJECT: process.env["COS_PROJECT"],
+      }),
+    },
+    config: loadConfig(),
+  })
 
-  // プロジェクト名解決 (config.defaultProject は使用しない)
-  const projectName = args.project ?? process.env["COS_PROJECT"]
-  const projectConfig = projectName ? (config.projects?.[projectName] ?? undefined) : undefined
-
-  const cliEnable = args["enable-commands"]
-  const envEnable = process.env["COS_ENABLE_COMMANDS"]
-  const cliDisable = args["disable-commands"]
-  const envDisable = process.env["COS_DISABLE_COMMANDS"]
-
-  let enableStr: string | undefined
-  let disableStr: string | undefined
-
-  const hasCliOrEnvOverride =
-    cliEnable !== undefined ||
-    envEnable !== undefined ||
-    cliDisable !== undefined ||
-    envDisable !== undefined
-
-  if (hasCliOrEnvOverride) {
-    // CLI/env フラグが指定された場合は config を無視 (enable と disable は独立して解決する)
-    enableStr = cliEnable ?? envEnable
-    disableStr = cliDisable ?? envDisable
-  } else {
-    // config からプロジェクト固有 → defaultPermission の順で解決
-    if (projectConfig?.permission) {
-      const { enable, disable } = expandPermissionPreset(projectConfig.permission)
-      enableStr = enable?.join(",")
-      disableStr = disable?.join(",")
-      // permission プリセットに対して enableCommands/disableCommands を追加合成する
-      if (projectConfig.enableCommands?.length) {
-        const extra = projectConfig.enableCommands.join(",")
-        enableStr = enableStr ? `${enableStr},${extra}` : extra
-      }
-      if (projectConfig.disableCommands?.length) {
-        const extra = projectConfig.disableCommands.join(",")
-        disableStr = disableStr ? `${disableStr},${extra}` : extra
-      }
-    } else if (
-      projectConfig?.enableCommands !== undefined ||
-      projectConfig?.disableCommands !== undefined
-    ) {
-      enableStr = projectConfig.enableCommands?.join(",")
-      disableStr = projectConfig.disableCommands?.join(",")
-    } else if (projectName && config.defaultPermission) {
-      const { enable, disable } = expandPermissionPreset(config.defaultPermission)
-      enableStr = enable?.join(",")
-      disableStr = disable?.join(",")
-    }
-
-    // 絶対禁止リストを重ねる (CLI/env 未指定時のみ)
-    if (config.disableCommands?.length) {
-      const globalDisable = config.disableCommands.join(",")
-      disableStr = disableStr ? `${disableStr},${globalDisable}` : globalDisable
-    }
-  }
-
-  if (!enableStr && !disableStr) return
+  if (!resolved.enableStr && !resolved.disableStr) return
 
   const policyOpts: Parameters<typeof createPolicy>[0] = {}
-  if (enableStr !== undefined) policyOpts.enableStr = enableStr
-  if (disableStr !== undefined) policyOpts.disableStr = disableStr
+  if (resolved.enableStr !== undefined) policyOpts.enableStr = resolved.enableStr
+  if (resolved.disableStr !== undefined) policyOpts.disableStr = resolved.disableStr
   const policy = createPolicy(policyOpts)
   const denied = policy.allow(commandName)
   if (denied instanceof PolicyError) {
