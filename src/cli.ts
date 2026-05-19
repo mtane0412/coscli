@@ -44,6 +44,7 @@ import { pagePrependCommand } from "@/commands/page/prepend"
 import { pageRenameCommand } from "@/commands/page/rename"
 import { pageSnapshotGetCommand } from "@/commands/page/snapshot/get"
 import { pageSnapshotListCommand } from "@/commands/page/snapshot/list"
+import { pageTableCommand } from "@/commands/page/table"
 import { pageTextCommand } from "@/commands/page/text"
 import { pageUnpinCommand } from "@/commands/page/unpin"
 import { pageUrlCommand } from "@/commands/page/url"
@@ -114,6 +115,7 @@ const pageCommand = defineCommand({
     get: pageGetCommand,
     text: pageTextCommand,
     code: pageCodeCommand,
+    table: pageTableCommand,
     url: pageUrlCommand,
     new: pageNewCommand,
     create: pageNewCommand,
