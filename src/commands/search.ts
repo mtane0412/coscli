@@ -54,7 +54,7 @@ export const searchCommand = defineCommand({
           "--joined 使用時は --project および COS_PROJECT 環境変数を外してください",
         )
         process.exit(5)
-        throw new Error("PROJECT_AND_JOINED_EXCLUSIVE")
+        throw new Error("--joined と --project / COS_PROJECT は同時に指定できません")
       }
 
       logger.info(`"${a.query}" を参加プロジェクト全体から検索中...`)
