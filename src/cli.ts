@@ -30,6 +30,7 @@ import { pageContextCommand } from "@/commands/page/context"
 import { pageDeleteCommand } from "@/commands/page/delete"
 import { pageEditCommand } from "@/commands/page/edit"
 import { pageGetCommand } from "@/commands/page/get"
+import { pageHistoryCommand } from "@/commands/page/history"
 import { pageIconCommand } from "@/commands/page/icon"
 import { pageInsertCommand } from "@/commands/page/insert"
 import { pageLineDeleteCommand } from "@/commands/page/line/delete"
@@ -114,6 +115,7 @@ const pageCommand = defineCommand({
     pin: pagePinCommand,
     unpin: pageUnpinCommand,
     icon: pageIconCommand,
+    history: pageHistoryCommand,
     delete: pageDeleteCommand,
     rm: pageDeleteCommand,
     watch: pageWatchCommand,

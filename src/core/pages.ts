@@ -47,6 +47,15 @@ export async function getCodeBlock(
   return client.getCodeBlock(opts.project, opts.title, opts.filename)
 }
 
+/** getPageCommits はページのコミット履歴を返す。 */
+export async function getPageCommits(
+  client: CosenseRestClient,
+  opts: { project: string; pageId: string; head?: string },
+) {
+  const { project, pageId, head } = opts
+  return client.getCommits(project, pageId, head !== undefined ? { head } : {})
+}
+
 /** createPage は新規ページを作成する (WebSocket commit)。 */
 export async function createPage(
   writer: ScrapboxWriter,
