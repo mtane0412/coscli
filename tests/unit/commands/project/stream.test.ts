@@ -131,7 +131,6 @@ const defaultArgs: Record<string, unknown> = {
 /** createMockDeps はモック依存を生成する。個別フィールドを上書き可能。 */
 function createMockDeps(overrides: Partial<ProjectStreamDeps> = {}): ProjectStreamDeps {
   return {
-    getSid: async () => "テストSID",
     restClient: createMockRestClient(),
     sleep: createImmediateSleep(),
     ...overrides,
@@ -353,6 +352,37 @@ describe("makeProjectStreamCommand", () => {
 
       // イベントの NDJSON 行は 0 件 (ベースライン化のみ)
       expect(captureEventLines(captureStdout())).toHaveLength(0)
+    })
+
+    it("初回レスポンスが空のとき 2 回目の新規イベントを取りこぼさない (baselined フラグ)", async () => {
+      // 1 回目: events が空 → baselined = true になるが lastUpdated はタイムスタンプに設定
+      // 2 回目: 新しいイベントが出現 → 出力されるべき
+      const newEvent = {
+        id: "イベントID-新規A",
+        pageId: "ページID-新規",
+        userId: "ユーザーID-001",
+        projectId: "プロジェクトID-001",
+        created: 1700100000,
+        updated: 1700100000,
+        type: "member.join" as const,
+      }
+      const emptyResponse: StreamResponse = { ...mockStreamResponse, events: [] }
+      const secondResponse: StreamResponse = { ...mockStreamResponse, events: [newEvent] }
+
+      await runAndIgnoreExit(
+        { ...defaultArgs, watch: true, interval: "1", timeout: "0" },
+        createMockDeps({
+          restClient: createMockRestClient([emptyResponse, secondResponse]),
+          // 2 回目の sleep で SIGINT を発行する
+          sleep: createWatchSleep(2),
+        }),
+      )
+
+      // 2 回目のポーリングで baselined が true になって差分検出に入り、newEvent が出力される
+      const eventLines = captureEventLines(captureStdout())
+      expect(eventLines.length).toBeGreaterThanOrEqual(1)
+      const parsed = JSON.parse(eventLines[0] ?? "null") as { id: string }
+      expect(parsed.id).toBe("イベントID-新規A")
     })
 
     it("2 回目に新規イベントが追加されると NDJSON で出力する", async () => {

@@ -41,8 +41,6 @@ export interface ProjectStreamRestClient {
  * 指定しないフィールドは本番実装にフォールバックする。
  */
 export interface ProjectStreamDeps {
-  /** セッション ID 取得関数 (現在は buildRestClient 内部で使用) */
-  getSid?: (profile?: string) => Promise<string>
   /** REST クライアント (省略時: buildRestClient で生成) */
   restClient?: ProjectStreamRestClient
   /** AbortSignal 対応 sleep (省略時: sleepWithSignal) */
@@ -245,8 +243,10 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
         }, timeoutSec * 1000)
       }
 
-      // 既知イベント ID 集合 (重複排除) と最新 updated カーソル (UnixTime 秒)
-      const seenEventIds = new Set<string>()
+      // 既知イベント ID → updated のマップ (重複排除 + TTL ベースのメモリ抑制)
+      const seenEvents = new Map<string, number>()
+      // ベースライン確立フラグ (初回 fetch 完了で true になる)
+      let baselined = false
       let lastUpdated = 0
 
       logger.info(`プロジェクト "${project}" のフィードを監視中... (Ctrl+C で停止)`)
@@ -286,38 +286,43 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
             throw err
           }
 
-          if (lastUpdated === 0) {
+          if (!baselined) {
             // 初回: ベースライン化のみ (既存イベントは出力しない)
+            baselined = true
             if (stream.events.length > 0) {
               lastUpdated = Math.max(...stream.events.map((e) => e.updated))
               for (const e of stream.events) {
-                seenEventIds.add(e.id)
+                seenEvents.set(e.id, e.updated)
               }
             }
+            // イベントがない場合は lastUpdated を 0 のままにする
+            // (次ポーリングで差分検出ブランチに入り全イベントを出力する)
           } else {
             // 差分検出: 新規イベントのみ updated 昇順で出力
             const fresh = stream.events
-              .filter((e) => !seenEventIds.has(e.id) && e.updated > lastUpdated)
+              .filter((e) => !seenEvents.has(e.id) && e.updated >= lastUpdated)
               .sort((a, b) => a.updated - b.updated)
 
             for (const event of fresh) {
               if (a.plain) {
-                process.stdout.write(
-                  `${formatTimestamp(event.created)}\t${event.type}\t${event.pageId}\t${event.userId}\n`,
+                writeTsv(
+                  ["created", "type", "pageId", "userId"],
+                  [[formatTimestamp(event.created), event.type, event.pageId, event.userId]],
+                  { noHeader: true },
                 )
               } else {
                 writeJsonLine(event)
               }
-              seenEventIds.add(event.id)
+              seenEvents.set(event.id, event.updated)
               if (event.updated > lastUpdated) lastUpdated = event.updated
             }
 
-            // seenEventIds のメモリ抑制: lastUpdated より 1 時間以上古い ID を削除
-            for (const e of stream.events) {
-              if (e.updated < lastUpdated - 3600) {
-                seenEventIds.delete(e.id)
-              }
+            // seenEvents のメモリ抑制: lastUpdated より 1 時間以上古い ID を削除
+            const toEvict: string[] = []
+            for (const [id, updated] of seenEvents) {
+              if (updated < lastUpdated - 3600) toEvict.push(id)
             }
+            for (const id of toEvict) seenEvents.delete(id)
           }
 
           if (ac.signal.aborted) break
