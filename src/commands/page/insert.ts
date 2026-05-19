@@ -16,15 +16,13 @@ import {
   commonArgs,
   dryRunArg,
   getRawFlagValue,
-  isStdinPath,
-  notationFindingToWarning,
+  readWriteInput,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
-import { lintNotation } from "@/core/notation/lint"
 import { insertIntoPage } from "@/core/pages"
-import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -83,69 +81,12 @@ export const pageInsertCommand = defineCommand({
     }
     const afterN = Number.parseInt(rawAfter, 10)
 
-    let lines: string[] = []
-    if (a.line !== undefined) {
-      lines = a.line.split(/\r?\n|\\n/)
-    } else if (a["from-file"] !== undefined) {
-      // citty が "-" を "" に変換するバグにも対応するため isStdinPath で判定する
-      if (isStdinPath(a["from-file"])) {
-        try {
-          const content = readStdinBounded()
-          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-        } catch (err) {
-          if (err instanceof UnsafePathError) {
-            // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
-            writeErrorJson("UNSAFE_PATH", err.message)
-            process.exit(5)
-            return
-          }
-          throw err
-        }
-      } else {
-        try {
-          const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
-          lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-        } catch (err) {
-          if (err instanceof UnsafePathError) {
-            writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
-            process.exit(5)
-            return
-          }
-          writeErrorJson(
-            "VALIDATION_ERROR",
-            `ファイルの読み込みに失敗しました: "${a["from-file"]}"`,
-            "ファイルパスが正しいか確認してください",
-          )
-          process.exit(5)
-          return
-        }
-      }
-    }
-
-    if (lines.length === 0) {
-      writeErrorJson(
-        "CONTENT_REQUIRED",
-        "挿入する行が指定されていません",
-        "--line または --from-file でコンテンツを指定してください",
-      )
-      process.exit(5)
-      return
-    }
-
-    // Cosense 記法の lint 検査
-    const findings = lintNotation(lines)
-    const warnings = findings.map(notationFindingToWarning)
-
-    if (a["strict-notation"] && findings.length > 0) {
-      writeErrorJson(
-        "NOTATION_LINT",
-        `Cosense 記法の問題が ${findings.length} 件あります`,
-        "--strict-notation を外すと警告のみで実行できます",
-        { findings },
-      )
-      process.exit(5)
-      return
-    }
+    const lines = readWriteInput(a, {
+      requireContentErrorCode: "CONTENT_REQUIRED",
+      requireContentMessage: "挿入する行が指定されていません",
+      requireContentHint: "--line または --from-file でコンテンツを指定してください",
+    })
+    const warnings = runNotationLint(lines, a)
 
     logger.info(`"${a.title}" の ${afterN} 行目の後ろに挿入中...`)
 

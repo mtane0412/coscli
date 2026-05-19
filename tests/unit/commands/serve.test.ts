@@ -8,6 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { type ServeDeps, makeServeCommand } from "@/commands/serve"
+import { createTestWriter } from "../../helpers/scrapbox-writer"
 
 // ----- デフォルト引数 -----
 
@@ -78,13 +79,7 @@ const immediateStartServer: ServeDeps["startServer"] = async () => {}
 const mockGetSid: ServeDeps["getSid"] = async () => "テストSID"
 
 /** ScrapboxWriter のスタブ実装。 */
-const stubWriter: import("@/core/api/ws").ScrapboxWriter = {
-  patch: async () => ({ commitId: "test", pageId: "test" }),
-  insertLines: async () => ({ commitId: "test" }),
-  deletePage: async () => ({ title: "test" }),
-  pinPage: async () => ({ title: "test" }),
-  unpinPage: async () => ({ title: "test" }),
-}
+const stubWriter = createTestWriter()
 
 /** 即座に stubWriter を返す createWriter モック。 */
 const mockCreateWriter: ServeDeps["createWriter"] = async () => stubWriter

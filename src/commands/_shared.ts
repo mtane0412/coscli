@@ -5,14 +5,16 @@
  * ルートフラグを統一して受け取れる。
  */
 
-import { CosenseRestClient } from "@/core/api/rest"
+import { AuthError, CosenseRestClient, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
 import { loadSession } from "@/core/auth/session"
+import { lintNotation } from "@/core/notation/lint"
 import { PolicyError, createPolicy } from "@/core/sandbox"
 import { resolvePolicy } from "@/core/sandbox/resolve"
 import { loadConfig } from "@/infra/config"
 import { createTokenStore } from "@/infra/keychain/index"
 import { Logger } from "@/infra/logger"
+import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson } from "@/presenter/json"
 import type { JsonOutputOptions } from "@/presenter/json"
 
@@ -357,4 +359,135 @@ export function notationFindingToWarning(
     finding.column !== undefined ? `行 ${finding.line} 列 ${finding.column}` : `行 ${finding.line}`
   const hint = finding.hint ? ` (修正案: ${finding.hint})` : ""
   return `[${loc}] ${finding.rule}: ${finding.message}${hint}`
+}
+
+/**
+ * ReadWriteInputArgs は --line/--text/--from-file/stdin の入力ソース引数の型。
+ *
+ * `line` は citty が複数回指定を受け付けると `string[]` になるため両方を許可する。
+ */
+export type ReadWriteInputArgs = {
+  line?: string | string[]
+  text?: string
+  "from-file"?: string
+  "allow-unsafe-read"?: boolean
+}
+
+/**
+ * readWriteInput は --line/--text/--from-file/stdin の入力ソースを統一的に解決する。
+ *
+ * 解決優先順位: line/text > stdin (-/"") > from-file (パス)
+ * stdin/ファイル読み込み時の UnsafePathError は exit 5 (UNSAFE_PATH) で終了する。
+ * すべて未指定または空の場合は requireContentErrorCode で exit 5 で終了する。
+ *
+ * `readStdin` / `readFile` は省略時に実実装 (readStdinBounded / readFromFile) を使用する。
+ * テストコードはこれらを差し替えることでファイル I/O を回避できる。
+ */
+export function readWriteInput(
+  args: ReadWriteInputArgs,
+  opts: {
+    requireContentErrorCode: string
+    requireContentMessage: string
+    requireContentHint?: string
+    readStdin?: () => string
+    readFile?: (path: string, opts: { allowUnsafe: boolean }) => string
+  },
+): string[] {
+  const readStdinFn = opts.readStdin ?? readStdinBounded
+  const readFileFn = opts.readFile ?? readFromFile
+  let lines: string[] = []
+
+  const lineValue = args.line ?? args.text
+  if (lineValue !== undefined) {
+    // citty が --line を複数回渡すと配列になるため string と string[] の両方に対応する
+    const values = Array.isArray(lineValue) ? lineValue : [lineValue]
+    lines = values.flatMap((l) => l.split(/\r?\n|\\n/))
+  } else if (isStdinPath(args["from-file"])) {
+    // stdin から読み込む (citty が "-" を "" に変換するバグにも対応)
+    try {
+      const content = readStdinFn()
+      lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
+    } catch (err) {
+      if (err instanceof UnsafePathError) {
+        // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
+        writeErrorJson("UNSAFE_PATH", err.message)
+        exitWithError(5, "UNSAFE_PATH")
+      }
+      throw err
+    }
+  } else if (args["from-file"]) {
+    // ファイルから読み込む
+    try {
+      const content = readFileFn(args["from-file"], {
+        allowUnsafe: args["allow-unsafe-read"] ?? false,
+      })
+      lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
+    } catch (err) {
+      if (err instanceof UnsafePathError) {
+        writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
+        exitWithError(5, "UNSAFE_PATH")
+      }
+      throw err
+    }
+  }
+
+  if (lines.length === 0) {
+    writeErrorJson(
+      opts.requireContentErrorCode,
+      opts.requireContentMessage,
+      opts.requireContentHint,
+    )
+    exitWithError(5, opts.requireContentErrorCode)
+  }
+
+  return lines
+}
+
+/**
+ * runNotationLint は Cosense 記法の lint 検査を実行し、警告文字列配列を返す。
+ *
+ * --strict-notation が true の場合は lint 指摘があると exit 5 (NOTATION_LINT) で終了する。
+ * false の場合は warnings 文字列配列を返す (空配列 = 警告なし)。
+ */
+export function runNotationLint(lines: string[], args: StrictNotationArg): string[] {
+  const findings = lintNotation(lines)
+  const warnings = findings.map(notationFindingToWarning)
+
+  if (args["strict-notation"] && findings.length > 0) {
+    writeErrorJson(
+      "NOTATION_LINT",
+      `Cosense 記法の問題が ${findings.length} 件あります`,
+      "--strict-notation を外すと警告のみで実行できます",
+      { findings },
+    )
+    exitWithError(5, "NOTATION_LINT")
+  }
+
+  return warnings
+}
+
+/**
+ * handleRestError は REST 例外を判定して該当 exit コードでプロセスを終了する。
+ *
+ * - AuthError → exit 2, code: AUTH_ERROR
+ * - ForbiddenError → exit 3, code: FORBIDDEN
+ * - NotFoundError → exit 4, code: NOT_FOUND
+ * - その他 → 何もしない (呼び出し側で再スローする想定)
+ */
+export function handleRestError(
+  err: unknown,
+  context: { resourceKind: "page" | "project" | "snapshot"; resourceName: string },
+): void {
+  if (err instanceof AuthError) {
+    writeErrorJson("AUTH_ERROR", err.message, "`cos auth login` を実行してください")
+    exitWithError(2, "AUTH_ERROR")
+  }
+  if (err instanceof ForbiddenError) {
+    writeErrorJson("FORBIDDEN", err.message, "アクセス権限を確認してください")
+    exitWithError(3, "FORBIDDEN")
+  }
+  if (err instanceof NotFoundError) {
+    writeErrorJson("NOT_FOUND", err.message, `${context.resourceKind}名を確認してください`)
+    exitWithError(4, "NOT_FOUND")
+  }
 }
