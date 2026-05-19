@@ -14,16 +14,14 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
-  isStdinPath,
-  notationFindingToWarning,
+  readWriteInput,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
-import { lintNotation } from "@/core/notation/lint"
 import { appendToPage } from "@/core/pages"
-import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
-import { writeErrorJson, writeJson } from "@/presenter/json"
+import { writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const pageAppendCommand = defineCommand({
@@ -60,56 +58,12 @@ export const pageAppendCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    let lines: string[] = []
-    if (a.line !== undefined) {
-      lines = a.line.split(/\r?\n|\\n/)
-    } else if (isStdinPath(a["from-file"])) {
-      try {
-        const content = readStdinBounded()
-        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch (err) {
-        if (err instanceof UnsafePathError) {
-          writeErrorJson("UNSAFE_PATH", err.message)
-          process.exit(5)
-        }
-        throw err
-      }
-    } else if (a["from-file"]) {
-      try {
-        const content = readFromFile(a["from-file"], { allowUnsafe: a["allow-unsafe-read"] })
-        lines = content.split("\n").filter((l, i, arr) => l !== "" || i < arr.length - 1)
-      } catch (err) {
-        if (err instanceof UnsafePathError) {
-          writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
-          process.exit(5)
-        }
-        throw err
-      }
-    }
-
-    if (lines.length === 0) {
-      writeErrorJson(
-        "CONTENT_REQUIRED",
-        "追加する行が指定されていません",
-        "--line または --from-file でコンテンツを指定してください",
-      )
-      process.exit(5)
-    }
-
-    // Cosense 記法の lint 検査
-    const findings = lintNotation(lines)
-    const warnings = findings.map(notationFindingToWarning)
-
-    if (a["strict-notation"] && findings.length > 0) {
-      writeErrorJson(
-        "NOTATION_LINT",
-        `Cosense 記法の問題が ${findings.length} 件あります`,
-        "--strict-notation を外すと警告のみで実行できます",
-        { findings },
-      )
-      process.exit(5)
-      return
-    }
+    const lines = readWriteInput(a, {
+      requireContentErrorCode: "CONTENT_REQUIRED",
+      requireContentMessage: "追加する行が指定されていません",
+      requireContentHint: "--line または --from-file でコンテンツを指定してください",
+    })
+    const warnings = runNotationLint(lines, a)
 
     logger.info(`"${a.title}" に行を追加中...`)
 

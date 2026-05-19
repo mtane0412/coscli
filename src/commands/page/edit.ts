@@ -20,14 +20,13 @@ import {
   commonArgs,
   dryRunArg,
   isStdinPath,
-  notationFindingToWarning,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
 import { CommitConflictError } from "@/core/errors"
 import { convert } from "@/core/format/index"
-import { lintNotation } from "@/core/notation/lint"
 import { editPage } from "@/core/pages"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -134,20 +133,7 @@ export const pageEditCommand = defineCommand({
       return
     }
 
-    // Cosense 記法の lint 検査: findings を warnings に変換する
-    const findings = lintNotation(lines)
-    const warnings = findings.map(notationFindingToWarning)
-
-    if (a["strict-notation"] && findings.length > 0) {
-      writeErrorJson(
-        "NOTATION_LINT",
-        `Cosense 記法の問題が ${findings.length} 件あります`,
-        "--strict-notation を外すと警告のみで実行できます",
-        { findings },
-      )
-      process.exit(5)
-      return
-    }
+    const warnings = runNotationLint(lines, a)
 
     logger.info(`"${a.title}" を編集中...`)
 

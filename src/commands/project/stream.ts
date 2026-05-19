@@ -21,9 +21,10 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  handleRestError,
   requireProject,
 } from "@/commands/_shared"
-import { AuthError, ForbiddenError, NotFoundError, RateLimitError } from "@/core/api/rest"
+import { RateLimitError } from "@/core/api/rest"
 import { writeErrorJson, writeJson, writeJsonLine } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
 import type { StreamResponse } from "@/schemas/stream"
@@ -180,25 +181,7 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
         try {
           result = await client.getProjectStream(project, limitOpts)
         } catch (err) {
-          if (err instanceof NotFoundError) {
-            writeErrorJson(
-              "NOT_FOUND",
-              `プロジェクト "${project}" が見つかりません`,
-              "プロジェクト名を確認してください",
-            )
-            process.exit(4)
-            throw new Error("NOT_FOUND")
-          }
-          if (err instanceof AuthError) {
-            writeErrorJson("AUTH_ERROR", "認証が必要です", "`cos auth login` を実行してください")
-            process.exit(2)
-            throw new Error("AUTH_ERROR")
-          }
-          if (err instanceof ForbiddenError) {
-            writeErrorJson("FORBIDDEN", "このプロジェクトへのアクセス権限がありません")
-            process.exit(3)
-            throw new Error("FORBIDDEN")
-          }
+          handleRestError(err, { resourceKind: "project", resourceName: project })
           throw err
         }
 
@@ -268,21 +251,7 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
               await sleepFn(intervalMs, ac.signal)
               continue
             }
-            if (err instanceof AuthError) {
-              writeErrorJson("AUTH_ERROR", "認証が必要です")
-              process.exit(2)
-              throw new Error("AUTH_ERROR")
-            }
-            if (err instanceof ForbiddenError) {
-              writeErrorJson("FORBIDDEN", "このプロジェクトへのアクセス権限がありません")
-              process.exit(3)
-              throw new Error("FORBIDDEN")
-            }
-            if (err instanceof NotFoundError) {
-              writeErrorJson("NOT_FOUND", `プロジェクト "${project}" が見つかりません`)
-              process.exit(4)
-              throw new Error("NOT_FOUND")
-            }
+            handleRestError(err, { resourceKind: "project", resourceName: project })
             throw err
           }
 
