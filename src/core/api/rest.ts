@@ -149,6 +149,13 @@ export class CosenseRestClient {
     )
   }
 
+  /** getTable は /api/table/:project/:title/:filename.csv を叩いてテーブルを CSV テキストで返す。 */
+  async getTable(project: string, title: string, filename: string): Promise<string> {
+    return this.fetchText(
+      `${BASE_URL}/api/table/${encodeURIComponent(project)}/${encodePageTitle(title)}/${encodeURIComponent(filename)}.csv`,
+    )
+  }
+
   /** searchPages は /api/pages/:project/search/query を叩いて全文検索する。 */
   async searchPages(
     project: string,

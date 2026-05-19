@@ -18,6 +18,7 @@ import {
   getCodeBlock,
   getPage,
   getPageText,
+  getTable,
   insertIntoPage,
   listPages,
   pinPage,
@@ -74,6 +75,7 @@ function createMockRestClient(overrides: Partial<CosenseRestClient> = {}): Cosen
     })),
     getPageText: mock(async () => "テストページ\n本文テキスト"),
     getCodeBlock: mock(async () => 'console.log("hello")'),
+    getTable: mock(async () => "名前,年齢\n田中太郎,30"),
     searchPages: mock(async () => ({
       projectName: "テストプロジェクト",
       query: "テスト",
@@ -197,6 +199,19 @@ describe("getCodeBlock", () => {
     })
     expect(client.getCodeBlock).toHaveBeenCalledWith("proj", "テストページ", "main.ts")
     expect(result).toContain("hello")
+  })
+})
+
+describe("getTable", () => {
+  it("テーブルを CSV テキストで取得する", async () => {
+    const client = createMockRestClient()
+    const result = await getTable(client, {
+      project: "proj",
+      title: "テストページ",
+      filename: "サンプルテーブル",
+    })
+    expect(client.getTable).toHaveBeenCalledWith("proj", "テストページ", "サンプルテーブル")
+    expect(result).toContain("田中太郎")
   })
 })
 

@@ -27,6 +27,7 @@ export const READ_COMMANDS: readonly string[] = [
   "page.list",
   "page.snapshot.get",
   "page.snapshot.list",
+  "page.table",
   "page.text",
   "page.url",
   "page.watch",

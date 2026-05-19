@@ -17,6 +17,7 @@ describe("READ_COMMANDS", () => {
     expect(READ_COMMANDS).toContain("page.text")
     expect(READ_COMMANDS).toContain("page.code")
     expect(READ_COMMANDS).toContain("page.context")
+    expect(READ_COMMANDS).toContain("page.table")
     expect(READ_COMMANDS).toContain("page.url")
     expect(READ_COMMANDS).toContain("page.watch")
     expect(READ_COMMANDS).toContain("page.line.get")
