@@ -30,6 +30,7 @@ export const READ_COMMANDS: readonly string[] = [
   "project.graph",
   "project.info",
   "project.list",
+  "project.stream",
   "schema",
   "search",
   "sync.diff",

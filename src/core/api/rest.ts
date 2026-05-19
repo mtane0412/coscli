@@ -15,6 +15,8 @@ import {
 import type { Page, PageListResponse, SearchResult, TitleSearchResult } from "@/schemas/page"
 import { ProjectListResponseSchema, ProjectSchema } from "@/schemas/project"
 import type { Project, ProjectListResponse } from "@/schemas/project"
+import { StreamResponseSchema } from "@/schemas/stream"
+import type { StreamResponse } from "@/schemas/stream"
 import { type Me, MeSchema } from "@/schemas/user"
 import { z } from "zod"
 
@@ -186,6 +188,17 @@ export class CosenseRestClient {
   async listProjects(): Promise<ProjectListResponse> {
     const data = await this.fetchJson(`${BASE_URL}/api/projects`)
     return ProjectListResponseSchema.parse(data)
+  }
+
+  /** getProjectStream は /api/stream/:project/ を叩いてプロジェクトの最近更新フィードを返す。 */
+  async getProjectStream(project: string, opts: { limit?: number } = {}): Promise<StreamResponse> {
+    const params = new URLSearchParams()
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit))
+    const query = params.size > 0 ? `?${params.toString()}` : ""
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/stream/${encodeURIComponent(project)}/${query}`,
+    )
+    return StreamResponseSchema.parse(data)
   }
 
   private buildHeaders(): Record<string, string> {

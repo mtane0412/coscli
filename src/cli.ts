@@ -50,6 +50,7 @@ import { projectGraphCommand } from "@/commands/project/graph"
 import { projectInfoCommand } from "@/commands/project/info"
 // プロジェクトコマンド
 import { projectListCommand } from "@/commands/project/list"
+import { projectStreamCommand } from "@/commands/project/stream"
 
 // 検索コマンド
 import { searchCommand } from "@/commands/search"
@@ -129,6 +130,7 @@ const projectCommand = defineCommand({
     ls: projectListCommand,
     info: projectInfoCommand,
     graph: projectGraphCommand,
+    stream: projectStreamCommand,
   },
 })
 
