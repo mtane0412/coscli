@@ -6,6 +6,8 @@
  */
 
 import { encodePageTitle } from "@/core/api/encoder"
+import { commitsResponseSchema } from "@/schemas/commit"
+import type { CommitsResponse } from "@/schemas/commit"
 import {
   PageListResponseSchema,
   PageSchema,
@@ -188,6 +190,26 @@ export class CosenseRestClient {
   async listProjects(): Promise<ProjectListResponse> {
     const data = await this.fetchJson(`${BASE_URL}/api/projects`)
     return ProjectListResponseSchema.parse(data)
+  }
+
+  /**
+   * getCommits は /api/commits/:project/:pageid を叩いてページのコミット履歴を返す。
+   *
+   * head を指定すると ?head=<commitId> クエリパラメータを付与して
+   * 指定コミットより前の履歴を取得できる。
+   */
+  async getCommits(
+    project: string,
+    pageId: string,
+    opts: { head?: string } = {},
+  ): Promise<CommitsResponse> {
+    const params = new URLSearchParams()
+    if (opts.head !== undefined) params.set("head", opts.head)
+    const query = params.size > 0 ? `?${params.toString()}` : ""
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/commits/${encodeURIComponent(project)}/${encodeURIComponent(pageId)}${query}`,
+    )
+    return commitsResponseSchema.parse(data)
   }
 
   /** getProjectStream は /api/stream/:project/ を叩いてプロジェクトの最近更新フィードを返す。 */
