@@ -47,7 +47,7 @@ export async function getCodeBlock(
   return client.getCodeBlock(opts.project, opts.title, opts.filename)
 }
 
-/** getPageCommits はページのコミット履歴を取得する。 */
+/** getPageCommits はページのコミット履歴を返す。 */
 export async function getPageCommits(
   client: CosenseRestClient,
   opts: { project: string; pageId: string; head?: string },

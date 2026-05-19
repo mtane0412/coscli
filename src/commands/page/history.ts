@@ -19,6 +19,7 @@ import { getPage, getPageCommits } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
+/** pageHistoryCommand はページのコミット履歴を取得するコマンドを返す。 */
 export const pageHistoryCommand = defineCommand({
   meta: { name: "history", description: "ページのコミット履歴を取得する" },
   args: {
