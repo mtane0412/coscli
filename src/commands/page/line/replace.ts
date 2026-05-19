@@ -15,17 +15,15 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
-  isStdinPath,
-  notationFindingToWarning,
+  readWriteInput,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
 import { PageLineError } from "@/core/errors"
-import { lintNotation } from "@/core/notation/lint"
 import { replaceLinesInPage } from "@/core/pages"
 import { RangeSpecError, parseLineSpec } from "@/core/range"
-import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -93,88 +91,26 @@ export const pageLineReplaceCommand = defineCommand({
     }
 
     // --text / --from-file 排他チェック
-    const hasText = a.text !== undefined
-    const hasFile = a["from-file"] !== undefined
-
-    if (hasText && hasFile) {
+    if (a.text !== undefined && a["from-file"] !== undefined) {
       writeErrorJson("VALIDATION_ERROR", "--text と --from-file を同時に指定することはできません")
       process.exit(5)
       return
     }
 
-    if (!hasText && !hasFile) {
-      writeErrorJson(
-        "CONTENT_REQUIRED",
-        "置換内容が指定されていません",
-        "--text または --from-file でコンテンツを指定してください",
-      )
-      process.exit(5)
-      return
-    }
-
-    // 行内容の読み込み
-    let lines: string[] = []
-    if (hasText) {
-      lines = (a.text as string).split(/\r?\n|\\n/)
-    } else {
-      const filePath = a["from-file"] as string
-      if (isStdinPath(filePath)) {
-        try {
-          const content = readStdinBounded()
-          lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
-        } catch (err) {
-          if (err instanceof UnsafePathError) {
-            writeErrorJson("UNSAFE_PATH", err.message)
-            process.exit(5)
-            return
-          }
-          throw err
-        }
-      } else {
-        try {
-          const content = readFromFile(filePath, { allowUnsafe: a["allow-unsafe-read"] })
-          lines = content.split(/\r?\n/).filter((l, i, arr) => l !== "" || i < arr.length - 1)
-        } catch (err) {
-          if (err instanceof UnsafePathError) {
-            writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
-            process.exit(5)
-            return
-          }
-          writeErrorJson(
-            "VALIDATION_ERROR",
-            `ファイルの読み込みに失敗しました: "${filePath}"`,
-            "ファイルパスが正しいか確認してください",
-          )
-          process.exit(5)
-          return
-        }
-      }
-    }
-
-    if (lines.length === 0) {
-      writeErrorJson(
-        "CONTENT_REQUIRED",
-        "置換内容が空です",
-        "--text または --from-file でコンテンツを指定してください",
-      )
-      process.exit(5)
-      return
-    }
-
-    // Cosense 記法の lint 検査
-    const findings = lintNotation(lines)
-    const warnings = findings.map(notationFindingToWarning)
-
-    if (a["strict-notation"] && findings.length > 0) {
-      writeErrorJson(
-        "NOTATION_LINT",
-        `Cosense 記法の問題が ${findings.length} 件あります`,
-        "--strict-notation を外すと警告のみで実行できます",
-        { findings },
-      )
-      process.exit(5)
-      return
-    }
+    // 行内容の読み込み (line は行番号のため text/from-file のみ渡す)
+    const lines = readWriteInput(
+      {
+        ...(a.text !== undefined && { text: a.text }),
+        ...(a["from-file"] !== undefined && { "from-file": a["from-file"] }),
+        "allow-unsafe-read": a["allow-unsafe-read"],
+      },
+      {
+        requireContentErrorCode: "CONTENT_REQUIRED",
+        requireContentMessage: "置換内容が指定されていません",
+        requireContentHint: "--text または --from-file でコンテンツを指定してください",
+      },
+    )
+    const warnings = runNotationLint(lines, a)
 
     logger.info(`"${a.title}" の ${start}〜${end} 行目を置換中...`)
 

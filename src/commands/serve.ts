@@ -20,8 +20,10 @@ import { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
 import { createScrapboxWriter } from "@/core/api/ws"
 import { createPolicy } from "@/core/sandbox"
+import { resolvePolicy } from "@/core/sandbox/resolve"
 import { createFetchHandler } from "@/core/server/rest"
 import type { ServerContext } from "@/core/server/types"
+import { loadConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -157,8 +159,25 @@ export function makeServeCommand(deps: ServeDeps = {}) {
       }
 
       // 7. sandbox ポリシー生成（ハンドラ内の二段ガード用）
-      const enableStr = a["enable-commands"] ?? process.env["COS_ENABLE_COMMANDS"]
-      const disableStr = a["disable-commands"] ?? process.env["COS_DISABLE_COMMANDS"]
+      const { enableStr, disableStr } = resolvePolicy({
+        cli: {
+          ...(a["enable-commands"] !== undefined && { enable: a["enable-commands"] }),
+          ...(a["disable-commands"] !== undefined && { disable: a["disable-commands"] }),
+          ...(a.project !== undefined && { project: a.project }),
+        },
+        env: {
+          ...(process.env["COS_ENABLE_COMMANDS"] !== undefined && {
+            COS_ENABLE_COMMANDS: process.env["COS_ENABLE_COMMANDS"],
+          }),
+          ...(process.env["COS_DISABLE_COMMANDS"] !== undefined && {
+            COS_DISABLE_COMMANDS: process.env["COS_DISABLE_COMMANDS"],
+          }),
+          ...(process.env["COS_PROJECT"] !== undefined && {
+            COS_PROJECT: process.env["COS_PROJECT"],
+          }),
+        },
+        config: loadConfig(),
+      })
       const policyOpts: Parameters<typeof createPolicy>[0] = {}
       if (enableStr !== undefined) policyOpts.enableStr = enableStr
       if (disableStr !== undefined) policyOpts.disableStr = disableStr

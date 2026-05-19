@@ -12,6 +12,7 @@ import { join } from "node:path"
 import type { CosenseRestClient } from "@/core/api/rest"
 import type { ScrapboxWriter } from "@/core/api/ws"
 import { syncDiff, syncPull, syncPush } from "@/core/sync/engine"
+import { createTestWriter } from "../../../helpers/scrapbox-writer"
 
 // bun --coverage モードでは複数テストファイルが同一プロセスで動作するため、
 // commands/sync/push.test.ts の mock.module("@/core/sync/engine", ...) が残留する場合がある。
@@ -67,13 +68,10 @@ function makeRestClient(page: Page): CosenseRestClient {
 
 /** モック ScrapboxWriter を生成する */
 function makeWriter(commitId = "新コミットXYZ"): ScrapboxWriter {
-  return {
+  return createTestWriter({
     patch: mock(() => Promise.resolve({ commitId, pageId: "ページID" })),
     insertLines: mock(() => Promise.resolve({ commitId })),
-    deletePage: mock(() => Promise.resolve({ title: "テストページ" })),
-    pinPage: mock(() => Promise.resolve({ title: "テストページ" })),
-    unpinPage: mock(() => Promise.resolve({ title: "テストページ" })),
-  } as unknown as ScrapboxWriter
+  })
 }
 
 beforeEach(() => {
