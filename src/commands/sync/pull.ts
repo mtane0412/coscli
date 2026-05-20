@@ -13,6 +13,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { syncPull } from "@/core/sync/engine"
@@ -66,7 +67,7 @@ export const syncPullCommand = defineCommand({
         `--format=${a.format} はサポートされていません`,
         "Markdown 変換は v0.3 で対応予定です。現在は --format=txt のみ使用できます",
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // --dir または設定ファイルの sync.dir を使う
@@ -78,7 +79,7 @@ export const syncPullCommand = defineCommand({
         "同期先ディレクトリが指定されていません",
         "--dir フラグか `cos config set sync.dir <path>` で同期先ディレクトリを指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // <title> も --all も未指定の場合はエラー
@@ -88,7 +89,7 @@ export const syncPullCommand = defineCommand({
         "ページタイトルまたは --all を指定してください",
         "`cos sync pull <title>` または `cos sync pull --all` で対象を指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     const client = await buildRestClient(a)
@@ -112,7 +113,7 @@ export const syncPullCommand = defineCommand({
       } catch (err) {
         if (err instanceof FilenameInvalidError) {
           writeErrorJson("FILENAME_INVALID", err.message, "タイトルに禁則文字が含まれています")
-          process.exit(5)
+          exitWithError(5, "VALIDATION_ERROR")
         }
         throw err
       }

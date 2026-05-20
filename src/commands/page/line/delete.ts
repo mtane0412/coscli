@@ -13,6 +13,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { PageLineError } from "@/core/errors"
@@ -64,8 +65,7 @@ export const pageLineDeleteCommand = defineCommand({
     } catch (err) {
       if (err instanceof RangeSpecError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       throw err
     }
@@ -82,8 +82,7 @@ export const pageLineDeleteCommand = defineCommand({
     } catch (err) {
       if (err instanceof PageLineError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       throw err
     }

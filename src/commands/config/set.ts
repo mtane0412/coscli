@@ -12,6 +12,7 @@ import {
   buildLogger,
   checkSandbox,
   commonArgs,
+  exitWithError,
 } from "@/commands/_shared"
 import { loadConfig, saveConfig, setConfigValue } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -55,7 +56,7 @@ export const configSetCommand = defineCommand({
         "INVALID_VALUE",
         `設定値が不正です: ${err instanceof Error ? err.message : String(err)}`,
       )
-      process.exit(5)
+      exitWithError(5, "INVALID_VALUE")
     }
 
     saveConfig(updated)

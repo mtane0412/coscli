@@ -14,6 +14,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { type BoldStyle, convert } from "@/core/format/index"
@@ -77,7 +78,7 @@ export const pageTextCommand = defineCommand({
         `--format=${a.format} は無効な値です`,
         `有効な値: ${VALID_FORMATS.join(", ")}, scrapbox (txt の alias)`,
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // --bold-style バリデーション
@@ -87,7 +88,7 @@ export const pageTextCommand = defineCommand({
         `--bold-style=${a["bold-style"]} は無効な値です`,
         `有効な値: ${VALID_BOLD_STYLES.join(", ")}`,
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     const client = await buildRestClient(a)

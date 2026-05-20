@@ -100,29 +100,37 @@ afterEach(() => {
 
 describe("authLoginCommand — 排他チェック", () => {
   it("--browser と --sid を同時指定した場合は exit 5 で終了する", async () => {
-    await runLogin({
-      browser: true,
-      sid: "何かのSID",
-      input: true,
-      profile: "default",
-      json: false,
-      plain: false,
-      quiet: false,
-      verbose: false,
-    })
+    try {
+      await runLogin({
+        browser: true,
+        sid: "何かのSID",
+        input: true,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 
   it("--browser と --no-input を同時指定した場合は exit 5 で終了する", async () => {
-    await runLogin({
-      browser: true,
-      input: false,
-      profile: "default",
-      json: false,
-      plain: false,
-      quiet: false,
-      verbose: false,
-    })
+    try {
+      await runLogin({
+        browser: true,
+        input: false,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 })
@@ -155,20 +163,24 @@ describe("authLoginCommand — --browser フロー", () => {
     const fakeBrowserLogin = buildFakeBrowserLogin({
       error: new Error("BROWSER_NOT_FOUND: Chrome が見つかりません"),
     })
-    await runLogin(
-      {
-        browser: true,
-        input: true,
-        profile: "default",
-        json: false,
-        plain: false,
-        quiet: false,
-        verbose: false,
-        "browser-port": 9222,
-        "browser-timeout": 300,
-      },
-      fakeBrowserLogin,
-    )
+    try {
+      await runLogin(
+        {
+          browser: true,
+          input: true,
+          profile: "default",
+          json: false,
+          plain: false,
+          quiet: false,
+          verbose: false,
+          "browser-port": 9222,
+          "browser-timeout": 300,
+        },
+        fakeBrowserLogin,
+      )
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 
@@ -176,20 +188,24 @@ describe("authLoginCommand — --browser フロー", () => {
     const fakeBrowserLogin = buildFakeBrowserLogin({
       error: new Error("BROWSER_SPAWN_FAILED: ブラウザの起動に失敗しました"),
     })
-    await runLogin(
-      {
-        browser: true,
-        input: true,
-        profile: "default",
-        json: false,
-        plain: false,
-        quiet: false,
-        verbose: false,
-        "browser-port": 9222,
-        "browser-timeout": 300,
-      },
-      fakeBrowserLogin,
-    )
+    try {
+      await runLogin(
+        {
+          browser: true,
+          input: true,
+          profile: "default",
+          json: false,
+          plain: false,
+          quiet: false,
+          verbose: false,
+          "browser-port": 9222,
+          "browser-timeout": 300,
+        },
+        fakeBrowserLogin,
+      )
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(1)
   })
 
@@ -197,20 +213,24 @@ describe("authLoginCommand — --browser フロー", () => {
     const fakeBrowserLogin = buildFakeBrowserLogin({
       error: new Error("BROWSER_LOGIN_TIMEOUT: タイムアウト"),
     })
-    await runLogin(
-      {
-        browser: true,
-        input: true,
-        profile: "default",
-        json: false,
-        plain: false,
-        quiet: false,
-        verbose: false,
-        "browser-port": 9222,
-        "browser-timeout": 300,
-      },
-      fakeBrowserLogin,
-    )
+    try {
+      await runLogin(
+        {
+          browser: true,
+          input: true,
+          profile: "default",
+          json: false,
+          plain: false,
+          quiet: false,
+          verbose: false,
+          "browser-port": 9222,
+          "browser-timeout": 300,
+        },
+        fakeBrowserLogin,
+      )
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(124)
   })
 })
@@ -235,15 +255,19 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
   })
 
   it("--no-input かつ --sid 未指定の場合は exit 5 で終了する", async () => {
-    await runLogin({
-      input: false,
-      browser: false,
-      profile: "default",
-      json: false,
-      plain: false,
-      quiet: false,
-      verbose: false,
-    })
+    try {
+      await runLogin({
+        input: false,
+        browser: false,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 
@@ -252,7 +276,11 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
     // このテストは CLI から実際に --no-input を渡した場合の経路を再現し、
     // 修正前は対話プロンプトに突入してハングすることを確認するために追加した。
     const command = createAuthLoginCommand({ createStore: () => new InMemoryTokenStore() })
-    await runCommand(command, { rawArgs: ["--no-input"] })
+    try {
+      await runCommand(command, { rawArgs: ["--no-input"] })
+    } catch {
+      // exitWithError による throw は想定内
+    }
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 })

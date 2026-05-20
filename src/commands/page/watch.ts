@@ -12,10 +12,11 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
+  handleRestError,
   requireProject,
   requireSid,
 } from "@/commands/_shared"
-import { NotFoundError } from "@/core/api/rest"
 import { type ScrapboxSubscriber, createScrapboxSubscriber } from "@/core/api/subscribe"
 import type { PageCommitEvent } from "@/core/api/subscribe"
 import { writeErrorJson, writeJsonLine } from "@/presenter/json"
@@ -85,7 +86,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
           `未対応の --format 値: "${a.format}"`,
           "--format の有効値は '' または 'diff' です",
         )
-        process.exit(5)
+        exitWithError(5, "VALIDATION_ERROR")
       }
       const format = a.format as "" | "diff"
 
@@ -97,7 +98,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
           `--timeout に不正な値が指定されました: "${a.timeout}"`,
           "--timeout には 0 以上の数値を指定してください",
         )
-        process.exit(5)
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       // 4. プロジェクト解決
@@ -120,14 +121,7 @@ export function makePageWatchCommand(deps: WatchDeps = {}) {
           restClient.getProject(project),
         ])
       } catch (err) {
-        if (err instanceof NotFoundError) {
-          writeErrorJson(
-            "NOT_FOUND",
-            `ページ "${a.title}" が見つかりません`,
-            "タイトルとプロジェクト名を確認してください",
-          )
-          process.exit(4)
-        }
+        handleRestError(err, { resourceKind: "page", resourceName: a.title })
         throw err
       }
 

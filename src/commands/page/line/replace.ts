@@ -15,6 +15,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   readWriteInput,
   requireProject,
   runNotationLint,
@@ -84,8 +85,7 @@ export const pageLineReplaceCommand = defineCommand({
     } catch (err) {
       if (err instanceof RangeSpecError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       throw err
     }
@@ -93,8 +93,7 @@ export const pageLineReplaceCommand = defineCommand({
     // --text / --from-file 排他チェック
     if (a.text !== undefined && a["from-file"] !== undefined) {
       writeErrorJson("VALIDATION_ERROR", "--text と --from-file を同時に指定することはできません")
-      process.exit(5)
-      return
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // 行内容の読み込み (line は行番号のため text/from-file のみ渡す)
@@ -126,8 +125,7 @@ export const pageLineReplaceCommand = defineCommand({
     } catch (err) {
       if (err instanceof PageLineError) {
         writeErrorJson("VALIDATION_ERROR", err.message)
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       throw err
     }

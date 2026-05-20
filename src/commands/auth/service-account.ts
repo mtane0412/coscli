@@ -18,6 +18,7 @@ import {
   buildLogger,
   checkSandbox,
   commonArgs,
+  exitWithError,
   showUsageIfNoSubCommand,
 } from "@/commands/_shared"
 import { AuthError, CosenseRestClient, ForbiddenError } from "@/core/api/rest"
@@ -62,8 +63,7 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
           "プロジェクト名が指定されていません",
           "--project (-p) フラグか COS_PROJECT 環境変数でプロジェクトを指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       if (!a.key) {
@@ -72,8 +72,7 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
           "Service Account キーが指定されていません",
           "--key フラグで cs_ で始まる 67 文字のキーを指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       // キー形式を検証する
@@ -98,8 +97,7 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
             "AUTH_ERROR",
             "Service Account キーが無効です。キーとプロジェクト名を確認してください",
           )
-          process.exit(2)
-          return
+          exitWithError(2, "AUTH_ERROR")
         }
         if (err instanceof ForbiddenError) {
           writeErrorJson(
@@ -107,8 +105,7 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
             "このプロジェクトへのアクセス権限がありません",
             "プロジェクト名と Service Account キーを確認してください",
           )
-          process.exit(3)
-          return
+          exitWithError(3, "FORBIDDEN")
         }
         throw err
       }
@@ -156,8 +153,7 @@ export function createAuthSaDeleteCommand(deps: AuthSaCommandDeps = {}) {
           "プロジェクト名が指定されていません",
           "--project (-p) フラグか COS_PROJECT 環境変数でプロジェクトを指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       const configPath = getConfigPath()

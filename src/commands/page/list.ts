@@ -11,6 +11,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { listPages } from "@/core/pages"
@@ -51,8 +52,7 @@ export const pageListCommand = defineCommand({
           `--limit の値が無効です: "${commonArgs.limit}"`,
           "1 以上の整数を指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       const limit = Number(commonArgs.limit)
       if (limit < 1) {
@@ -61,8 +61,7 @@ export const pageListCommand = defineCommand({
           `--limit の値が無効です: "${commonArgs.limit}"`,
           "1 以上の整数を指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       listOpts.limit = limit
     }
@@ -75,8 +74,7 @@ export const pageListCommand = defineCommand({
           `--skip の値が無効です: "${commonArgs.skip}"`,
           "0 以上の整数を指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       listOpts.skip = Number(commonArgs.skip)
     }

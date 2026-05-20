@@ -7,7 +7,13 @@
  * セキュリティ: csrfToken は --json 出力から除外する。(issue #89)
  */
 
-import { type CommonArgs, buildJsonOpts, checkSandbox, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  checkSandbox,
+  commonArgs,
+  exitWithError,
+} from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
 import { loadSession } from "@/core/auth/session"
 import type { TokenStore } from "@/core/auth/store"
@@ -42,7 +48,7 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
           "認証情報が見つかりません",
           "`cos auth login` を実行してログインしてください",
         )
-        process.exit(2)
+        exitWithError(2, "AUTH_REQUIRED")
       }
 
       const client = new CosenseRestClient({ sid })

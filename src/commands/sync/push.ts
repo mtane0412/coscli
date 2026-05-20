@@ -14,6 +14,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { syncPush } from "@/core/sync/engine"
@@ -75,7 +76,7 @@ export const syncPushCommand = defineCommand({
         "同期元ディレクトリが指定されていません",
         "--dir フラグか `cos config set sync.dir <path>` で同期元ディレクトリを指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "DIR_REQUIRED")
     }
 
     // <title> も --all も未指定の場合はエラー
@@ -85,7 +86,7 @@ export const syncPushCommand = defineCommand({
         "ページタイトルまたは --all を指定してください",
         "`cos sync push <title>` または `cos sync push --all` で対象を指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "TARGET_REQUIRED")
     }
 
     const retries = Number.parseInt(a.retries, 10)
@@ -107,7 +108,7 @@ export const syncPushCommand = defineCommand({
             `"${a.title}" のメタファイルが見つかりません`,
             "先に `cos sync pull` を実行して同期状態を初期化してください",
           )
-          process.exit(5)
+          exitWithError(5, "META_REQUIRED")
         }
 
         if (result.errorCode === "LOCAL_NOT_FOUND") {
@@ -116,7 +117,7 @@ export const syncPushCommand = defineCommand({
             `ローカルファイル "${a.title}.txt" が見つかりません`,
             "ファイルが存在するか確認してください",
           )
-          process.exit(5)
+          exitWithError(5, "LOCAL_NOT_FOUND")
         }
 
         if (result.errorCode === "CONFLICT") {
@@ -126,7 +127,7 @@ export const syncPushCommand = defineCommand({
             "cos sync pull で最新を取得してから再度 push してください",
             { localCommitId: result.localCommitId, serverCommitId: result.serverCommitId },
           )
-          process.exit(6)
+          exitWithError(6, "CONFLICT")
         }
 
         if (a.json || !a.plain) {
@@ -145,7 +146,7 @@ export const syncPushCommand = defineCommand({
       } catch (err) {
         if (err instanceof FilenameInvalidError) {
           writeErrorJson("FILENAME_INVALID", err.message, "タイトルに禁則文字が含まれています")
-          process.exit(5)
+          exitWithError(5, "FILENAME_INVALID")
         }
         throw err
       }
@@ -163,7 +164,7 @@ export const syncPushCommand = defineCommand({
           `${project} のメタデータが見つかりません`,
           "先に `cos sync pull --all` を実行してください",
         )
-        process.exit(5)
+        exitWithError(5, "NO_META_FOUND")
       }
 
       const metaFiles = readdirSync(metaDir).filter((f) => f.endsWith(".json"))
@@ -220,8 +221,8 @@ export const syncPushCommand = defineCommand({
         process.stdout.write("\n")
       }
 
-      if (errors.length > 0 && conflictCount === 0) process.exit(1)
-      if (conflictCount > 0) process.exit(6)
+      if (errors.length > 0 && conflictCount === 0) exitWithError(1, "BATCH_ERRORS")
+      if (conflictCount > 0) exitWithError(6, "CONFLICTS")
     }
   },
 })

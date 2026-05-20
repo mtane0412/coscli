@@ -11,11 +11,11 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  handleRestError,
   requireProject,
 } from "@/commands/_shared"
-import { AuthError, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { getPage } from "@/core/pages"
-import { writeErrorJson, writeJson } from "@/presenter/json"
+import { writeJson } from "@/presenter/json"
 import type { InfoboxResultItem } from "@/schemas/page"
 import { defineCommand } from "citty"
 
@@ -67,25 +67,7 @@ export const pageInfoboxCommand = defineCommand({
         process.stdout.write("\n")
       }
     } catch (err) {
-      if (err instanceof AuthError) {
-        writeErrorJson("AUTH_ERROR", err.message, "`cos auth login` を実行してください")
-        process.exit(2)
-        throw err
-      }
-      if (err instanceof ForbiddenError) {
-        writeErrorJson("FORBIDDEN", err.message, "アクセス権限を確認してください")
-        process.exit(3)
-        throw err
-      }
-      if (err instanceof NotFoundError) {
-        writeErrorJson(
-          "NOT_FOUND",
-          err.message,
-          "ページが見つかりません。タイトルを確認してください",
-        )
-        process.exit(4)
-        throw err
-      }
+      handleRestError(err, { resourceKind: "page", resourceName: a.title })
       throw err
     }
   },

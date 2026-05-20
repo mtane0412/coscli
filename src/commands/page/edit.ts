@@ -19,6 +19,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   isStdinPath,
   requireProject,
   runNotationLint,
@@ -88,8 +89,7 @@ export const pageEditCommand = defineCommand({
         `--input-format=${a["input-format"]} は無効な値です`,
         `有効な値: ${VALID_INPUT_FORMATS.join(", ")}`,
       )
-      process.exit(5)
-      return
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     let content: string
@@ -101,8 +101,7 @@ export const pageEditCommand = defineCommand({
         if (err instanceof UnsafePathError) {
           // stdin には --allow-unsafe-read は適用されないためヒントを表示しない
           writeErrorJson("UNSAFE_PATH", err.message)
-          process.exit(5)
-          return
+          exitWithError(5, "UNSAFE_PATH")
         }
         throw err
       }
@@ -112,8 +111,7 @@ export const pageEditCommand = defineCommand({
       } catch (err) {
         if (err instanceof UnsafePathError) {
           writeErrorJson("UNSAFE_PATH", err.message, "--allow-unsafe-read フラグで許可できます")
-          process.exit(5)
-          return
+          exitWithError(5, "UNSAFE_PATH")
         }
         throw err
       }
@@ -129,8 +127,7 @@ export const pageEditCommand = defineCommand({
 
     if (lines.length === 0) {
       writeErrorJson("CONTENT_REQUIRED", "新しい本文が空です")
-      process.exit(5)
-      return
+      exitWithError(5, "CONTENT_REQUIRED")
     }
 
     const warnings = runNotationLint(lines, a)
@@ -148,8 +145,7 @@ export const pageEditCommand = defineCommand({
     } catch (err) {
       if (err instanceof CommitConflictError) {
         writeErrorJson("CONFLICT", err.message)
-        process.exit(6)
-        return
+        exitWithError(6, "CONFLICT")
       }
       throw err
     }

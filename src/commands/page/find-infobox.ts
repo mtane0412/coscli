@@ -11,9 +11,10 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
+  handleRestError,
   requireProject,
 } from "@/commands/_shared"
-import { AuthError, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { findInfoboxPages } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { writePlainList, writeTsv } from "@/presenter/plain"
@@ -43,8 +44,7 @@ export const pageFindInfoboxCommand = defineCommand({
             `--limit の値が無効です: "${a.limit}"`,
             "1 以上の整数を指定してください",
           )
-          process.exit(5)
-          return
+          exitWithError(5, "VALIDATION_ERROR")
         }
         const limit = Number(a.limit)
         if (limit < 1) {
@@ -53,8 +53,7 @@ export const pageFindInfoboxCommand = defineCommand({
             `--limit の値が無効です: "${a.limit}"`,
             "1 以上の整数を指定してください",
           )
-          process.exit(5)
-          return
+          exitWithError(5, "VALIDATION_ERROR")
         }
         findOpts.limit = limit
       }
@@ -77,21 +76,7 @@ export const pageFindInfoboxCommand = defineCommand({
 
       writePlainList(pages.map((p) => p.title))
     } catch (err) {
-      if (err instanceof AuthError) {
-        writeErrorJson("AUTH_ERROR", err.message, "`cos auth login` を実行してください")
-        process.exit(2)
-        throw err
-      }
-      if (err instanceof ForbiddenError) {
-        writeErrorJson("FORBIDDEN", err.message, "アクセス権限を確認してください")
-        process.exit(3)
-        throw err
-      }
-      if (err instanceof NotFoundError) {
-        writeErrorJson("NOT_FOUND", err.message, "プロジェクトが見つかりません")
-        process.exit(4)
-        throw err
-      }
+      handleRestError(err, { resourceKind: "project", resourceName: project })
       throw err
     }
   },
