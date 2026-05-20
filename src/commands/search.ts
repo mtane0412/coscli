@@ -13,7 +13,7 @@ import {
   commonArgs,
   requireProject,
 } from "@/commands/_shared"
-import { writeErrorJson, writeJson } from "@/presenter/json"
+import { writeJson } from "@/presenter/json"
 import { writePlainList, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
@@ -41,35 +41,27 @@ export const searchCommand = defineCommand({
     checkSandbox("search", a)
     const project = requireProject(a)
     const startTime = Date.now()
-    if (a.vector && a.limit !== undefined) {
-      writeErrorJson(
-        "LIMIT_NOT_SUPPORTED_WITH_VECTOR",
-        "--limit は --vector と組み合わせて使用できません",
-        "ベクトル検索では件数指定はできません。キーワード検索 (--vector なし) で --limit を使用してください",
-      )
-      process.exit(5)
-      throw new Error("LIMIT_NOT_SUPPORTED_WITH_VECTOR")
-    }
-
     const client = await buildRestClient(a)
 
     if (a.vector) {
       const result = await client.searchVectorTitles(project, a.query)
+      // --limit 指定時はクライアント側で件数を切り詰める
+      const pages = a.limit ? result.pages.slice(0, Number(a.limit)) : result.pages
 
       if (a.json) {
-        writeJson(result, { command: "search", startTime }, buildJsonOpts(a))
+        writeJson({ pages }, { command: "search", startTime }, buildJsonOpts(a))
         return
       }
 
       if (a.plain) {
         writeTsv(
           ["title"],
-          result.pages.map((p) => [p.title]),
+          pages.map((p) => [p.title]),
         )
         return
       }
 
-      writePlainList(result.pages.map((p) => p.title))
+      writePlainList(pages.map((p) => p.title))
       return
     }
 

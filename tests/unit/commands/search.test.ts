@@ -134,16 +134,11 @@ describe("searchCommand", () => {
       expect(searchVectorTitlesSpy).toHaveBeenCalledWith("テストプロジェクト", "意味的類似ページ")
     })
 
-    it("--vector と --limit の同時指定は LIMIT_NOT_SUPPORTED_WITH_VECTOR で exit 5 になる", async () => {
-      try {
-        await runSearch(baseArgs({ vector: true, limit: "10" }))
-      } catch {
-        // process.exit モック後の継続による throw は想定内
-      }
-      expect(exitMock).toHaveBeenCalledWith(5)
-      expect(stdoutMock).toHaveBeenCalledWith(
-        expect.stringContaining("LIMIT_NOT_SUPPORTED_WITH_VECTOR"),
-      )
+    it("--limit を指定するとクライアント側で件数を切り詰める", async () => {
+      await runSearch(baseArgs({ vector: true, limit: "1" }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("ベクトル類似ページA")
+      expect(output).not.toContain("ベクトル類似ページB")
     })
   })
 })
