@@ -69,7 +69,7 @@ import { exitCodesCommand } from "@/commands/exit-codes"
 import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
-import { defineCommand } from "citty"
+import { defineCommand, showUsage } from "citty"
 
 /** page line サブコマンドグループ */
 export const pageLineCommand = defineCommand({
@@ -80,6 +80,9 @@ export const pageLineCommand = defineCommand({
     rm: pageLineDeleteCommand,
     get: pageLineGetCommand,
   },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
+  },
 })
 
 /** page snapshot サブコマンドグループ */
@@ -89,6 +92,9 @@ export const pageSnapshotCommand = defineCommand({
     list: pageSnapshotListCommand,
     ls: pageSnapshotListCommand,
     get: pageSnapshotGetCommand,
+  },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
   },
 })
 
@@ -123,6 +129,9 @@ export const pageCommand = defineCommand({
     context: pageContextCommand,
     line: pageLineCommand,
   },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
+  },
 })
 
 /** project サブコマンドグループ */
@@ -135,6 +144,9 @@ export const projectCommand = defineCommand({
     graph: projectGraphCommand,
     stream: projectStreamCommand,
     search: projectSearchCommand,
+  },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
   },
 })
 
@@ -149,6 +161,9 @@ export const authCommand = defineCommand({
     sa: authSaCommand,
     "service-account": authSaCommand,
   },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
+  },
 })
 
 /** config サブコマンドグループ */
@@ -159,6 +174,9 @@ export const configCommand = defineCommand({
     set: configSetCommand,
     path: configPathCommand,
   },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
+  },
 })
 
 /** sync サブコマンドグループ */
@@ -168,6 +186,9 @@ export const syncCommand = defineCommand({
     pull: syncPullCommand,
     push: syncPushCommand,
     diff: syncDiffCommand,
+  },
+  async run(ctx) {
+    await showUsage(ctx.cmd)
   },
 })
 

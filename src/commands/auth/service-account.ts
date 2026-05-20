@@ -23,7 +23,7 @@ import { AuthError, CosenseRestClient, ForbiddenError } from "@/core/api/rest"
 import type { CoscliConfig } from "@/infra/config"
 import { defaultConfigPath, loadConfig, saveConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
-import { defineCommand } from "citty"
+import { defineCommand, showUsage } from "citty"
 
 /** AuthSaCommandDeps は createAuthSa* コマンドファクトリに注入できる依存。テスト専用。 */
 export interface AuthSaCommandDeps {
@@ -233,6 +233,9 @@ export function createAuthSaCommand(deps: AuthSaCommandDeps = {}) {
       rm: createAuthSaDeleteCommand(deps),
       list: createAuthSaListCommand(deps),
       ls: createAuthSaListCommand(deps),
+    },
+    async run(ctx) {
+      await showUsage(ctx.cmd)
     },
   })
 }
