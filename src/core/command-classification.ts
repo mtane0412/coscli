@@ -21,7 +21,6 @@ export const READ_COMMANDS: readonly string[] = [
   "notation",
   "page.code",
   "page.context",
-  "page.find-infobox",
   "page.get",
   "page.history",
   "page.infobox",

@@ -1,7 +1,8 @@
 /**
  * search.test.ts — `cos search` コマンドのテスト。
  *
- * キーワード検索 (デフォルト) およびベクトル検索 (--vector) の動作を検証する。
+ * キーワード検索 (デフォルト)、ベクトル検索 (--vector)、
+ * および infobox 検索 (--infobox) の動作を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -55,6 +56,7 @@ function baseArgs(overrides: Record<string, unknown> = {}) {
     json: false,
     plain: false,
     vector: false,
+    infobox: false,
     "results-only": false,
     quiet: true,
     ...overrides,
@@ -139,6 +141,170 @@ describe("searchCommand", () => {
       const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
       expect(output).toContain("ベクトル類似ページA")
       expect(output).not.toContain("ベクトル類似ページB")
+    })
+  })
+
+  describe("infobox 検索 (--infobox)", () => {
+    /** table:infobox クエリの検索結果フィクスチャ */
+    const INFOBOX_SEARCH_RESULT = {
+      projectName: "テストプロジェクト",
+      searchQuery: "table:infobox",
+      pages: [
+        {
+          id: "page-1",
+          title: "製品仕様書",
+          lines: ["table:infobox"],
+          descriptions: [],
+          image: null,
+        },
+        {
+          id: "page-2",
+          title: "会社情報",
+          lines: ["table:infobox"],
+          descriptions: [],
+          image: null,
+        },
+      ],
+    }
+    /** table:cosense クエリの検索結果フィクスチャ（page-2 は dedup 対象） */
+    const COSENSE_SEARCH_RESULT = {
+      projectName: "テストプロジェクト",
+      searchQuery: "table:cosense",
+      pages: [
+        {
+          id: "page-2",
+          title: "会社情報",
+          lines: ["table:cosense"],
+          descriptions: [],
+          image: null,
+        },
+        {
+          id: "page-3",
+          title: "プロジェクト概要",
+          lines: ["table:cosense"],
+          descriptions: [],
+          image: null,
+        },
+      ],
+    }
+
+    beforeEach(() => {
+      // --infobox テスト用に searchPages をクエリで分岐させる
+      searchPagesSpy.mockImplementation((_project: string, query: string) => {
+        if (query === "table:infobox") return Promise.resolve(INFOBOX_SEARCH_RESULT)
+        if (query === "table:cosense") return Promise.resolve(COSENSE_SEARCH_RESULT)
+        return Promise.resolve({ projectName: "テストプロジェクト", searchQuery: query, pages: [] })
+      })
+    })
+
+    it("dedup されて3タイトルが改行区切りで出力される", async () => {
+      await runSearch(baseArgs({ infobox: true, query: undefined }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("製品仕様書")
+      expect(output).toContain("会社情報")
+      expect(output).toContain("プロジェクト概要")
+      // 会社情報 (page-2) は dedup されて1回だけ出力される
+      const matches = output.match(/会社情報/g)
+      expect(matches?.length).toBe(1)
+    })
+
+    it("--json で pages.length === 3 かつ meta.command === 'search' を返す", async () => {
+      await runSearch(baseArgs({ infobox: true, query: undefined, json: true }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      const parsed = JSON.parse(output) as {
+        data: { pages: Array<{ id: string; title: string }> }
+        meta: { command: string }
+      }
+      expect(parsed.meta.command).toBe("search")
+      expect(parsed.data.pages).toHaveLength(3)
+    })
+
+    it("--limit 2 でマージ後2件に切り詰められる", async () => {
+      await runSearch(baseArgs({ infobox: true, query: undefined, json: true, limit: "2" }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      const parsed = JSON.parse(output) as {
+        data: { pages: Array<{ id: string; title: string }> }
+      }
+      expect(parsed.data.pages).toHaveLength(2)
+    })
+
+    it("--limit に非数値を指定すると exit 5 になる", async () => {
+      try {
+        await runSearch(baseArgs({ infobox: true, query: undefined, limit: "abc" }))
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--limit に 0 を指定すると exit 5 になる", async () => {
+      try {
+        await runSearch(baseArgs({ infobox: true, query: undefined, limit: "0" }))
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--infobox と --vector を同時指定すると exit 5 になる", async () => {
+      try {
+        await runSearch(baseArgs({ infobox: true, vector: true, query: undefined }))
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--infobox 時に --project 未指定は exit 5 になる", async () => {
+      try {
+        await runSearch({ ...baseArgs({ infobox: true, query: undefined }), project: undefined })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("query を指定すると infobox ページと AND で絞り込まれる", async () => {
+      // ユーザークエリ「製品」が 製品仕様書 (page-1) だけを返す場合
+      // → infobox pages (page-1, page-2, page-3) との交差 = page-1 のみ
+      const querySearchResult = {
+        projectName: "テストプロジェクト",
+        searchQuery: "製品",
+        pages: [
+          {
+            id: "page-1",
+            title: "製品仕様書",
+            lines: ["table:infobox"],
+            descriptions: [],
+            image: null,
+          },
+        ],
+      }
+      searchPagesSpy.mockImplementation((_project: string, query: string) => {
+        if (query === "table:infobox") return Promise.resolve(INFOBOX_SEARCH_RESULT)
+        if (query === "table:cosense") return Promise.resolve(COSENSE_SEARCH_RESULT)
+        // ユーザー指定クエリ
+        return Promise.resolve(querySearchResult)
+      })
+
+      await runSearch(baseArgs({ infobox: true, query: "製品" }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      // infobox かつ query にも含まれる page-1 のみ出力される
+      expect(output).toContain("製品仕様書")
+      // infobox ページだが query に含まれない page-2, page-3 は除外される
+      expect(output).not.toContain("会社情報")
+      expect(output).not.toContain("プロジェクト概要")
+    })
+  })
+
+  describe("query バリデーション", () => {
+    it("--infobox なしで query 省略すると exit 5 になる", async () => {
+      try {
+        await runSearch({ ...baseArgs(), query: undefined })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
     })
   })
 })

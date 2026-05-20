@@ -11,7 +11,6 @@ import { pageCodeCommand } from "@/commands/page/code"
 import { pageContextCommand } from "@/commands/page/context"
 import { pageDeleteCommand } from "@/commands/page/delete"
 import { pageEditCommand } from "@/commands/page/edit"
-import { pageFindInfoboxCommand } from "@/commands/page/find-infobox"
 import { pageGetCommand } from "@/commands/page/get"
 import { pageHistoryCommand } from "@/commands/page/history"
 import { pageIconCommand } from "@/commands/page/icon"
@@ -127,7 +126,6 @@ export const pageCommand = defineCommand({
     watch: pageWatchCommand,
     context: pageContextCommand,
     infobox: pageInfoboxCommand,
-    "find-infobox": pageFindInfoboxCommand,
     line: pageLineCommand,
   },
   run: showUsageIfNoSubCommand,
