@@ -1,0 +1,96 @@
+/**
+ * page/infobox.ts — `cos page infobox <title>` コマンド。
+ *
+ * 指定したページの LLM 生成 infobox データ (infoboxResult) を取得して出力する。
+ * --no-hallucination フラグで hallucination: true のアイテムを除外できる。
+ */
+
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  buildLogger,
+  buildRestClient,
+  checkSandbox,
+  commonArgs,
+  requireProject,
+} from "@/commands/_shared"
+import { AuthError, ForbiddenError, NotFoundError } from "@/core/api/rest"
+import { getPage } from "@/core/pages"
+import { writeErrorJson, writeJson } from "@/presenter/json"
+import type { InfoboxResultItem } from "@/schemas/page"
+import { defineCommand } from "citty"
+
+export const pageInfoboxCommand = defineCommand({
+  meta: { name: "infobox", description: "LLM 生成 infobox データを取得する" },
+  args: {
+    ...commonArgs,
+    title: {
+      type: "positional",
+      description: "ページタイトル",
+      required: true,
+    },
+    "no-hallucination": {
+      type: "boolean",
+      description: "hallucination: true のアイテムを除外する",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const a = args as CommonArgs & { title: string; "no-hallucination": boolean }
+    checkSandbox("page.infobox", a)
+    const logger = buildLogger(a)
+    const project = requireProject(a)
+    const startTime = Date.now()
+
+    logger.info(`"${a.title}" の infobox を取得中...`)
+
+    try {
+      const client = await buildRestClient(a)
+      const page = await getPage(client, { project, title: a.title })
+
+      let items: InfoboxResultItem[] = page.infoboxResult ?? []
+      if (a["no-hallucination"]) {
+        items = items.filter((item) => !item.hallucination)
+      }
+
+      if (a.json || !a.plain) {
+        writeJson(
+          { infoboxResult: items },
+          { command: "page.infobox", startTime },
+          buildJsonOpts(a),
+        )
+        return
+      }
+
+      // プレーンテキスト: タイトル + Key-Value 形式で出力
+      for (const item of items) {
+        process.stdout.write(`=== ${item.title} ===\n`)
+        for (const [key, value] of Object.entries(item.infobox)) {
+          process.stdout.write(`  ${key}: ${value}\n`)
+        }
+        process.stdout.write("\n")
+      }
+    } catch (err) {
+      if (err instanceof AuthError) {
+        writeErrorJson("AUTH_ERROR", err.message, "`cos auth login` を実行してください")
+        process.exit(2)
+        throw err
+      }
+      if (err instanceof ForbiddenError) {
+        writeErrorJson("FORBIDDEN", err.message, "アクセス権限を確認してください")
+        process.exit(3)
+        throw err
+      }
+      if (err instanceof NotFoundError) {
+        writeErrorJson(
+          "NOT_FOUND",
+          err.message,
+          "ページが見つかりません。タイトルを確認してください",
+        )
+        process.exit(4)
+        throw err
+      }
+      throw err
+    }
+  },
+})
