@@ -6,6 +6,20 @@
 
 import { z } from "zod"
 
+/**
+ * InfoboxResultItem は LLM が生成した infobox の 1 件分のデータ。
+ *
+ * hallucination が true の場合、LLM が幻覚した可能性がある。
+ * truncated が true の場合、出力が切り捨てられている。
+ */
+export const InfoboxResultItemSchema = z.object({
+  title: z.string(),
+  infobox: z.record(z.string(), z.string()),
+  hallucination: z.boolean(),
+  truncated: z.boolean(),
+})
+export type InfoboxResultItem = z.infer<typeof InfoboxResultItemSchema>
+
 /** Line は Cosense ページの 1 行を表す。 */
 export const LineSchema = z.object({
   id: z.string(),
@@ -77,6 +91,12 @@ export const PageSchema = z.object({
       hasBackLinks: z.boolean().optional(),
     })
     .optional(),
+  /** table:infobox 記法の行データ */
+  infoboxDefinition: z.array(z.string()).optional(),
+  /** LLM が生成した infobox の結果一覧 */
+  infoboxResult: z.array(InfoboxResultItemSchema).optional(),
+  /** infobox でリンクを無効化するページタイトル一覧 */
+  infoboxDisableLinks: z.array(z.string()).optional(),
 })
 export type Page = z.infer<typeof PageSchema>
 
