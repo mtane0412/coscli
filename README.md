@@ -118,38 +118,61 @@ cos page list           ページ一覧を取得
 cos page get            ページ本文を取得
 cos page text           ページのテキスト (コードブロックなし) を取得
 cos page context        ページ起点の Smart Context (リンク先本文) を取得
+cos page infobox        LLM 生成 infobox データを取得
 cos page code           ページのコードブロックを取得
+cos page table          ページ内のテーブルを CSV で取得
 cos page url            ページの URL を表示
+cos page icon           ページアイコン取得 URL を生成する (API 呼び出しなし)
 cos page new            ページを作成
 cos page edit           ページを編集 (楽観ロック付き)
 cos page append         ページ末尾に行を追記
+cos page prepend        ページ先頭 (タイトル直後) に行を挿入
+cos page insert         指定行の後ろに行を挿入 (--after <n>)
+cos page rename         ページタイトルを変更
+cos page pin            ページをピン留め
+cos page unpin          ページのピン留めを解除
+cos page watch          ページ更新をリアルタイム監視 (WebSocket)
+cos page history        コミット履歴を取得
 cos page delete         ページを削除
 
 cos page line get       指定行または範囲を取得
 cos page line replace   指定行または範囲を置換 (rm エイリアスあり)
 cos page line delete    指定行または範囲を削除
 
+cos page snapshot list  スナップショット一覧を取得
+cos page snapshot get   特定スナップショットを取得
+
 cos project list    参加プロジェクト一覧を取得
 cos project info    プロジェクト情報を取得
 cos project stream  プロジェクトの最近更新フィードを取得 (--watch でポーリング監視)
+cos project graph   ページ間リンクをグラフとして export する (DOT / JSON / TSV)
+cos project search  参加プロジェクト全体を横断してプロジェクトを検索する
 
-cos search        全文検索
+cos search          全文検索 (--vector でベクトル検索)
 
-cos auth login    認証ログイン
-cos auth logout   ログアウト
-cos auth whoami   現在のログインユーザーを表示
+cos auth login              認証ログイン
+cos auth logout             ログアウト
+cos auth whoami             現在のログインユーザーを表示
+cos auth service-account    Service Account キー管理 (add / delete / list)
 
 cos config get    設定値を取得
 cos config set    設定値を保存
 cos config path   設定ファイルのパスを表示
 
+cos sync pull     Cosense → ローカルへ pull する
+cos sync push     ローカル → Cosense へ push する (楽観ロック)
+cos sync diff     ローカルと Cosense の差分を表示する
+
 cos convert       Scrapbox 記法と Markdown を相互変換する
 
+cos serve         ローカル REST プロキシサーバーを起動する (AI エージェント向け)
+
+cos notation      Cosense 記法ガイドを出力する (エージェント向け)
 cos exit-codes    終了コード一覧を出力する (エージェント向け)
 cos schema        コマンド/フラグのスキーマを JSON で出力する (エージェント向け)
 ```
 
-## Markdown 変換 (v0.3)
+## Markdown 変換
 
 `@progfay/scrapbox-parser` を使って Scrapbox 記法と Markdown を相互変換します。
 
@@ -223,6 +246,34 @@ cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
 - `code:filename` のファイル名情報は ` ```filename ``` ` で保持するが、一部の Markdown パーサで認識されない可能性がある
 
 ## AI エージェント向け使い方
+
+### infobox でページ構造データを取得
+
+`cos page infobox` は Cosense の LLM 生成 infobox データを取得します。ページのキー・バリュー構造を整理した JSON が返るため、LLM が情報を効率よく参照できます。
+
+```bash
+cos page infobox "ページタイトル" --project myproject --json
+
+# hallucination フラグが立ったアイテムを除外する
+cos page infobox "ページタイトル" --project myproject --no-hallucination --json
+```
+
+### Service Account 認証 (CI / エージェント向け)
+
+対話ログインが難しい環境では、Service Account Access Key を使った認証が利用できます。
+
+```bash
+# キーを登録する (cs_ で始まる 67 文字のキー)
+cos auth service-account add --key "cs_xxxxxxxxxxxx" --project myproject
+
+# 登録済みプロジェクト一覧を確認する
+cos auth service-account list
+
+# 登録したキーを削除する
+cos auth service-account delete --project myproject
+```
+
+登録後は通常の `cos` コマンドが Service Account として動作します。複数プロファイルを使い分ける場合は `--profile` フラグを指定してください。
 
 ### Smart Context でリンク先ページの文脈を取得
 
