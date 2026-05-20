@@ -74,3 +74,49 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*
+
+  update-homebrew:
+    name: Homebrew formula の更新
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: SHA256 の計算と formula の更新
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          SHA_DARWIN_ARM64=$(sha256sum dist/cos-darwin-arm64/cos-darwin-arm64 | awk '{print $1}')
+          SHA_DARWIN_X64=$(sha256sum dist/cos-darwin-x64/cos-darwin-x64 | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum dist/cos-linux-arm64/cos-linux-arm64 | awk '{print $1}')
+          SHA_LINUX_X64=$(sha256sum dist/cos-linux-x64/cos-linux-x64 | awk '{print $1}')
+
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/mtane0412/homebrew-coscli.git
+          cd homebrew-coscli
+
+          # バージョン番号を更新 (v プレフィックスを除去)
+          sed -i "s/version \"[^\"]*\"/version \"${VERSION#v}\"/" Formula/coscli.rb
+
+          # URL パターンにマッチした次の sha256 行を書き換える関数
+          update_sha() {
+            local pattern="$1" sha="$2"
+            awk -v p="$pattern" -v s="$sha" '
+              $0 ~ p { found=1 }
+              found && /sha256/ { sub(/"[^"]*"/, "\"" s "\""); found=0 }
+              { print }
+            ' Formula/coscli.rb > Formula/coscli.rb.tmp && mv Formula/coscli.rb.tmp Formula/coscli.rb
+          }
+
+          update_sha "cos-darwin-arm64" "$SHA_DARWIN_ARM64"
+          update_sha "cos-darwin-x64"   "$SHA_DARWIN_X64"
+          update_sha "cos-linux-arm64"  "$SHA_LINUX_ARM64"
+          update_sha "cos-linux-x64"    "$SHA_LINUX_X64"
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git diff --exit-code && echo "変更なし、スキップ" && exit 0
+          git commit -am "chore: bump to ${VERSION}"
+          git push
