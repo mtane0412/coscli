@@ -15,6 +15,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   getRawFlagValue,
   readWriteInput,
   requireProject,
@@ -76,8 +77,7 @@ export const pageInsertCommand = defineCommand({
         `--after の値が無効です: "${rawAfter}"`,
         "1 以上の整数を指定してください (タイトル行=1)",
       )
-      process.exit(5)
-      return
+      exitWithError(5, "VALIDATION_ERROR")
     }
     const afterN = Number.parseInt(rawAfter, 10)
 
@@ -96,8 +96,7 @@ export const pageInsertCommand = defineCommand({
       // insertIntoPage 内部の範囲外エラーのみ VALIDATION_ERROR として報告し、それ以外は再スロー
       if (err instanceof Error && err.message.startsWith("--after の値が範囲外です")) {
         writeErrorJson("VALIDATION_ERROR", err.message)
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
       throw err
     }

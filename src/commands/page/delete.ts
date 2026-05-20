@@ -19,6 +19,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { deletePage } from "@/core/pages"
@@ -77,8 +78,7 @@ export const pageDeleteCommand = defineCommand({
           "非対話モードでは --force (-y) フラグが必要です",
           "--no-input / non-TTY / COS_NO_INPUT=1 環境では --force を指定してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "CONFIRMATION_REQUIRED")
       }
     }
 

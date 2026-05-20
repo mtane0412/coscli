@@ -14,6 +14,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { AuthError, NotFoundError } from "@/core/api/rest"
@@ -75,8 +76,7 @@ export const projectGraphCommand = defineCommand({
         `無効な --format 値です: ${a.format}`,
         `--format には ${VALID_FORMATS.join(" / ")} のいずれかを指定してください`,
       )
-      process.exit(5)
-      return
+      exitWithError(5, "VALIDATION_ERROR")
     }
     const format = a.format as GraphFormat
 
@@ -88,8 +88,7 @@ export const projectGraphCommand = defineCommand({
         `--depth には 0 以上の整数を指定してください: ${a.depth}`,
         "例: --depth=2",
       )
-      process.exit(5)
-      return
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // --limit バリデーション
@@ -124,8 +123,7 @@ export const projectGraphCommand = defineCommand({
           "認証情報が無効です。再度ログインしてください",
           "`cos auth login` を実行してください",
         )
-        process.exit(2)
-        return
+        exitWithError(2, "AUTH_REQUIRED")
       }
       throw err
     }
@@ -143,8 +141,7 @@ export const projectGraphCommand = defineCommand({
           `ページ "${a.from}" が見つかりません`,
           "プロジェクト内に存在するページタイトルを --from に指定してください",
         )
-        process.exit(4)
-        return
+        exitWithError(4, "NOT_FOUND")
       }
       throw err
     }

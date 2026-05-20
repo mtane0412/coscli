@@ -13,6 +13,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
   requireSid,
 } from "@/commands/_shared"
@@ -113,8 +114,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
           "--rest フラグを指定してください",
           "--rest を付けて再実行してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       // 2. --port バリデーション（先頭数値のみ通す parseInt を避け、厳密な整数文字列を検証する）
@@ -131,8 +131,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
           `--port の値が無効です: ${a.port}`,
           `${PORT_MIN}〜${PORT_MAX} の整数を指定してください`,
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       // 3. sandbox チェック（プロジェクト取得より前）
@@ -154,8 +153,7 @@ export function makeServeCommand(deps: ServeDeps = {}) {
           "--host に非ループバックアドレスを指定する場合は --token が必須です",
           "--token <値> を追加して再実行してください",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "VALIDATION_ERROR")
       }
 
       // 7. sandbox ポリシー生成（ハンドラ内の二段ガード用）

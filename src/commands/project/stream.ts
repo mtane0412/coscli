@@ -21,6 +21,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   handleRestError,
   requireProject,
 } from "@/commands/_shared"
@@ -137,8 +138,7 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
             `--limit に不正な値が指定されました: "${a.limit}"`,
             "--limit には 1 以上の整数を指定してください",
           )
-          process.exit(5)
-          throw new Error("VALIDATION_ERROR")
+          exitWithError(5, "VALIDATION_ERROR")
         }
         limitOpts = { limit: limitNum }
       }
@@ -152,8 +152,7 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
             `--interval に不正な値が指定されました: "${a.interval}"`,
             "--interval には 1 以上の数値を指定してください (レート保護のため最小 1 秒)",
           )
-          process.exit(5)
-          throw new Error("VALIDATION_ERROR")
+          exitWithError(5, "VALIDATION_ERROR")
         }
         const timeoutSec = Number(a.timeout)
         if (Number.isNaN(timeoutSec) || timeoutSec < 0) {
@@ -162,8 +161,7 @@ export function makeProjectStreamCommand(deps: ProjectStreamDeps = {}) {
             `--timeout に不正な値が指定されました: "${a.timeout}"`,
             "--timeout には 0 以上の数値を指定してください",
           )
-          process.exit(5)
-          throw new Error("VALIDATION_ERROR")
+          exitWithError(5, "VALIDATION_ERROR")
         }
       }
 

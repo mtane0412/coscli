@@ -5,7 +5,13 @@
  * エージェントがコマンドを動的に探索・実行する際に使用する。
  */
 
-import { type CommonArgs, buildJsonOpts, checkSandbox, commonArgs } from "@/commands/_shared"
+import {
+  type CommonArgs,
+  buildJsonOpts,
+  checkSandbox,
+  commonArgs,
+  exitWithError,
+} from "@/commands/_shared"
 import { getRootCommand } from "@/core/cli-root"
 import { EXIT_NOT_FOUND } from "@/core/exit-codes"
 import { buildSchema, findCommandByPath } from "@/core/schema"
@@ -38,7 +44,7 @@ export const schemaCommand = defineCommand({
         `不明なコマンドです: ${cmdPath}`,
         "cos schema | jq '.subCommands[].name' で利用可能なコマンドを確認できます",
       )
-      process.exit(EXIT_NOT_FOUND)
+      exitWithError(EXIT_NOT_FOUND, "UNKNOWN_COMMAND")
     }
   },
 })

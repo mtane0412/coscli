@@ -29,6 +29,7 @@ import {
   buildLogger,
   checkSandbox,
   commonArgs,
+  exitWithError,
 } from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
 import {
@@ -124,8 +125,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           "BROWSER_SID_EXCLUSIVE",
           "--browser と --sid は同時に指定できません。どちらか一方を使用してください。",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "BROWSER_SID_EXCLUSIVE")
       }
 
       // 排他チェック: --browser と --no-input
@@ -134,8 +134,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           "BROWSER_REQUIRES_INPUT",
           "--browser フラグはブラウザでの手動ログインが必要なため --no-input と併用できません。",
         )
-        process.exit(5)
-        return
+        exitWithError(5, "BROWSER_REQUIRES_INPUT")
       }
 
       let sid: string
@@ -150,16 +149,14 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
             "INVALID_BROWSER_PORT",
             "--browser-port は 1..65535 の整数を指定してください",
           )
-          process.exit(5)
-          return
+          exitWithError(5, "INVALID_BROWSER_PORT")
         }
         if (!Number.isInteger(timeoutSec) || timeoutSec <= 0) {
           writeErrorJson(
             "INVALID_BROWSER_TIMEOUT",
             "--browser-timeout は 1 以上の整数秒を指定してください",
           )
-          process.exit(5)
-          return
+          exitWithError(5, "INVALID_BROWSER_TIMEOUT")
         }
         const timeoutMs = timeoutSec * 1_000
 
@@ -204,18 +201,15 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           }
           if (message.includes("BROWSER_NOT_FOUND")) {
             writeErrorJson("BROWSER_NOT_FOUND", message)
-            process.exit(5)
-            return
+            exitWithError(5, "BROWSER_NOT_FOUND")
           }
           if (message.includes("BROWSER_LOGIN_TIMEOUT")) {
             writeErrorJson("BROWSER_LOGIN_TIMEOUT", message)
-            process.exit(124)
-            return
+            exitWithError(124, "BROWSER_LOGIN_TIMEOUT")
           }
           // BROWSER_SPAWN_FAILED / CDP_CONNECT_FAILED / その他
           writeErrorJson("BROWSER_ERROR", message)
-          process.exit(1)
-          return
+          exitWithError(1, "BROWSER_ERROR")
         } finally {
           process.off("SIGINT", onSigInt)
         }
@@ -223,8 +217,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         sid = a.sid
       } else if (!a.input) {
         writeErrorJson("SID_REQUIRED", "--no-input モードでは --sid フラグが必要です")
-        process.exit(5)
-        return
+        exitWithError(5, "SID_REQUIRED")
       } else {
         // 対話入力 (ヒントを表示する)
         const { password, intro, outro, isCancel } = await import("@clack/prompts")
@@ -248,8 +241,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
       } catch (err) {
         if (err instanceof SidValidationError) {
           writeErrorJson("INVALID_SID", err.message, "有効な connect.sid を指定してください")
-          process.exit(5)
-          return
+          exitWithError(5, "INVALID_SID")
         }
         throw err
       }

@@ -186,13 +186,17 @@ describe("auth sa add", () => {
   it("プロジェクト名未指定は exit 5 で終了する", async () => {
     stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
 
-    await runSaAdd({
-      key: TEST_SA_KEY,
-      json: false,
-      quiet: false,
-      plain: false,
-      "results-only": false,
-    })
+    try {
+      await runSaAdd({
+        key: TEST_SA_KEY,
+        json: false,
+        quiet: false,
+        plain: false,
+        "results-only": false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
 
     expect(exitMock).toHaveBeenCalledWith(5)
   })
@@ -200,13 +204,17 @@ describe("auth sa add", () => {
   it("キー未指定は exit 5 で終了する", async () => {
     stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
 
-    await runSaAdd({
-      project: TEST_PROJECT,
-      json: false,
-      quiet: false,
-      plain: false,
-      "results-only": false,
-    })
+    try {
+      await runSaAdd({
+        project: TEST_PROJECT,
+        json: false,
+        quiet: false,
+        plain: false,
+        "results-only": false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
 
     expect(exitMock).toHaveBeenCalledWith(5)
   })
@@ -215,14 +223,18 @@ describe("auth sa add", () => {
     stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
     const wrongKey = "cs_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
-    await runSaAdd({
-      project: TEST_PROJECT,
-      key: wrongKey,
-      json: false,
-      quiet: false,
-      plain: false,
-      "results-only": false,
-    })
+    try {
+      await runSaAdd({
+        project: TEST_PROJECT,
+        key: wrongKey,
+        json: false,
+        quiet: false,
+        plain: false,
+        "results-only": false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
 
     // 不正なキーは保存されないこと
     expect(getStoredAccounts()[TEST_PROJECT]).toBeUndefined()
@@ -265,12 +277,16 @@ describe("auth sa delete", () => {
   it("プロジェクト名未指定は exit 5 で終了する", async () => {
     stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
 
-    await runSaDelete({
-      json: false,
-      quiet: false,
-      plain: false,
-      "results-only": false,
-    })
+    try {
+      await runSaDelete({
+        json: false,
+        quiet: false,
+        plain: false,
+        "results-only": false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
 
     expect(exitMock).toHaveBeenCalledWith(5)
   })

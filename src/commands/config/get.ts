@@ -11,6 +11,7 @@ import {
   buildLogger,
   checkSandbox,
   commonArgs,
+  exitWithError,
 } from "@/commands/_shared"
 import { getConfigValue, loadConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -41,7 +42,7 @@ export const configGetCommand = defineCommand({
         `設定キー "${a.key}" が見つかりません`,
         "`cos config path` で設定ファイルのパスを確認し、直接編集してください",
       )
-      process.exit(4)
+      exitWithError(4, "KEY_NOT_FOUND")
     }
 
     if (a.json || !a.plain) {

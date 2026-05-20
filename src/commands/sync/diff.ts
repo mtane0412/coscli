@@ -11,6 +11,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { syncDiff } from "@/core/sync/engine"
@@ -58,7 +59,7 @@ export const syncDiffCommand = defineCommand({
         "同期ディレクトリが指定されていません",
         "--dir フラグか `cos config set sync.dir <path>` で同期ディレクトリを指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // <title> も --all も未指定の場合はエラー
@@ -68,7 +69,7 @@ export const syncDiffCommand = defineCommand({
         "ページタイトルまたは --all を指定してください",
         "`cos sync diff <title>` または `cos sync diff --all` で対象を指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     const client = await buildRestClient(a)
@@ -86,7 +87,7 @@ export const syncDiffCommand = defineCommand({
       } catch (err) {
         if (err instanceof FilenameInvalidError) {
           writeErrorJson("FILENAME_INVALID", err.message, "タイトルに禁則文字が含まれています")
-          process.exit(5)
+          exitWithError(5, "VALIDATION_ERROR")
         }
         throw err
       }

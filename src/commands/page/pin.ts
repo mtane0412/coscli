@@ -14,6 +14,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { pinPage } from "@/core/pages"
@@ -56,7 +57,7 @@ export const pagePinCommand = defineCommand({
             `ページ "${a.title}" が見つかりません`,
             "ページを作成してからピン留めするか、--create フラグを使用してください",
           )
-          process.exit(4)
+          exitWithError(4, "NOT_FOUND")
         }
         throw err
       }

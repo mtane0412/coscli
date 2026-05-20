@@ -17,6 +17,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   handleRestError,
   requireProject,
 } from "@/commands/_shared"
@@ -58,8 +59,7 @@ export const pageSnapshotGetCommand = defineCommand({
         "title が指定されていません",
         "ページタイトルを指定してください",
       )
-      process.exit(5)
-      throw new Error("VALIDATION_ERROR")
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // timestampId の空文字チェック
@@ -69,8 +69,7 @@ export const pageSnapshotGetCommand = defineCommand({
         "timestampId が指定されていません",
         "スナップショットの timestamp ID を指定してください",
       )
-      process.exit(5)
-      throw new Error("VALIDATION_ERROR")
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // --text と --plain の排他チェック
@@ -80,8 +79,7 @@ export const pageSnapshotGetCommand = defineCommand({
         "--text と --plain を同時に指定することはできません",
         "--text か --plain のどちらか一方を指定してください",
       )
-      process.exit(5)
-      throw new Error("VALIDATION_ERROR")
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     try {

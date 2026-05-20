@@ -7,7 +7,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs"
-import { type CommonArgs, checkSandbox, commonArgs } from "@/commands/_shared"
+import { type CommonArgs, checkSandbox, commonArgs, exitWithError } from "@/commands/_shared"
 import { type BoldStyle, type FormatKind, convert } from "@/core/format/index"
 import { writeErrorJson } from "@/presenter/json"
 import { defineCommand } from "citty"
@@ -61,7 +61,7 @@ export const convertCommand = defineCommand({
         `--from=${a.from} は無効な値です`,
         `有効な値: ${VALID_FORMATS.join(", ")}`,
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
     if (!(VALID_FORMATS as readonly string[]).includes(a.to)) {
       writeErrorJson(
@@ -69,7 +69,7 @@ export const convertCommand = defineCommand({
         `--to=${a.to} は無効な値です`,
         `有効な値: ${VALID_FORMATS.join(", ")}`,
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // 同一フォーマットエラー
@@ -79,7 +79,7 @@ export const convertCommand = defineCommand({
         `--from と --to が同じフォーマット (${a.from}) です`,
         "異なるフォーマットを指定してください",
       )
-      process.exit(5)
+      exitWithError(5, "SAME_FORMAT_ERROR")
     }
 
     // --bold-style バリデーション
@@ -89,7 +89,7 @@ export const convertCommand = defineCommand({
         `--bold-style=${a["bold-style"]} は無効な値です`,
         `有効な値: ${VALID_BOLD_STYLES.join(", ")}`,
       )
-      process.exit(5)
+      exitWithError(5, "VALIDATION_ERROR")
     }
 
     // 入力読み込み

@@ -12,6 +12,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { getSmartContext } from "@/core/pages"
@@ -51,9 +52,7 @@ export const pageContextCommand = defineCommand({
         `--hops=${a.hops} は無効な値です`,
         `有効な値: ${VALID_HOPS.join(", ")}`,
       )
-      process.exit(5)
-      // process.exit がモックされるテスト環境でも後続処理を止める (_shared.ts exitWithError と同パターン)
-      throw new Error("VALIDATION_ERROR")
+      exitWithError(5, "VALIDATION_ERROR")
     }
     const hops = hopsNum as Hops
 

@@ -24,7 +24,7 @@ import { showUsage } from "citty"
  * exitWithError は指定コードでプロセスを終了する。
  * process.exit がモックされたテスト環境でも後続処理を止めるため throw を続ける。
  */
-function exitWithError(code: number, message: string): never {
+export function exitWithError(code: number, message: string): never {
   process.exit(code)
   throw new Error(message)
 }

@@ -20,6 +20,7 @@ import {
   checkSandbox,
   commonArgs,
   dryRunArg,
+  exitWithError,
   requireProject,
 } from "@/commands/_shared"
 import { EXIT_NOT_FOUND } from "@/core/exit-codes"
@@ -74,8 +75,7 @@ export const pageRenameCommand = defineCommand({
             `"${a.title}" は実体のないページのため rename できません`,
             "cos page get で persistent の値を確認してください",
           )
-          process.exit(EXIT_NOT_FOUND)
-          return
+          exitWithError(EXIT_NOT_FOUND, "NOT_FOUND")
         }
       } catch (err) {
         const isNotFound = err instanceof Error && err.name === "NotFoundError"
@@ -85,8 +85,7 @@ export const pageRenameCommand = defineCommand({
             `ページ "${a.title}" が見つかりません`,
             "ページタイトルを確認してください",
           )
-          process.exit(EXIT_NOT_FOUND)
-          return
+          exitWithError(EXIT_NOT_FOUND, "NOT_FOUND")
         }
         throw err
       }
@@ -103,8 +102,7 @@ export const pageRenameCommand = defineCommand({
               `"${a["new-title"]}" は既に存在します`,
               "別のタイトルを指定するか、--force-fallback を使用してください",
             )
-            process.exit(5)
-            return
+            exitWithError(5, "DUPLICATE_TITLE")
           }
         } catch (err) {
           // 404 (NotFoundError) は正常: 重複なし。その他のエラーは再スロー
