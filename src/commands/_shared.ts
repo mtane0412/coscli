@@ -17,6 +17,8 @@ import { Logger } from "@/infra/logger"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson } from "@/presenter/json"
 import type { JsonOutputOptions } from "@/presenter/json"
+import type { CommandDef } from "citty"
+import { showUsage } from "citty"
 
 /**
  * exitWithError は指定コードでプロセスを終了する。
@@ -386,6 +388,16 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
     const config = loadConfig()
     const saKey = config.serviceAccounts?.[project]
     if (saKey !== undefined) {
+      try {
+        assertValidServiceAccountKey(saKey)
+      } catch {
+        writeErrorJson(
+          "INVALID_SERVICE_ACCOUNT_KEY",
+          `設定ファイルの ${project} の Service Account キーのフォーマットが不正です`,
+          "cs_ で始まる 67 文字のキーを指定してください",
+        )
+        exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+      }
       return new CosenseRestClient({ serviceAccountKey: saKey })
     }
   }
@@ -528,6 +540,19 @@ export function runNotationLint(lines: string[], args: StrictNotationArg): strin
  * - NotFoundError → exit 4, code: NOT_FOUND
  * - その他 → 何もしない (呼び出し側で再スローする想定)
  */
+/**
+ * showUsageIfNoSubCommand はサブコマンドが指定されていない場合にのみ usage を表示する。
+ * citty はサブコマンド実行後も親コマンドの run を呼ぶため、rawArgs で判定する。
+ */
+export async function showUsageIfNoSubCommand(ctx: {
+  rawArgs: string[]
+  cmd: CommandDef
+}): Promise<void> {
+  if (!ctx.rawArgs.some((a) => !a.startsWith("-"))) {
+    await showUsage(ctx.cmd)
+  }
+}
+
 export function handleRestError(
   err: unknown,
   context: { resourceKind: "page" | "project" | "snapshot"; resourceName: string },

@@ -69,15 +69,8 @@ import { exitCodesCommand } from "@/commands/exit-codes"
 import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
-import type { CommandDef } from "citty"
-import { defineCommand, showUsage } from "citty"
-
-/** showUsageIfNoSubCommand はサブコマンドが指定されていない場合にのみ usage を表示する。 */
-async function showUsageIfNoSubCommand(ctx: { rawArgs: string[]; cmd: CommandDef }) {
-  if (!ctx.rawArgs.some((a) => !a.startsWith("-"))) {
-    await showUsage(ctx.cmd)
-  }
-}
+import { showUsageIfNoSubCommand } from "@/commands/_shared"
+import { defineCommand } from "citty"
 
 /** page line サブコマンドグループ */
 export const pageLineCommand = defineCommand({
