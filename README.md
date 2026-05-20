@@ -119,6 +119,7 @@ cos page get            ページ本文を取得
 cos page text           ページのテキスト (コードブロックなし) を取得
 cos page context        ページ起点の Smart Context (リンク先本文) を取得
 cos page infobox        LLM 生成 infobox データを取得
+cos page find-infobox   infobox 定義を持つページを検索
 cos page code           ページのコードブロックを取得
 cos page table          ページ内のテーブルを CSV で取得
 cos page url            ページの URL を表示
@@ -150,7 +151,7 @@ cos project search  参加プロジェクト全体を横断してプロジェク
 
 cos search          全文検索 (--vector でベクトル検索)
 
-cos auth login              認証ログイン
+cos auth login              認証ログイン (--service-account で Service Account Access Key 認証)
 cos auth logout             ログアウト
 cos auth whoami             現在のログインユーザーを表示
 cos auth service-account    Service Account キー管理 (add / delete / list)
