@@ -17,6 +17,8 @@ import { Logger } from "@/infra/logger"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson } from "@/presenter/json"
 import type { JsonOutputOptions } from "@/presenter/json"
+import type { CommandDef } from "citty"
+import { showUsage } from "citty"
 
 /**
  * exitWithError は指定コードでプロセスを終了する。
@@ -278,6 +280,26 @@ export function assertValidSid(sid: string): void {
   }
 }
 
+// Service Account Access Key は cs_ プレフィックスと 64桁小文字16進数から構成される
+const SA_KEY_PATTERN = /^cs_[0-9a-f]{64}$/
+
+/** ServiceAccountKeyValidationError は Service Account キーのフォーマット違反を表すエラー。 */
+export class ServiceAccountKeyValidationError extends Error {
+  constructor() {
+    super(
+      "Service Account キーのフォーマットが不正です。cs_ で始まる 67 文字 (cs_ + 64 桁小文字 16 進数) を指定してください",
+    )
+    this.name = "ServiceAccountKeyValidationError"
+  }
+}
+
+/** assertValidServiceAccountKey は Service Account キーのフォーマットを検証し、違反時は ServiceAccountKeyValidationError をスローする。 */
+export function assertValidServiceAccountKey(key: string): void {
+  if (!SA_KEY_PATTERN.test(key)) {
+    throw new ServiceAccountKeyValidationError()
+  }
+}
+
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
 export async function requireSid(profile?: string): Promise<string> {
   // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
@@ -335,8 +357,52 @@ export function requireProject(args: CommonArgs): string {
   return project
 }
 
-/** buildRestClient は認証済み REST クライアントを生成する。 */
+/**
+ * buildRestClient は認証情報を解決して REST クライアントを生成する。
+ *
+ * 認証解決の優先順位:
+ * 1. COS_SERVICE_ACCOUNT_KEY 環境変数 (Service Account キー認証)
+ * 2. --project 指定時 + 設定ファイルの serviceAccounts に該当プロジェクトが存在 (Service Account キー認証)
+ * 3. SID 認証 (connect.sid Cookie)
+ */
 export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClient> {
+  // 1. 環境変数 COS_SERVICE_ACCOUNT_KEY を最優先チェック
+  const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
+  if (envKey !== undefined) {
+    try {
+      assertValidServiceAccountKey(envKey)
+    } catch {
+      writeErrorJson(
+        "INVALID_SERVICE_ACCOUNT_KEY",
+        "COS_SERVICE_ACCOUNT_KEY のフォーマットが不正です",
+        "cs_ で始まる 67 文字のキーを指定してください",
+      )
+      exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+    }
+    return new CosenseRestClient({ serviceAccountKey: envKey })
+  }
+
+  // 2. --project 指定時は設定ファイルから SA キーを検索
+  const project = args.project ?? process.env["COS_PROJECT"]
+  if (project) {
+    const config = loadConfig()
+    const saKey = config.serviceAccounts?.[project]
+    if (saKey !== undefined) {
+      try {
+        assertValidServiceAccountKey(saKey)
+      } catch {
+        writeErrorJson(
+          "INVALID_SERVICE_ACCOUNT_KEY",
+          `設定ファイルの ${project} の Service Account キーのフォーマットが不正です`,
+          "cs_ で始まる 67 文字のキーを指定してください",
+        )
+        exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+      }
+      return new CosenseRestClient({ serviceAccountKey: saKey })
+    }
+  }
+
+  // 3. SID 認証にフォールバック
   const sid = await requireSid(args.profile)
   return new CosenseRestClient({ sid })
 }
@@ -474,6 +540,21 @@ export function runNotationLint(lines: string[], args: StrictNotationArg): strin
  * - NotFoundError → exit 4, code: NOT_FOUND
  * - その他 → 何もしない (呼び出し側で再スローする想定)
  */
+/**
+ * showUsageIfNoSubCommand はサブコマンドが指定されていない場合にのみ usage を表示する。
+ * citty はサブコマンド実行後も親コマンドの run を呼ぶため、rawArgs で判定する。
+ */
+export async function showUsageIfNoSubCommand(ctx: {
+  rawArgs: string[]
+  cmd: CommandDef
+}): Promise<void> {
+  const subCommandNames = new Set(Object.keys(ctx.cmd.subCommands ?? {}))
+  const hasSubCommand = ctx.rawArgs.some((a) => subCommandNames.has(a))
+  if (!hasSubCommand) {
+    await showUsage(ctx.cmd)
+  }
+}
+
 export function handleRestError(
   err: unknown,
   context: { resourceKind: "page" | "project" | "snapshot"; resourceName: string },

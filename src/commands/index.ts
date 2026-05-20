@@ -45,6 +45,7 @@ import { searchCommand } from "@/commands/search"
 // 認証コマンド
 import { authLoginCommand } from "@/commands/auth/login"
 import { authLogoutCommand } from "@/commands/auth/logout"
+import { authSaCommand } from "@/commands/auth/service-account"
 import { authWhoamiCommand } from "@/commands/auth/whoami"
 
 // 設定コマンド
@@ -68,6 +69,7 @@ import { exitCodesCommand } from "@/commands/exit-codes"
 import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
+import { showUsageIfNoSubCommand } from "@/commands/_shared"
 import { defineCommand } from "citty"
 
 /** page line サブコマンドグループ */
@@ -79,6 +81,7 @@ export const pageLineCommand = defineCommand({
     rm: pageLineDeleteCommand,
     get: pageLineGetCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** page snapshot サブコマンドグループ */
@@ -89,6 +92,7 @@ export const pageSnapshotCommand = defineCommand({
     ls: pageSnapshotListCommand,
     get: pageSnapshotGetCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** page サブコマンドグループ */
@@ -122,6 +126,7 @@ export const pageCommand = defineCommand({
     context: pageContextCommand,
     line: pageLineCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** project サブコマンドグループ */
@@ -135,6 +140,7 @@ export const projectCommand = defineCommand({
     stream: projectStreamCommand,
     search: projectSearchCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** auth サブコマンドグループ */
@@ -145,7 +151,10 @@ export const authCommand = defineCommand({
     logout: authLogoutCommand,
     whoami: authWhoamiCommand,
     me: authWhoamiCommand,
+    sa: authSaCommand,
+    "service-account": authSaCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** config サブコマンドグループ */
@@ -156,6 +165,7 @@ export const configCommand = defineCommand({
     set: configSetCommand,
     path: configPathCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** sync サブコマンドグループ */
@@ -166,6 +176,7 @@ export const syncCommand = defineCommand({
     push: syncPushCommand,
     diff: syncDiffCommand,
   },
+  run: showUsageIfNoSubCommand,
 })
 
 /** rootSubCommands はトップレベルサブコマンドのレジストリ。 */

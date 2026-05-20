@@ -75,21 +75,31 @@ export class RateLimitError extends CosenseApiError {
   }
 }
 
-/** CosenseRestClientOptions は REST クライアントの設定オプション。 */
+/** CosenseRestClientOptions は REST クライアントの設定オプション。sid と serviceAccountKey は排他。 */
 export interface CosenseRestClientOptions {
-  /** connect.sid 値 (URLエンコード済みまたは生の値) */
-  sid: string
+  /** connect.sid 値 (Cookie ヘッダ認証)。serviceAccountKey と排他。 */
+  sid?: string
+  /** Service Account Access Key (x-service-account-access-key ヘッダ認証)。sid と排他。 */
+  serviceAccountKey?: string
   /** リクエストタイムアウト (ミリ秒、デフォルト 30000) */
   timeout?: number
 }
 
 /** CosenseRestClient は Cosense REST API を叩くクライアント。 */
 export class CosenseRestClient {
-  private readonly sid: string
+  private readonly sid: string | undefined
+  private readonly serviceAccountKey: string | undefined
   private readonly timeout: number
 
   constructor(opts: CosenseRestClientOptions) {
+    if (opts.sid === undefined && opts.serviceAccountKey === undefined) {
+      throw new Error("sid または serviceAccountKey のいずれかが必要です")
+    }
+    if (opts.sid !== undefined && opts.serviceAccountKey !== undefined) {
+      throw new Error("sid と serviceAccountKey は同時に指定できません")
+    }
     this.sid = opts.sid
+    this.serviceAccountKey = opts.serviceAccountKey
     this.timeout = opts.timeout ?? 30_000
   }
 
@@ -270,7 +280,9 @@ export class CosenseRestClient {
     const headers: Record<string, string> = {
       Accept: "application/json",
     }
-    if (this.sid) {
+    if (this.serviceAccountKey) {
+      headers["x-service-account-access-key"] = this.serviceAccountKey
+    } else if (this.sid) {
       headers["Cookie"] = `connect.sid=${this.sid}`
     }
     return headers

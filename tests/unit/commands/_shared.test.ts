@@ -8,7 +8,9 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import {
   type CommonArgs,
+  ServiceAccountKeyValidationError,
   SidValidationError,
+  assertValidServiceAccountKey,
   assertValidSid,
   buildJsonOpts,
   buildLogger,
@@ -221,6 +223,56 @@ describe("assertValidSid / SidValidationError", () => {
     expect(err).toBeInstanceOf(Error)
     expect(err.name).toBe("SidValidationError")
     expect(err.message).toContain("SID")
+  })
+})
+
+describe("assertValidServiceAccountKey / ServiceAccountKeyValidationError", () => {
+  // cs_ + 64桁16進数の有効なキー
+  const VALID_SA_KEY = "cs_0000000000000000000000000000000000000000000000000000000000000001"
+
+  it("正常な Service Account キーは検証を通過する", () => {
+    expect(() => assertValidServiceAccountKey(VALID_SA_KEY)).not.toThrow()
+  })
+
+  it("実際の形式 (cs_ + 64桁小文字16進数) のキーは検証を通過する", () => {
+    const key = "cs_8487a04cdd0be210bb369e76dc8ccfdba0c994c17ad37dd39a7bf3d05cd6046e"
+    expect(() => assertValidServiceAccountKey(key)).not.toThrow()
+  })
+
+  it("空文字列は ServiceAccountKeyValidationError をスローする", () => {
+    expect(() => assertValidServiceAccountKey("")).toThrow(ServiceAccountKeyValidationError)
+  })
+
+  it("cs_ プレフィックスがない場合は ServiceAccountKeyValidationError をスローする", () => {
+    const keyWithoutPrefix = "0000000000000000000000000000000000000000000000000000000000000001"
+    expect(() => assertValidServiceAccountKey(keyWithoutPrefix)).toThrow(
+      ServiceAccountKeyValidationError,
+    )
+  })
+
+  it("64桁より短い16進数は ServiceAccountKeyValidationError をスローする", () => {
+    const shortKey = "cs_000000000000000000000000000000000000000000000000000000000000001"
+    expect(() => assertValidServiceAccountKey(shortKey)).toThrow(ServiceAccountKeyValidationError)
+  })
+
+  it("64桁より長い16進数は ServiceAccountKeyValidationError をスローする", () => {
+    const longKey = "cs_00000000000000000000000000000000000000000000000000000000000000001"
+    expect(() => assertValidServiceAccountKey(longKey)).toThrow(ServiceAccountKeyValidationError)
+  })
+
+  it("大文字16進数を含む場合は ServiceAccountKeyValidationError をスローする", () => {
+    const upperKey = "cs_0000000000000000000000000000000000000000000000000000000000000001".replace(
+      "0001",
+      "000A",
+    )
+    expect(() => assertValidServiceAccountKey(upperKey)).toThrow(ServiceAccountKeyValidationError)
+  })
+
+  it("ServiceAccountKeyValidationError は Error を継承し分かりやすいメッセージを持つ", () => {
+    const err = new ServiceAccountKeyValidationError()
+    expect(err).toBeInstanceOf(Error)
+    expect(err.name).toBe("ServiceAccountKeyValidationError")
+    expect(err.message).toContain("cs_")
   })
 })
 

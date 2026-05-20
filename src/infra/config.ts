@@ -55,6 +55,11 @@ export const CoscliConfigSchema = z.object({
   defaultProject: z.string().optional(),
   defaultProfile: z.string().optional(),
   /**
+   * プロジェクト名をキー、Service Account Access Key を値とするマップ。
+   * `cos auth sa add` で登録し `buildRestClient` が自動参照する。
+   */
+  serviceAccounts: z.record(z.string(), z.string()).optional(),
+  /**
    * projects に未列挙のプロジェクトへの既定権限プリセット。
    * プロジェクト指定時のみ適用される (プロジェクト未指定コマンドには無効)。
    * 未設定: 全コマンド許可 (後方互換)。
