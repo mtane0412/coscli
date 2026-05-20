@@ -11,7 +11,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -66,7 +65,6 @@ export const projectGraphCommand = defineCommand({
     }
 
     checkSandbox("project.graph", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -108,8 +106,6 @@ export const projectGraphCommand = defineCommand({
         return
       }
     }
-
-    logger.info(`プロジェクト "${project}" のリンクグラフを取得中...`)
 
     const client = await buildRestClient(a)
 

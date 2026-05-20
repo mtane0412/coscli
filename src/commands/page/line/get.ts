@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -44,7 +43,6 @@ export const pageLineGetCommand = defineCommand({
       range?: string
     }
     checkSandbox("page.line.get", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -66,8 +64,6 @@ export const pageLineGetCommand = defineCommand({
       }
       throw err
     }
-
-    logger.info(`"${a.title}" の ${start}〜${end} 行目を取得中...`)
 
     const client = await buildRestClient(a)
     const result = await getLineRange(client, {

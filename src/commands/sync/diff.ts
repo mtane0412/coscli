@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -47,7 +46,6 @@ export const syncDiffCommand = defineCommand({
     }
 
     checkSandbox("sync.diff", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -94,7 +92,6 @@ export const syncDiffCommand = defineCommand({
       }
     } else {
       // --all: プロジェクト全ページの diff (ページネーションで全件取得)
-      logger.info(`${project} の全ページの差分を確認中...`)
       const allPages = []
       let skip = 0
       const pageLimit = 100

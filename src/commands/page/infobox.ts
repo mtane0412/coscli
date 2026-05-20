@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -38,11 +37,8 @@ export const pageInfoboxCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string; "no-hallucination": boolean }
     checkSandbox("page.infobox", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
-
-    logger.info(`"${a.title}" の infobox を取得中...`)
 
     try {
       const client = await buildRestClient(a)

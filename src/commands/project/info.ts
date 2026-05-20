@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -31,11 +30,8 @@ export const projectInfoCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { name?: string }
     checkSandbox("project.info", a)
-    const logger = buildLogger(a)
     const project = a.name ?? requireProject(a)
     const startTime = Date.now()
-
-    logger.info(`プロジェクト "${project}" の情報を取得中...`)
 
     const client = await buildRestClient(a)
     const info = await client.getProject(project)

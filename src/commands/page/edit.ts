@@ -135,8 +135,6 @@ export const pageEditCommand = defineCommand({
 
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" を編集中...`)
-
     const writer = await buildWriter(a)
     let result: Awaited<ReturnType<typeof editPage>>
     try {

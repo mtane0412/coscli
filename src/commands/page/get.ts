@@ -7,7 +7,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -30,11 +29,8 @@ export const pageGetCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string }
     checkSandbox("page.get", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
-
-    logger.info(`"${a.title}" を取得中...`)
 
     const client = await buildRestClient(a)
     const page = await getPage(client, { project, title: a.title })

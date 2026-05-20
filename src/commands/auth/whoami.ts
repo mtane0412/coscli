@@ -7,13 +7,7 @@
  * セキュリティ: csrfToken は --json 出力から除外する。(issue #89)
  */
 
-import {
-  type CommonArgs,
-  buildJsonOpts,
-  buildLogger,
-  checkSandbox,
-  commonArgs,
-} from "@/commands/_shared"
+import { type CommonArgs, buildJsonOpts, checkSandbox, commonArgs } from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
 import { loadSession } from "@/core/auth/session"
 import type { TokenStore } from "@/core/auth/store"
@@ -38,7 +32,6 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
     async run({ args }) {
       const a = args as CommonArgs
       checkSandbox("auth.whoami", a)
-      const logger = buildLogger(a)
       const startTime = Date.now()
 
       const store = createStore()
@@ -51,8 +44,6 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
         )
         process.exit(2)
       }
-
-      logger.info("ユーザー情報を取得中...")
 
       const client = new CosenseRestClient({ sid })
       const me = await client.getMe()

@@ -67,8 +67,6 @@ export const pageNewCommand = defineCommand({
     })
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" を作成中...`)
-
     const writer = await buildWriter(a)
     const result = await createPage(writer, { project, title: a.title, lines })
 

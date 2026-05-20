@@ -11,7 +11,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -65,7 +64,6 @@ export const pageTextCommand = defineCommand({
       "body-only": boolean
     }
     checkSandbox("page.text", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -91,8 +89,6 @@ export const pageTextCommand = defineCommand({
       )
       process.exit(5)
     }
-
-    logger.info(`"${a.title}" のテキストを取得中...`)
 
     const client = await buildRestClient(a)
     const rawText = await getPageText(client, { project, title: a.title })

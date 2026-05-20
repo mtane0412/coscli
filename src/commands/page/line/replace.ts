@@ -112,8 +112,6 @@ export const pageLineReplaceCommand = defineCommand({
     )
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" の ${start}〜${end} 行目を置換中...`)
-
     const writer = await buildWriter(a)
     let result: Awaited<ReturnType<typeof replaceLinesInPage>> | undefined
     try {

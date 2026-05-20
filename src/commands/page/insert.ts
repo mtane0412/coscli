@@ -88,8 +88,6 @@ export const pageInsertCommand = defineCommand({
     })
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" の ${afterN} 行目の後ろに挿入中...`)
-
     const writer = await buildWriter(a)
     let result: Awaited<ReturnType<typeof insertIntoPage>> | undefined
     try {

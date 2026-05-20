@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -33,7 +32,6 @@ export const pageSnapshotListCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string }
     checkSandbox("page.snapshot.list", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -47,8 +45,6 @@ export const pageSnapshotListCommand = defineCommand({
       process.exit(5)
       throw new Error("VALIDATION_ERROR")
     }
-
-    logger.info(`"${a.title}" のスナップショット一覧を取得中...`)
 
     try {
       const client = await buildRestClient(a)

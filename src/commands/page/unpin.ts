@@ -36,8 +36,6 @@ export const pageUnpinCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
-    logger.info(`"${a.title}" のピン留めを解除中...`)
-
     const writer = await buildWriter(a)
     const result = await unpinPage(writer, { project, title: a.title })
 

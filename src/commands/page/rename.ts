@@ -114,8 +114,6 @@ export const pageRenameCommand = defineCommand({
       }
     }
 
-    logger.info(`"${a.title}" を "${a["new-title"]}" に変更中...`)
-
     const writer = await buildWriter(a)
     const result = await renamePage(writer, {
       project,

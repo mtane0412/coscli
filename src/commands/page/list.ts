@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -39,11 +38,8 @@ export const pageListCommand = defineCommand({
   async run({ args }) {
     const commonArgs = args as CommonArgs & { limit?: string; skip?: string; sort?: string }
     checkSandbox("page.list", commonArgs)
-    const logger = buildLogger(commonArgs)
     const project = requireProject(commonArgs)
     const startTime = Date.now()
-
-    logger.info(`${project} のページ一覧を取得中...`)
 
     const listOpts: { project: string; limit?: number; skip?: number; sort?: string } = { project }
 

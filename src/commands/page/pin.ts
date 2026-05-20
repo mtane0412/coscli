@@ -62,8 +62,6 @@ export const pagePinCommand = defineCommand({
       }
     }
 
-    logger.info(`"${a.title}" をピン留め中...`)
-
     const writer = await buildWriter(a)
     const result = await pinPage(writer, { project, title: a.title, create: a.create })
 

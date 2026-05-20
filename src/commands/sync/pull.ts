@@ -96,7 +96,6 @@ export const syncPullCommand = defineCommand({
 
     if (a.title) {
       // 単一ページの pull
-      logger.info(`"${a.title}" を pull 中...`)
       try {
         const result = await syncPull(client, syncDir, project, a.title, { dryRun })
         if (a.json || !a.plain) {
@@ -119,7 +118,6 @@ export const syncPullCommand = defineCommand({
       }
     } else {
       // --all: プロジェクト全ページを一括 pull (ページネーションで全件取得)
-      logger.info(`${project} の全ページを pull 中...`)
       const allPages = []
       let skip = 0
       const pageLimit = 100
