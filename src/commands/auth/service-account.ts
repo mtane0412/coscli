@@ -35,10 +35,7 @@ export interface AuthSaCommandDeps {
   configPath?: string
 }
 
-/**
- * createAuthSaAddCommand は auth sa add コマンド定義を返すファクトリ。
- * deps を省略した場合は本番実装を使用する。
- */
+/** createAuthSaAddCommand は auth sa add コマンド定義を返すファクトリ。deps を省略した場合は本番実装を使用する。 */
 export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
   const getConfigPath = () => deps.configPath ?? defaultConfigPath()
 
@@ -138,10 +135,7 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
   })
 }
 
-/**
- * createAuthSaDeleteCommand は auth sa delete コマンド定義を返すファクトリ。
- * deps を省略した場合は本番実装を使用する。
- */
+/** createAuthSaDeleteCommand は auth sa delete コマンド定義を返すファクトリ。deps を省略した場合は本番実装を使用する。 */
 export function createAuthSaDeleteCommand(deps: AuthSaCommandDeps = {}) {
   const getConfigPath = () => deps.configPath ?? defaultConfigPath()
 
@@ -184,10 +178,7 @@ export function createAuthSaDeleteCommand(deps: AuthSaCommandDeps = {}) {
   })
 }
 
-/**
- * createAuthSaListCommand は auth sa list コマンド定義を返すファクトリ。
- * deps を省略した場合は本番実装を使用する。
- */
+/** createAuthSaListCommand は auth sa list コマンド定義を返すファクトリ。deps を省略した場合は本番実装を使用する。 */
 export function createAuthSaListCommand(deps: AuthSaCommandDeps = {}) {
   const getConfigPath = () => deps.configPath ?? defaultConfigPath()
 
@@ -221,10 +212,7 @@ export function createAuthSaListCommand(deps: AuthSaCommandDeps = {}) {
   })
 }
 
-/**
- * createAuthSaCommand は auth sa コマンドグループ定義を返すファクトリ。
- * deps を省略した場合は本番実装を使用する。
- */
+/** createAuthSaCommand は auth sa コマンドグループ定義を返すファクトリ。deps を省略した場合は本番実装を使用する。 */
 export function createAuthSaCommand(deps: AuthSaCommandDeps = {}) {
   return defineCommand({
     meta: { name: "sa", description: "Service Account キー管理コマンド" },

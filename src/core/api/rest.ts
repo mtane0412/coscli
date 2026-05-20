@@ -95,6 +95,9 @@ export class CosenseRestClient {
     if (opts.sid === undefined && opts.serviceAccountKey === undefined) {
       throw new Error("sid または serviceAccountKey のいずれかが必要です")
     }
+    if (opts.sid !== undefined && opts.serviceAccountKey !== undefined) {
+      throw new Error("sid と serviceAccountKey は同時に指定できません")
+    }
     this.sid = opts.sid
     this.serviceAccountKey = opts.serviceAccountKey
     this.timeout = opts.timeout ?? 30_000

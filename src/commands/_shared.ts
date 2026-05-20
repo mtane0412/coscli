@@ -548,7 +548,9 @@ export async function showUsageIfNoSubCommand(ctx: {
   rawArgs: string[]
   cmd: CommandDef
 }): Promise<void> {
-  if (!ctx.rawArgs.some((a) => !a.startsWith("-"))) {
+  const subCommandNames = new Set(Object.keys(ctx.cmd.subCommands ?? {}))
+  const hasSubCommand = ctx.rawArgs.some((a) => subCommandNames.has(a))
+  if (!hasSubCommand) {
     await showUsage(ctx.cmd)
   }
 }
