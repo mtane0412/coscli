@@ -13,8 +13,15 @@ import {
   PageSchema,
   SearchResultSchema,
   TitleSearchResultSchema,
+  VectorSearchResultSchema,
 } from "@/schemas/page"
-import type { Page, PageListResponse, SearchResult, TitleSearchResult } from "@/schemas/page"
+import type {
+  Page,
+  PageListResponse,
+  SearchResult,
+  TitleSearchResult,
+  VectorSearchResult,
+} from "@/schemas/page"
 import {
   ProjectListResponseSchema,
   ProjectSchema,
@@ -208,6 +215,15 @@ export class CosenseRestClient {
     const data = await response.json()
     const pages = z.array(TitleSearchResultSchema).parse(data)
     return { pages, followingId: response.headers.get("X-following-id") ?? undefined }
+  }
+
+  /** searchVectorTitles は /api/pages/:project/search/vector/titles を叩いてベクトル検索でページタイトル一覧を返す。 */
+  async searchVectorTitles(project: string, query: string): Promise<VectorSearchResult> {
+    const params = new URLSearchParams({ q: query })
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/pages/${encodeURIComponent(project)}/search/vector/titles?${params.toString()}`,
+    )
+    return VectorSearchResultSchema.parse(data)
   }
 
   /** getProject は /api/projects/:project を叩いてプロジェクト情報を返す。 */

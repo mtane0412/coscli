@@ -131,3 +131,32 @@ export const TitleSearchResultSchema = z.object({
   image: z.string().nullable().optional(),
 })
 export type TitleSearchResult = z.infer<typeof TitleSearchResultSchema>
+
+/**
+ * VectorTitleSearchResult は /api/pages/:project/search/vector/titles のページ要素。
+ *
+ * exists: true のページは id・views・created・updated 等が付与される。
+ * exists: false はタイトルは存在するが当プロジェクトに未作成のページ。
+ */
+export const VectorTitleSearchResultSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  image: z.string().nullable().optional(),
+  /** ベクトル類似度スコア (0〜1、高いほど類似) */
+  score: z.number(),
+  exists: z.boolean().optional(),
+  views: z.number().optional(),
+  linked: z.number().optional(),
+  created: z.number().optional(),
+  updated: z.number().optional(),
+  pageRank: z.number().optional(),
+  linesCount: z.number().optional(),
+  charsCount: z.number().optional(),
+})
+export type VectorTitleSearchResult = z.infer<typeof VectorTitleSearchResultSchema>
+
+/** VectorSearchResult は /api/pages/:project/search/vector/titles のレスポンス全体。 */
+export const VectorSearchResultSchema = z.object({
+  pages: z.array(VectorTitleSearchResultSchema),
+})
+export type VectorSearchResult = z.infer<typeof VectorSearchResultSchema>

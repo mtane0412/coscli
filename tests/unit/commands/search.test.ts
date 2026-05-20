@@ -1,7 +1,7 @@
 /**
  * search.test.ts — `cos search` コマンドのテスト。
  *
- * プロジェクト内のページをキーワード検索する動作を検証する。
+ * キーワード検索 (デフォルト) およびベクトル検索 (--vector) の動作を検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -18,10 +18,19 @@ const SEARCH_PAGES_FIXTURE = {
   ],
 }
 
+/** VectorSearchResult の最小限フィクスチャ */
+const VECTOR_SEARCH_FIXTURE = {
+  pages: [
+    { id: "page-id-1", title: "ベクトル類似ページA", score: 0.95, exists: true },
+    { title: "ベクトル類似ページB", score: 0.87, exists: false },
+  ],
+}
+
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
 let searchPagesSpy: ReturnType<typeof spyOn>
+let searchVectorTitlesSpy: ReturnType<typeof spyOn>
 
 /** コマンド run ヘルパー */
 async function runSearch(args: Record<string, unknown>) {
@@ -45,6 +54,7 @@ function baseArgs(overrides: Record<string, unknown> = {}) {
     project: "テストプロジェクト",
     json: false,
     plain: false,
+    vector: false,
     "results-only": false,
     quiet: true,
     ...overrides,
@@ -63,6 +73,10 @@ beforeEach(() => {
   searchPagesSpy = spyOn(CosenseRestClient.prototype, "searchPages").mockResolvedValue(
     SEARCH_PAGES_FIXTURE as never,
   )
+  searchVectorTitlesSpy = spyOn(
+    CosenseRestClient.prototype,
+    "searchVectorTitles",
+  ).mockResolvedValue(VECTOR_SEARCH_FIXTURE as never)
 })
 
 afterEach(() => {
@@ -70,25 +84,61 @@ afterEach(() => {
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
   searchPagesSpy.mockRestore()
+  searchVectorTitlesSpy.mockRestore()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
 
 describe("searchCommand", () => {
-  it("searchPages が呼ばれ title 一覧を改行区切りで出力する", async () => {
-    await runSearch(baseArgs())
-    expect(searchPagesSpy).toHaveBeenCalledTimes(1)
-    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
-    expect(output).toContain("Hello World")
-    expect(output).toContain("Helloと挨拶")
+  describe("キーワード検索 (デフォルト)", () => {
+    it("searchPages が呼ばれ title 一覧を改行区切りで出力する", async () => {
+      await runSearch(baseArgs())
+      expect(searchPagesSpy).toHaveBeenCalledTimes(1)
+      expect(searchVectorTitlesSpy).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("Hello World")
+      expect(output).toContain("Helloと挨拶")
+    })
+
+    it("--project 未指定かつ COS_PROJECT 未設定は PROJECT_REQUIRED で exit 5 になる", async () => {
+      try {
+        await runSearch({ ...baseArgs(), project: undefined })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("PROJECT_REQUIRED"))
+    })
   })
 
-  it("--project 未指定かつ COS_PROJECT 未設定は PROJECT_REQUIRED で exit 5 になる", async () => {
-    try {
-      await runSearch({ ...baseArgs(), project: undefined })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("PROJECT_REQUIRED"))
+  describe("ベクトル検索 (--vector)", () => {
+    it("--vector 指定時は searchVectorTitles が呼ばれ title 一覧を出力する", async () => {
+      await runSearch(baseArgs({ vector: true }))
+      expect(searchVectorTitlesSpy).toHaveBeenCalledTimes(1)
+      expect(searchPagesSpy).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("ベクトル類似ページA")
+      expect(output).toContain("ベクトル類似ページB")
+    })
+
+    it("--vector --json で pages 配列と score を含む JSON envelope を出力する", async () => {
+      await runSearch(baseArgs({ vector: true, json: true }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      const parsed = JSON.parse(output)
+      expect(parsed.meta.command).toBe("search")
+      expect(parsed.data.pages).toHaveLength(2)
+      expect(parsed.data.pages[0].score).toBe(0.95)
+    })
+
+    it("クエリとプロジェクトが API に正しく渡される", async () => {
+      await runSearch(baseArgs({ vector: true, query: "意味的類似ページ" }))
+      expect(searchVectorTitlesSpy).toHaveBeenCalledWith("テストプロジェクト", "意味的類似ページ")
+    })
+
+    it("--limit を指定するとクライアント側で件数を切り詰める", async () => {
+      await runSearch(baseArgs({ vector: true, limit: "1" }))
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("ベクトル類似ページA")
+      expect(output).not.toContain("ベクトル類似ページB")
+    })
   })
 })
