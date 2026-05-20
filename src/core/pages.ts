@@ -301,3 +301,41 @@ export async function pinPage(
 export async function unpinPage(writer: ScrapboxWriter, opts: { project: string; title: string }) {
   return writer.unpinPage({ project: opts.project, title: opts.title })
 }
+
+/** INFOBOX_TABLE_HEADERS は infobox 定義として有効なテーブルヘッダ名。 */
+const INFOBOX_TABLE_HEADERS = new Set(["table:infobox", "table:cosense"])
+
+/** findInfoboxPages は table:infobox または table:cosense を持つページ一覧を返す。 */
+export async function findInfoboxPages(
+  client: CosenseRestClient,
+  opts: { project: string; limit?: number },
+) {
+  const { project, limit } = opts
+  const [infoboxResult, cosenseResult] = await Promise.all([
+    client.searchPages(project, "table:infobox"),
+    client.searchPages(project, "table:cosense"),
+  ])
+
+  // 同一 id のページは lines をマージしてから dedup する
+  // 先にフィルタすると片方がインラインコード記法ヒットでも もう片方の正当な lines が失われるため
+  const seen = new Map<string, (typeof infoboxResult.pages)[number]>()
+  for (const page of [...infoboxResult.pages, ...cosenseResult.pages]) {
+    const existing = seen.get(page.id)
+    if (!existing) {
+      seen.set(page.id, page)
+      continue
+    }
+    seen.set(page.id, {
+      ...existing,
+      lines: [...new Set([...(existing.lines ?? []), ...(page.lines ?? [])])],
+    })
+  }
+
+  // lines にテーブルヘッダ行が含まれるページのみ残す
+  // タイトル行がヒットしただけのページ（例: タイトルが "table:infobox" のページ）は除外する
+  const pages = [...seen.values()].filter((page) =>
+    page.lines?.some((line) => INFOBOX_TABLE_HEADERS.has(line) && line !== page.title),
+  )
+
+  return limit !== undefined ? pages.slice(0, limit) : pages
+}
