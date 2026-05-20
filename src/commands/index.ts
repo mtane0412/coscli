@@ -45,6 +45,7 @@ import { searchCommand } from "@/commands/search"
 // 認証コマンド
 import { authLoginCommand } from "@/commands/auth/login"
 import { authLogoutCommand } from "@/commands/auth/logout"
+import { authSaCommand } from "@/commands/auth/service-account"
 import { authWhoamiCommand } from "@/commands/auth/whoami"
 
 // 設定コマンド
@@ -145,6 +146,8 @@ export const authCommand = defineCommand({
     logout: authLogoutCommand,
     whoami: authWhoamiCommand,
     me: authWhoamiCommand,
+    sa: authSaCommand,
+    "service-account": authSaCommand,
   },
 })
 

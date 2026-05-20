@@ -4,7 +4,7 @@
  * msw でモックサーバーを立て、REST クライアントの動作を検証する。
  */
 
-import { describe, expect, it } from "bun:test"
+import { beforeEach, describe, expect, it } from "bun:test"
 import { CosenseApiError, CosenseRestClient, NotFoundError } from "@/core/api/rest"
 import { http, HttpResponse } from "msw"
 import { useMswServer } from "../../../helpers/msw"
@@ -457,6 +457,56 @@ describe("CosenseRestClient", () => {
       await expect(
         client.getSnapshot(TEST_PROJECT, "page-id-hello", "1700000000-snap2"),
       ).rejects.toThrow()
+    })
+  })
+
+  describe("Service Account 認証", () => {
+    // テスト用 SA キー (cs_ + 64桁16進数)
+    const TEST_SA_KEY = "cs_0000000000000000000000000000000000000000000000000000000000000001"
+    const SA_PROJECT = "sa-test-project"
+
+    beforeEach(() => {
+      // SA キー認証専用ハンドラーを追加する (afterEach でリセットされるため毎回登録する)
+      server.use(
+        http.get(`${BASE_URL}/api/pages/${encodeURIComponent(SA_PROJECT)}`, ({ request }) => {
+          const saKey = request.headers.get("x-service-account-access-key")
+          if (saKey !== TEST_SA_KEY) {
+            return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+          }
+          return HttpResponse.json({ ...pageListFixture, projectName: SA_PROJECT })
+        }),
+      )
+    })
+
+    it("serviceAccountKey を指定すると x-service-account-access-key ヘッダが送信され Cookie は送信されない", async () => {
+      // ハンドラー内でヘッダー内容を検証し、正しければ saKeyCorrect / noCookie を true にする
+      let saKeyCorrect = false
+      let noCookie = false
+
+      server.use(
+        http.get(`${BASE_URL}/api/pages/sa-header-check`, ({ request }) => {
+          saKeyCorrect = request.headers.get("x-service-account-access-key") === TEST_SA_KEY
+          noCookie = request.headers.get("Cookie") === null
+          return HttpResponse.json({ ...pageListFixture, projectName: "sa-header-check" })
+        }),
+      )
+
+      const client = new CosenseRestClient({ serviceAccountKey: TEST_SA_KEY })
+      await client.listPages("sa-header-check")
+
+      expect(saKeyCorrect).toBe(true)
+      // SA キー認証時は Cookie ヘッダを送信しないこと
+      expect(noCookie).toBe(true)
+    })
+
+    it("serviceAccountKey で認証するとページ一覧を取得できる", async () => {
+      const client = new CosenseRestClient({ serviceAccountKey: TEST_SA_KEY })
+      const result = await client.listPages(SA_PROJECT)
+      expect(result.pages).toHaveLength(2)
+    })
+
+    it("sid と serviceAccountKey の両方を省略するとエラーをスローする", () => {
+      expect(() => new CosenseRestClient({})).toThrow()
     })
   })
 })
