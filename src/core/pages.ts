@@ -301,3 +301,42 @@ export async function pinPage(
 export async function unpinPage(writer: ScrapboxWriter, opts: { project: string; title: string }) {
   return writer.unpinPage({ project: opts.project, title: opts.title })
 }
+
+/** INFOBOX_TABLE_HEADERS は infobox 定義として有効なテーブルヘッダ名。 */
+const INFOBOX_TABLE_HEADERS = new Set(["table:infobox", "table:cosense"])
+
+/**
+ * findInfoboxPages は table:infobox または table:cosense を持つページ一覧を返す。
+ *
+ * 2クエリ（table:infobox / table:cosense）を並列検索してマージし、id で重複除去する。
+ * 検索結果の lines フィールドを検証し、以下の誤ヒットを除外する:
+ * - タイトルが "table:infobox" / "table:cosense" のページ（記法説明ページなど）
+ * - インラインコード記法（`table:infobox`）で言及するだけのページ
+ * limit 指定時はフィルタリング後に最終切り詰めを行う。
+ */
+export async function findInfoboxPages(
+  client: CosenseRestClient,
+  opts: { project: string; limit?: number },
+) {
+  const { project, limit } = opts
+  const [infoboxResult, cosenseResult] = await Promise.all([
+    client.searchPages(project, "table:infobox"),
+    client.searchPages(project, "table:cosense"),
+  ])
+
+  // id をキーに Map へ追加することで重複を除去する
+  const seen = new Map<string, (typeof infoboxResult.pages)[number]>()
+  for (const page of [...infoboxResult.pages, ...cosenseResult.pages]) {
+    if (!seen.has(page.id)) {
+      seen.set(page.id, page)
+    }
+  }
+
+  // lines にテーブルヘッダ行が含まれるページのみ残す
+  // タイトル行がヒットしただけのページ（例: タイトルが "table:infobox" のページ）は除外する
+  const pages = [...seen.values()].filter((page) =>
+    page.lines?.some((line) => INFOBOX_TABLE_HEADERS.has(line) && line !== page.title),
+  )
+
+  return limit !== undefined ? pages.slice(0, limit) : pages
+}
