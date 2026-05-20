@@ -69,7 +69,15 @@ import { exitCodesCommand } from "@/commands/exit-codes"
 import { notationGuideCommand } from "@/commands/notation/guide"
 import { schemaCommand } from "@/commands/schema"
 
+import type { CommandDef } from "citty"
 import { defineCommand, showUsage } from "citty"
+
+/** showUsageIfNoSubCommand はサブコマンドが指定されていない場合にのみ usage を表示する。 */
+async function showUsageIfNoSubCommand(ctx: { rawArgs: string[]; cmd: CommandDef }) {
+  if (!ctx.rawArgs.some((a) => !a.startsWith("-"))) {
+    await showUsage(ctx.cmd)
+  }
+}
 
 /** page line サブコマンドグループ */
 export const pageLineCommand = defineCommand({
@@ -80,9 +88,7 @@ export const pageLineCommand = defineCommand({
     rm: pageLineDeleteCommand,
     get: pageLineGetCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** page snapshot サブコマンドグループ */
@@ -93,9 +99,7 @@ export const pageSnapshotCommand = defineCommand({
     ls: pageSnapshotListCommand,
     get: pageSnapshotGetCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** page サブコマンドグループ */
@@ -129,9 +133,7 @@ export const pageCommand = defineCommand({
     context: pageContextCommand,
     line: pageLineCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** project サブコマンドグループ */
@@ -145,9 +147,7 @@ export const projectCommand = defineCommand({
     stream: projectStreamCommand,
     search: projectSearchCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** auth サブコマンドグループ */
@@ -161,9 +161,7 @@ export const authCommand = defineCommand({
     sa: authSaCommand,
     "service-account": authSaCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** config サブコマンドグループ */
@@ -174,9 +172,7 @@ export const configCommand = defineCommand({
     set: configSetCommand,
     path: configPathCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** sync サブコマンドグループ */
@@ -187,9 +183,7 @@ export const syncCommand = defineCommand({
     push: syncPushCommand,
     diff: syncDiffCommand,
   },
-  async run(ctx) {
-    await showUsage(ctx.cmd)
-  },
+  run: showUsageIfNoSubCommand,
 })
 
 /** rootSubCommands はトップレベルサブコマンドのレジストリ。 */

@@ -23,7 +23,15 @@ import { AuthError, CosenseRestClient, ForbiddenError } from "@/core/api/rest"
 import type { CoscliConfig } from "@/infra/config"
 import { defaultConfigPath, loadConfig, saveConfig } from "@/infra/config"
 import { writeErrorJson, writeJson } from "@/presenter/json"
+import type { CommandDef } from "citty"
 import { defineCommand, showUsage } from "citty"
+
+/** showUsageIfNoSubCommand はサブコマンドが指定されていない場合にのみ usage を表示する。 */
+async function showUsageIfNoSubCommand(ctx: { rawArgs: string[]; cmd: CommandDef }) {
+  if (!ctx.rawArgs.some((a) => !a.startsWith("-"))) {
+    await showUsage(ctx.cmd)
+  }
+}
 
 /** AuthSaCommandDeps は createAuthSa* コマンドファクトリに注入できる依存。テスト専用。 */
 export interface AuthSaCommandDeps {
@@ -234,9 +242,7 @@ export function createAuthSaCommand(deps: AuthSaCommandDeps = {}) {
       list: createAuthSaListCommand(deps),
       ls: createAuthSaListCommand(deps),
     },
-    async run(ctx) {
-      await showUsage(ctx.cmd)
-    },
+    run: showUsageIfNoSubCommand,
   })
 }
 
