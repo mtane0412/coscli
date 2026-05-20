@@ -44,6 +44,7 @@ export const pageFindInfoboxCommand = defineCommand({
             "1 以上の整数を指定してください",
           )
           process.exit(5)
+          return
         }
         const limit = Number(a.limit)
         if (limit < 1) {
@@ -53,6 +54,7 @@ export const pageFindInfoboxCommand = defineCommand({
             "1 以上の整数を指定してください",
           )
           process.exit(5)
+          return
         }
         findOpts.limit = limit
       }

@@ -305,15 +305,7 @@ export async function unpinPage(writer: ScrapboxWriter, opts: { project: string;
 /** INFOBOX_TABLE_HEADERS は infobox 定義として有効なテーブルヘッダ名。 */
 const INFOBOX_TABLE_HEADERS = new Set(["table:infobox", "table:cosense"])
 
-/**
- * findInfoboxPages は table:infobox または table:cosense を持つページ一覧を返す。
- *
- * 2クエリ（table:infobox / table:cosense）を並列検索してマージし、id で重複除去する。
- * 検索結果の lines フィールドを検証し、以下の誤ヒットを除外する:
- * - タイトルが "table:infobox" / "table:cosense" のページ（記法説明ページなど）
- * - インラインコード記法（`table:infobox`）で言及するだけのページ
- * limit 指定時はフィルタリング後に最終切り詰めを行う。
- */
+/** findInfoboxPages は table:infobox または table:cosense を持つページ一覧を返す。 */
 export async function findInfoboxPages(
   client: CosenseRestClient,
   opts: { project: string; limit?: number },
@@ -324,12 +316,19 @@ export async function findInfoboxPages(
     client.searchPages(project, "table:cosense"),
   ])
 
-  // id をキーに Map へ追加することで重複を除去する
+  // 同一 id のページは lines をマージしてから dedup する
+  // 先にフィルタすると片方がインラインコード記法ヒットでも もう片方の正当な lines が失われるため
   const seen = new Map<string, (typeof infoboxResult.pages)[number]>()
   for (const page of [...infoboxResult.pages, ...cosenseResult.pages]) {
-    if (!seen.has(page.id)) {
+    const existing = seen.get(page.id)
+    if (!existing) {
       seen.set(page.id, page)
+      continue
     }
+    seen.set(page.id, {
+      ...existing,
+      lines: [...new Set([...(existing.lines ?? []), ...(page.lines ?? [])])],
+    })
   }
 
   // lines にテーブルヘッダ行が含まれるページのみ残す

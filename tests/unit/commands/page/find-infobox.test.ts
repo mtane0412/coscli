@@ -175,6 +175,38 @@ describe("pageFindInfoboxCommand", () => {
     expect(parsed.data.pages).toHaveLength(2)
   })
 
+  it("--limit に非数値を指定した場合は exit 5 で終了する", async () => {
+    try {
+      await runFindInfobox({
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+        limit: "abc",
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+  })
+
+  it("--limit に 0 を指定した場合は exit 5 で終了する", async () => {
+    try {
+      await runFindInfobox({
+        project: TEST_PROJECT,
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+        limit: "0",
+      })
+    } catch {
+      // process.exit モック後の継続による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+  })
+
   it("--disable-commands page.find-infobox 指定時は exit 7 で終了する", async () => {
     try {
       await runFindInfobox({
