@@ -249,7 +249,7 @@ cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
 
 ### infobox でページ構造データを取得
 
-`cos page infobox` は Cosense の LLM 生成 infobox データを取得します。ページのキー・バリュー構造を整理した JSON が返るため、LLM が情報を効率よく参照できます。
+`cos page infobox` は Cosense が LLM で生成した infobox データ（キー・バリュー構造）を取得します。infobox はすべてのページに存在するわけではなく、Cosense 側が生成済みのページでのみ有効です。存在しない場合は空のリストが返ります。
 
 ```bash
 cos page infobox "ページタイトル" --project myproject --json
