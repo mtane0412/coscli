@@ -9,7 +9,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -41,7 +40,6 @@ export const pageContextCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string; hops: string }
     checkSandbox("page.context", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -58,8 +56,6 @@ export const pageContextCommand = defineCommand({
       throw new Error("VALIDATION_ERROR")
     }
     const hops = hopsNum as Hops
-
-    logger.info(`"${a.title}" の Smart Context (${hops}hop) を取得中...`)
 
     const client = await buildRestClient(a)
     const text = await getSmartContext(client, { project, title: a.title, hops })

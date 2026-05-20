@@ -8,7 +8,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -42,7 +41,6 @@ export const pageHistoryCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string; limit?: string; head?: string }
     checkSandbox("page.history", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
 
@@ -72,8 +70,6 @@ export const pageHistoryCommand = defineCommand({
       }
       limit = parsed
     }
-
-    logger.info(`"${a.title}" のコミット履歴を取得中...`)
 
     try {
       const client = await buildRestClient(a)

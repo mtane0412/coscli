@@ -254,8 +254,6 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         throw err
       }
 
-      logger.info("認証情報を確認中...")
-
       const client = new CosenseRestClient({ sid })
       const me = await client.getMe()
 

@@ -82,8 +82,6 @@ export const pageDeleteCommand = defineCommand({
       }
     }
 
-    logger.info(`"${a.title}" を削除中...`)
-
     const writer = await buildWriter(a)
     const result = await deletePage(writer, { project, title: a.title })
 

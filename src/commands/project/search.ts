@@ -9,7 +9,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -34,10 +33,7 @@ export const projectSearchCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { query: string }
     checkSandbox("project.search", a)
-    const logger = buildLogger(a)
     const startTime = Date.now()
-
-    logger.info(`"${a.query}" を参加プロジェクト全体から検索中...`)
 
     const client = await buildRestClient(a)
     const result = await client.searchJoinedProjects(a.query)

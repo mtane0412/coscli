@@ -7,7 +7,6 @@
 import {
   type CommonArgs,
   buildJsonOpts,
-  buildLogger,
   buildRestClient,
   checkSandbox,
   commonArgs,
@@ -35,11 +34,8 @@ export const pageCodeCommand = defineCommand({
   async run({ args }) {
     const a = args as CommonArgs & { title: string; filename: string }
     checkSandbox("page.code", a)
-    const logger = buildLogger(a)
     const project = requireProject(a)
     const startTime = Date.now()
-
-    logger.info(`"${a.title}" の ${a.filename} を取得中...`)
 
     const client = await buildRestClient(a)
     const code = await getCodeBlock(client, { project, title: a.title, filename: a.filename })

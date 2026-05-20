@@ -95,7 +95,6 @@ export const syncPushCommand = defineCommand({
 
     if (a.title) {
       // 単一ページの push
-      logger.info(`"${a.title}" を push 中...`)
       try {
         const result = await syncPush(client, writer, syncDir, project, a.title, {
           dryRun,
@@ -152,8 +151,6 @@ export const syncPushCommand = defineCommand({
       }
     } else {
       // --all: 同期ディレクトリのメタファイルから全ページを push
-      logger.info(`${project} の全ページを push 中...`)
-
       const { readdirSync } = await import("node:fs")
       const { join } = await import("node:path")
       const metaDir = join(syncDir, ".coscli", project)

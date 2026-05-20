@@ -65,8 +65,6 @@ export const pageAppendCommand = defineCommand({
     })
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" に行を追加中...`)
-
     const writer = await buildWriter(a)
     const result = await appendToPage(writer, { project, title: a.title, lines })
 

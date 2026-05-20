@@ -89,7 +89,6 @@ export function createAuthSaAddCommand(deps: AuthSaCommandDeps = {}) {
       }
 
       // API を呼び出してキーの有効性を確認する (pages API で検証)
-      logger.info(`${project} の Service Account キーを確認中...`)
       const client = new CosenseRestClient({ serviceAccountKey: a.key })
       try {
         await client.listPages(project, { limit: 1 })

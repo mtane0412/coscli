@@ -65,8 +65,6 @@ export const pagePrependCommand = defineCommand({
     })
     const warnings = runNotationLint(lines, a)
 
-    logger.info(`"${a.title}" の先頭に行を挿入中...`)
-
     const writer = await buildWriter(a)
     const result = await prependToPage(writer, { project, title: a.title, lines })
 

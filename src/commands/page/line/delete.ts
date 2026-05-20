@@ -70,8 +70,6 @@ export const pageLineDeleteCommand = defineCommand({
       throw err
     }
 
-    logger.info(`"${a.title}" の ${start}〜${end} 行目を削除中...`)
-
     const writer = await buildWriter(a)
     let result: Awaited<ReturnType<typeof deleteLinesFromPage>> | undefined
     try {
