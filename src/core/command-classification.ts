@@ -41,6 +41,7 @@ export const READ_COMMANDS: readonly string[] = [
   "search",
   "sync.diff",
   "sync.pull",
+  "watch-list.list",
 ]
 
 /** WRITE_COMMANDS は書き込み系コマンドの一覧。 */
@@ -62,6 +63,8 @@ export const WRITE_COMMANDS: readonly string[] = [
   "page.unpin",
   "serve.rest",
   "sync.push",
+  "watch-list.add",
+  "watch-list.remove",
 ]
 
 /** PermissionPreset はプロジェクト権限プリセットの型。 */

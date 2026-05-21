@@ -5,7 +5,10 @@
  * 書き込み系コマンドは commonArgs に加えて dryRunArg をスプレッドし --dry-run を持つ。
  */
 
-import { afterEach, describe, expect, it, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import { rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import {
   type CommonArgs,
   ServiceAccountKeyValidationError,
@@ -14,11 +17,14 @@ import {
   assertValidSid,
   buildJsonOpts,
   buildLogger,
+  buildRestClient,
   commonArgs,
   dryRunArg,
   getRawFlagValue,
   isStdinPath,
 } from "@/commands/_shared"
+import type { CoscliConfig } from "@/infra/config"
+import { loadConfig, saveConfig } from "@/infra/config"
 
 /** テスト用デフォルト CommonArgs を生成するヘルパー */
 function makeArgs(overrides: Partial<CommonArgs> = {}): CommonArgs {
@@ -302,5 +308,93 @@ describe("getRawFlagValue", () => {
   it("同一フラグが複数回指定された場合は最後の値を返す (CLI の一般的な挙動に合わせる)", () => {
     // --after 3 --after -1 のように複数回指定された場合、最後の -1 が優先される
     expect(getRawFlagValue(["node", "cos", "--after", "3", "--after", "-1"], "after")).toBe("-1")
+  })
+})
+
+describe("buildRestClient - auto-watch 機能", () => {
+  /** 一時設定ディレクトリ */
+  const TEST_CONFIG_DIR = join(tmpdir(), `coscli-auto-watch-test-${Date.now()}`)
+  const TEST_CONFIG_FILE = join(TEST_CONFIG_DIR, "coscli", "config.json5")
+
+  function writeTestConfig(config: CoscliConfig): void {
+    saveConfig(config, TEST_CONFIG_FILE)
+  }
+  function readTestConfig(): CoscliConfig {
+    return loadConfig(TEST_CONFIG_FILE)
+  }
+
+  beforeEach(() => {
+    process.env["XDG_CONFIG_HOME"] = TEST_CONFIG_DIR
+    // ダミー SID でキーチェーン呼び出しをスキップする
+    process.env["COS_SID"] = "s%3Atest-session-id"
+  })
+
+  afterEach(() => {
+    Reflect.deleteProperty(process.env, "XDG_CONFIG_HOME")
+    Reflect.deleteProperty(process.env, "COS_SID")
+    try {
+      rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
+    } catch {
+      // クリーンアップ失敗は無視する
+    }
+  })
+
+  it("autoWatchlist: true のとき、--project 指定プロジェクトがウォッチリストに自動追加される", async () => {
+    writeTestConfig({ autoWatchlist: true })
+    await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+      project: "auto-added-project",
+    })
+    const config = readTestConfig()
+    expect(config.watchlist).toEqual(["auto-added-project"])
+  })
+
+  it("autoWatchlist: true のとき、すでにウォッチリストにあるプロジェクトは重複追加されない", async () => {
+    writeTestConfig({ autoWatchlist: true, watchlist: ["already-listed"] })
+    await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+      project: "already-listed",
+    })
+    const config = readTestConfig()
+    expect(config.watchlist).toEqual(["already-listed"])
+  })
+
+  it("autoWatchlist: false のとき、プロジェクトは自動追加されない", async () => {
+    writeTestConfig({ autoWatchlist: false })
+    await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+      project: "not-added",
+    })
+    const config = readTestConfig()
+    expect(config.watchlist).toBeUndefined()
+  })
+
+  it("autoWatchlist 未設定のとき、プロジェクトは自動追加されない", async () => {
+    writeTestConfig({})
+    await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+      project: "not-added",
+    })
+    const config = readTestConfig()
+    expect(config.watchlist).toBeUndefined()
+  })
+
+  it("--project が未指定のとき、autoWatchlist: true でもウォッチリストに追加されない", async () => {
+    writeTestConfig({ autoWatchlist: true })
+    await buildRestClient({ json: false, plain: false, "results-only": false, quiet: true })
+    const config = readTestConfig()
+    expect(config.watchlist).toBeUndefined()
   })
 })

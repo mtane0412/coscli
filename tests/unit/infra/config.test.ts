@@ -226,6 +226,44 @@ describe("setConfigValue - permission/disableCommands 設定フィールド", ()
   })
 })
 
+describe("setConfigValue - watchlist 設定フィールド", () => {
+  it("watchlist にプロジェクト名の配列を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "watchlist", ["プロジェクトA", "プロジェクトB"])
+    expect(updated.watchlist).toEqual(["プロジェクトA", "プロジェクトB"])
+  })
+
+  it("watchlist に空配列を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "watchlist", [])
+    expect(updated.watchlist).toEqual([])
+  })
+
+  it("autoWatchlist に true を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "autoWatchlist", true)
+    expect(updated.autoWatchlist).toBe(true)
+  })
+
+  it("autoWatchlist に false を設定できる", () => {
+    const config = {}
+    const updated = setConfigValue(config, "autoWatchlist", false)
+    expect(updated.autoWatchlist).toBe(false)
+  })
+
+  it("watchlist と autoWatchlist を含む設定をファイルに保存・読み込みできる", () => {
+    const { join } = require("node:path")
+    const { tmpdir } = require("node:os")
+    const { unlinkSync } = require("node:fs")
+    const path = join(tmpdir(), `coscli-watchlist-test-${Date.now()}.json5`)
+    saveConfig({ watchlist: ["プロジェクトA"], autoWatchlist: true }, path)
+    const loaded = loadConfig(path)
+    expect(loaded.watchlist).toEqual(["プロジェクトA"])
+    expect(loaded.autoWatchlist).toBe(true)
+    unlinkSync(path)
+  })
+})
+
 describe("prototype 汚染への防御", () => {
   afterAll(() => {
     // RED フェーズで汚染が発生した場合に備えてクリーンアップする

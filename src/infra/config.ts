@@ -68,6 +68,14 @@ export const CoscliConfigSchema = z.object({
   /** 全プロジェクト共通の絶対禁止コマンドリスト。CLI フラグで上書き可能。 */
   disableCommands: z.array(CommandPatternSchema).optional(),
   projects: z.record(z.string(), ProjectConfigSchema).optional(),
+  /** ローカルウォッチリスト。プロジェクト名の配列。 */
+  watchlist: z.array(z.string()).optional(),
+  /**
+   * プロジェクトアクセス時にウォッチリストへ自動追加するか。
+   * true にすると --project 指定時に自動で watchlist に追加される。
+   * デフォルト: false (opt-in)。
+   */
+  autoWatchlist: z.boolean().optional(),
   output: z
     .object({
       color: z.enum(["auto", "always", "never"]).optional(),
