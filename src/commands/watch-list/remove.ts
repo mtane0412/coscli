@@ -7,6 +7,7 @@
 
 import { type CommonArgs, checkSandbox, commonArgs, exitWithError } from "@/commands/_shared"
 import { loadConfig, saveConfig } from "@/infra/config"
+import { writeErrorJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
 export const watchListRemoveCommand = defineCommand({
@@ -30,7 +31,12 @@ export const watchListRemoveCommand = defineCommand({
     const current = config.watchlist ?? []
 
     if (!current.includes(a.project_name)) {
-      exitWithError(4, `ウォッチリストに "${a.project_name}" は登録されていません`)
+      writeErrorJson(
+        "NOT_FOUND",
+        `ウォッチリストに "${a.project_name}" は登録されていません`,
+        "cos watch-list list でウォッチリストを確認してください",
+      )
+      exitWithError(4, "NOT_FOUND")
     }
 
     saveConfig({ ...config, watchlist: current.filter((p) => p !== a.project_name) })

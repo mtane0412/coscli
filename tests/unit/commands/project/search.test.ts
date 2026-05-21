@@ -145,7 +145,7 @@ describe("projectSearchCommand - --watch-list フラグ", () => {
     expect(output).not.toContain("helpproject")
   })
 
-  it("--watch-list でウォッチリストが空のとき exit 5 で終了する", async () => {
+  it("--watch-list でウォッチリストが空のとき exit 5 で終了しエラーメッセージを出力する", async () => {
     writeTestConfig({})
     // exitWithError が process.exit モック後に throw するため try-catch で握り潰す
     try {
@@ -154,6 +154,8 @@ describe("projectSearchCommand - --watch-list フラグ", () => {
       // 期待通りの throw
     }
     expect(exitMock).toHaveBeenCalledWith(5)
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    expect(output).toContain("ウォッチリストが空")
   })
 
   it("--watch-list の JSON 出力でウォッチリスト内プロジェクトのみ含む", async () => {

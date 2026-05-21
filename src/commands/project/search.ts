@@ -19,7 +19,7 @@ import {
   exitWithError,
 } from "@/commands/_shared"
 import { loadConfig } from "@/infra/config"
-import { writeJson } from "@/presenter/json"
+import { writeErrorJson, writeJson } from "@/presenter/json"
 import { writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
@@ -61,10 +61,12 @@ export const projectSearchCommand = defineCommand({
       const config = loadConfig()
       const watchlist = config.watchlist ?? []
       if (watchlist.length === 0) {
-        exitWithError(
-          5,
-          "ウォッチリストが空です。cos watch-list add <project> でプロジェクトを追加してください",
+        writeErrorJson(
+          "WATCHLIST_EMPTY",
+          "ウォッチリストが空です",
+          "cos watch-list add <project> でプロジェクトを追加してください",
         )
+        exitWithError(5, "WATCHLIST_EMPTY")
       }
       const watchlistSet = new Set(watchlist)
       projects = projects.filter((p) => watchlistSet.has(p.name))

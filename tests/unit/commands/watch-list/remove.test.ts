@@ -94,7 +94,7 @@ describe("watchListRemoveCommand", () => {
     expect(config.watchlist).toEqual([])
   })
 
-  it("ウォッチリストに存在しないプロジェクトを削除しようとすると exit 4 で終了する", async () => {
+  it("ウォッチリストに存在しないプロジェクトを削除しようとすると exit 4 で終了しエラーメッセージを出力する", async () => {
     writeTestConfig({ watchlist: ["project-alpha"] })
     // exitWithError が process.exit モック後に throw するため try-catch で握り潰す
     try {
@@ -103,6 +103,8 @@ describe("watchListRemoveCommand", () => {
       // 期待通りの throw
     }
     expect(exitMock).toHaveBeenCalledWith(4)
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    expect(output).toContain("存在しないプロジェクト")
     // config は変更されない
     const config = readTestConfig()
     expect(config.watchlist).toEqual(["project-alpha"])
