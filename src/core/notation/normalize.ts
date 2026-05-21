@@ -6,23 +6,7 @@
  * コードブロックが意図せず途切れることを防ぐ。
  */
 
-/**
- * normalizeCodeBlockEmptyLines は Cosense 記法行配列を走査し、
- * code: ブロック内の空行 ("") をスペース1文字 (" ") に変換して返す。
- *
- * Scrapbox では空行はコードブロックを終了させるため、
- * ブロック内の空行は " " (スペース) で表現する必要がある。
- *
- * アルゴリズム (look-ahead):
- *   - /^code:/ で始まる行でブロック開始 (inCodeBlock = true)
- *   - 空行の場合、先読みで次の非空行がインデントされているかを確認する
- *     - インデントあり (/^[ \t]/) → ブロック継続中 → " " に変換
- *     - インデントなし or 行なし → ブロック終了 → そのまま出力し inCodeBlock = false
- *   - インデントのない非空行でブロック終了 (inCodeBlock = false)
- *
- * @param lines ページ本文の行配列
- * @returns 正規化後の行配列 (入力配列は変更しない)
- */
+/** normalizeCodeBlockEmptyLines は code: ブロック内の空行を条件付きでスペースに正規化した行配列を返す。 */
 export function normalizeCodeBlockEmptyLines(lines: string[]): string[] {
   const result: string[] = []
   let inCodeBlock = false
