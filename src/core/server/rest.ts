@@ -192,6 +192,7 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
         const skipStr = url.searchParams.get("skip")
         const limitStr = url.searchParams.get("limit")
         const sort = url.searchParams.get("sort") ?? undefined
+        const filterValue = url.searchParams.get("filterValue") ?? undefined
 
         // skip/limit は整数文字列のみ許可（parseInt は先頭数値を通すため正規表現で検証）
         const intPattern = /^-?\d+$/
@@ -221,6 +222,7 @@ export function createFetchHandler(ctx: ServerContext): (req: Request) => Promis
           ...(skip !== undefined ? { skip } : {}),
           ...(limit !== undefined ? { limit } : {}),
           ...(sort !== undefined ? { sort } : {}),
+          ...(filterValue !== undefined ? { filterValue } : {}),
         })
         return buildOkResponse(result)
       }

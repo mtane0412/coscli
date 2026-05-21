@@ -118,6 +118,12 @@ describe("listPages", () => {
     await listPages(client, { project: "proj", limit: 5, sort: "updated" })
     expect(client.listPages).toHaveBeenCalledWith("proj", { limit: 5, sort: "updated" })
   })
+
+  it("filterValue オプションを REST クライアントに渡す", async () => {
+    const client = createMockRestClient()
+    await listPages(client, { project: "proj", filterValue: "mtane0412" })
+    expect(client.listPages).toHaveBeenCalledWith("proj", { filterValue: "mtane0412" })
+  })
 })
 
 describe("getPage", () => {
