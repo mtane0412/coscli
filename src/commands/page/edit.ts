@@ -28,6 +28,7 @@ import {
 } from "@/commands/_shared"
 import { CommitConflictError } from "@/core/errors"
 import { convert } from "@/core/format/index"
+import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
 import { editPage } from "@/core/pages"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
 import { writeErrorJson, writeJson } from "@/presenter/json"
@@ -121,9 +122,9 @@ export const pageEditCommand = defineCommand({
     const normalizedContent =
       a["input-format"] === "md" ? convert(content, "md", "scrapbox") : content
 
-    const lines = normalizedContent
-      .split("\n")
-      .filter((_, i, arr) => i < arr.length - 1 || arr[i] !== "")
+    const lines = normalizeCodeBlockEmptyLines(
+      normalizedContent.split("\n").filter((_, i, arr) => i < arr.length - 1 || arr[i] !== ""),
+    )
 
     if (lines.length === 0) {
       writeErrorJson("CONTENT_REQUIRED", "新しい本文が空です")

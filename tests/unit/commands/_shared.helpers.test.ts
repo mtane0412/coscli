@@ -152,6 +152,36 @@ describe("readWriteInput", () => {
     })
   })
 
+  describe("コードブロック内の空行正規化", () => {
+    it("stdin からの入力でコードブロック内の空行が ' ' に変換される", () => {
+      const readStdin = mock(() => "code:python\n def hello():\n\n     print('hello')")
+      const result = readWriteInput({ "from-file": "-" }, { ...defaultOpts, readStdin })
+      expect(result).toEqual(["code:python", " def hello():", " ", "     print('hello')"])
+    })
+
+    it("ファイルからの入力でコードブロック内の空行が ' ' に変換される", () => {
+      const readFile = mock(
+        (_path: string, _opts: { allowUnsafe: boolean }) => "code:python\n x = 1\n\n y = 2\n",
+      )
+      const result = readWriteInput(
+        { "from-file": "/tmp/テストコード.py" },
+        { ...defaultOpts, readFile },
+      )
+      expect(result).toEqual(["code:python", " x = 1", " ", " y = 2"])
+    })
+
+    it("--line フラグでコードブロック内の空行が ' ' に変換される", () => {
+      const result = readWriteInput({ line: "code:python\n x = 1\n\n y = 2" }, defaultOpts)
+      expect(result).toEqual(["code:python", " x = 1", " ", " y = 2"])
+    })
+
+    it("コードブロック外の空行は変換されない", () => {
+      const readStdin = mock(() => "段落1\n\n段落2")
+      const result = readWriteInput({ "from-file": "-" }, { ...defaultOpts, readStdin })
+      expect(result).toEqual(["段落1", "", "段落2"])
+    })
+  })
+
   describe("コンテンツ未指定 / 空", () => {
     it("line も from-file も未指定の場合は exit 5 / requireContentErrorCode で終了する", () => {
       try {

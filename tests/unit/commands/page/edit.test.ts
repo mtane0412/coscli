@@ -189,6 +189,64 @@ describe("pageEditCommand", () => {
     })
   })
 
+  describe("コードブロック内の空行正規化", () => {
+    it("Scrapbox 記法ファイルでコードブロック内の空行が ' ' に変換されて editPage に渡される", async () => {
+      // コードブロック内に空行があるファイルを作成する
+      const tmpFile = join(tmpdir(), `cos-test-edit-codeblock-${Date.now()}.txt`)
+      writeFileSync(tmpFile, "code:python\n def hello():\n\n     print('hello')\n")
+
+      // editPage をモックして渡された lines をキャプチャする
+      const capturedLines: string[][] = []
+      editPageSpy = spyOn(pages, "editPage").mockImplementation(async (_writer, opts) => {
+        capturedLines.push(opts.lines)
+        return { commitId: "コミット", pageId: "ページ" }
+      })
+
+      await runEdit({
+        title: "コードブロックテスト",
+        "from-file": tmpFile,
+        "input-format": "txt",
+        project: "テストプロジェクト",
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        "strict-notation": false,
+        quiet: false,
+      })
+
+      // コードブロック内の空行が " " (スペース) に変換されていること
+      expect(capturedLines[0]).toEqual(["code:python", " def hello():", " ", "     print('hello')"])
+    })
+
+    it("MD 形式でコードブロック内の空行が正しく変換される", async () => {
+      const tmpFile = join(tmpdir(), `cos-test-edit-md-codeblock-${Date.now()}.md`)
+      writeFileSync(tmpFile, "```python\ndef hello():\n\n    print('hello')\n```\n")
+
+      const capturedLines: string[][] = []
+      editPageSpy = spyOn(pages, "editPage").mockImplementation(async (_writer, opts) => {
+        capturedLines.push(opts.lines)
+        return { commitId: "コミット", pageId: "ページ" }
+      })
+
+      await runEdit({
+        title: "MDコードブロックテスト",
+        "from-file": tmpFile,
+        "input-format": "md",
+        project: "テストプロジェクト",
+        json: false,
+        plain: false,
+        "results-only": false,
+        "dry-run": false,
+        "strict-notation": false,
+        quiet: false,
+      })
+
+      // MD 変換後にコードブロック内の空行が " " になっていること
+      expect(capturedLines[0]).toEqual(["code:python", " def hello():", " ", "     print('hello')"])
+    })
+  })
+
   describe("楽観ロック", () => {
     /** 楽観ロックテスト用の共通 args (--dry-run は使わず editPage をモックする) */
     function makeConflictArgs(extra: Record<string, unknown> = {}) {
