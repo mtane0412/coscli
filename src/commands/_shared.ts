@@ -9,6 +9,7 @@ import { AuthError, CosenseRestClient, ForbiddenError, NotFoundError } from "@/c
 import { createScrapboxWriter } from "@/core/api/ws"
 import { loadSession } from "@/core/auth/session"
 import { lintNotation } from "@/core/notation/lint"
+import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
 import { PolicyError, createPolicy } from "@/core/sandbox"
 import { resolvePolicy } from "@/core/sandbox/resolve"
 import { loadConfig } from "@/infra/config"
@@ -506,7 +507,7 @@ export function readWriteInput(
     exitWithError(5, opts.requireContentErrorCode)
   }
 
-  return lines
+  return normalizeCodeBlockEmptyLines(lines)
 }
 
 /**

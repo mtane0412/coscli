@@ -102,6 +102,13 @@ describe("コードフェンス変換", () => {
     const input = "```\nconsole.log('hello')\n```"
     expect(mdToScrapbox(input)).toBe("code:\n console.log('hello')")
   })
+
+  test("コードブロック内の空行は ' ' (スペース) に変換される", () => {
+    // MD の空行 "" は bodyLines.map(l => ` ${l}`) で " " になる
+    // Scrapbox 記法ではコードブロック内の空行に先頭スペースが必要
+    const input = "```python\ndef hello():\n\n    print('hello')\n```"
+    expect(mdToScrapbox(input)).toBe("code:python\n def hello():\n \n     print('hello')")
+  })
 })
 
 // --- リスト ---
