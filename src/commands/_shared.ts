@@ -12,7 +12,7 @@ import { lintNotation } from "@/core/notation/lint"
 import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
 import { PolicyError, createPolicy } from "@/core/sandbox"
 import { resolvePolicy } from "@/core/sandbox/resolve"
-import { loadConfig } from "@/infra/config"
+import { loadConfig, saveConfig } from "@/infra/config"
 import { createTokenStore } from "@/infra/keychain/index"
 import { Logger } from "@/infra/logger"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
@@ -380,6 +380,8 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
       )
       exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
     }
+    const projectForAutoWatch = args.project ?? process.env["COS_PROJECT"]
+    if (projectForAutoWatch) maybeAutoAddToWatchlist(projectForAutoWatch)
     return new CosenseRestClient({ serviceAccountKey: envKey })
   }
 
@@ -399,13 +401,30 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
         )
         exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
       }
+      maybeAutoAddToWatchlist(project)
       return new CosenseRestClient({ serviceAccountKey: saKey })
     }
   }
 
   // 3. SID 認証にフォールバック
   const sid = await requireSid(args.profile)
+  if (project) maybeAutoAddToWatchlist(project)
   return new CosenseRestClient({ sid })
+}
+
+/**
+ * maybeAutoAddToWatchlist は autoWatchlist が true のとき、
+ * project をウォッチリストに追加する。すでに存在する場合は何もしない。
+ *
+ * autoWatchlist: true の設定時に cos コマンドでアクセスしたプロジェクトを
+ * Cosense Web アプリの localStorage 相当として自動記録する。
+ */
+function maybeAutoAddToWatchlist(project: string): void {
+  const config = loadConfig()
+  if (config.autoWatchlist !== true) return
+  const current = config.watchlist ?? []
+  if (current.includes(project)) return
+  saveConfig({ ...config, watchlist: [...current, project] })
 }
 
 /** buildWriter は ScrapboxWriter を生成する。 */

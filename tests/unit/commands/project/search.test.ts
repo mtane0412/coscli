@@ -2,11 +2,26 @@
  * project/search.test.ts — `cos project search` コマンドのテスト。
  *
  * 参加プロジェクト横断検索でマッチしたプロジェクト一覧を返す動作を検証する。
+ * --watch-list / --joined フラグの動作も検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import { rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { projectSearchCommand } from "@/commands/project/search"
 import { CosenseRestClient } from "@/core/api/rest"
+import type { CoscliConfig } from "@/infra/config"
+import { saveConfig } from "@/infra/config"
+
+/** 一時設定ディレクトリ (--watch-list フラグのテスト用) */
+const TEST_CONFIG_DIR = join(tmpdir(), `coscli-project-search-test-${Date.now()}`)
+const TEST_CONFIG_FILE = join(TEST_CONFIG_DIR, "coscli", "config.json5")
+
+/** テスト用設定を書き込むヘルパー */
+function writeTestConfig(config: CoscliConfig): void {
+  saveConfig(config, TEST_CONFIG_FILE)
+}
 
 /** ProjectSearchResult の最小限フィクスチャ */
 const SEARCH_JOINED_FIXTURE = {
@@ -71,6 +86,12 @@ afterEach(() => {
   stderrMock.mockRestore()
   searchJoinedProjectsSpy.mockRestore()
   Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "XDG_CONFIG_HOME")
+  try {
+    rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
+  } catch {
+    // クリーンアップ失敗は無視する
+  }
 })
 
 describe("projectSearchCommand", () => {
@@ -96,5 +117,60 @@ describe("projectSearchCommand", () => {
   it("クエリが API に正しく渡される", async () => {
     await runProjectSearch(baseArgs({ query: "テスト検索ワード" }))
     expect(searchJoinedProjectsSpy).toHaveBeenCalledWith("テスト検索ワード")
+  })
+})
+
+describe("projectSearchCommand - --joined フラグ", () => {
+  it("--joined フラグで参加プロジェクト全体を検索する (フラグなし時と同じ挙動)", async () => {
+    await runProjectSearch(baseArgs({ joined: true }))
+    expect(searchJoinedProjectsSpy).toHaveBeenCalledTimes(1)
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    expect(output).toContain("myproject")
+    expect(output).toContain("helpproject")
+  })
+})
+
+describe("projectSearchCommand - --watch-list フラグ", () => {
+  beforeEach(() => {
+    process.env["XDG_CONFIG_HOME"] = TEST_CONFIG_DIR
+  })
+
+  it("--watch-list でウォッチリスト内のプロジェクトのみ返す", async () => {
+    // myproject のみウォッチリストに登録
+    writeTestConfig({ watchlist: ["myproject"] })
+    await runProjectSearch(baseArgs({ "watch-list": true }))
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    expect(output).toContain("myproject")
+    // helpproject はウォッチリスト外なので出力されない
+    expect(output).not.toContain("helpproject")
+  })
+
+  it("--watch-list でウォッチリストが空のとき exit 5 で終了する", async () => {
+    writeTestConfig({})
+    // exitWithError が process.exit モック後に throw するため try-catch で握り潰す
+    try {
+      await runProjectSearch(baseArgs({ "watch-list": true }))
+    } catch {
+      // 期待通りの throw
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+  })
+
+  it("--watch-list の JSON 出力でウォッチリスト内プロジェクトのみ含む", async () => {
+    writeTestConfig({ watchlist: ["myproject"] })
+    await runProjectSearch(baseArgs({ "watch-list": true, json: true }))
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    const parsed = JSON.parse(output)
+    expect(parsed.data.projects).toHaveLength(1)
+    expect(parsed.data.projects[0].name).toBe("myproject")
+  })
+
+  it("--joined と --watch-list を同時指定するとすべての参加プロジェクトから watch-list でフィルタする", async () => {
+    // 両方指定した場合の動作確認
+    writeTestConfig({ watchlist: ["helpproject"] })
+    await runProjectSearch(baseArgs({ joined: true, "watch-list": true }))
+    const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+    expect(output).toContain("helpproject")
+    expect(output).not.toContain("myproject")
   })
 })

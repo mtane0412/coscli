@@ -59,6 +59,11 @@ import { syncDiffCommand } from "@/commands/sync/diff"
 import { syncPullCommand } from "@/commands/sync/pull"
 import { syncPushCommand } from "@/commands/sync/push"
 
+// ウォッチリストコマンド
+import { watchListAddCommand } from "@/commands/watch-list/add"
+import { watchListListCommand } from "@/commands/watch-list/list"
+import { watchListRemoveCommand } from "@/commands/watch-list/remove"
+
 // 変換コマンド
 import { convertCommand } from "@/commands/convert"
 
@@ -170,6 +175,19 @@ export const configCommand = defineCommand({
   run: showUsageIfNoSubCommand,
 })
 
+/** watch-list サブコマンドグループ */
+export const watchListCommand = defineCommand({
+  meta: { name: "watch-list", description: "ウォッチリスト管理 (list / add / remove)" },
+  subCommands: {
+    list: watchListListCommand,
+    ls: watchListListCommand,
+    add: watchListAddCommand,
+    remove: watchListRemoveCommand,
+    rm: watchListRemoveCommand,
+  },
+  run: showUsageIfNoSubCommand,
+})
+
 /** sync サブコマンドグループ */
 export const syncCommand = defineCommand({
   meta: { name: "sync", description: "ローカルファイルと Cosense の同期コマンド" },
@@ -193,6 +211,7 @@ export const rootSubCommands = {
   me: authWhoamiCommand,
   config: configCommand,
   sync: syncCommand,
+  "watch-list": watchListCommand,
   convert: convertCommand,
   serve: serveCommand,
   "exit-codes": exitCodesCommand,
