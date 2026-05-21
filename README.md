@@ -114,7 +114,7 @@ cos page new --project myproject --title "新しいページ" --body "本文"
 ## コマンド一覧
 
 ```
-cos page list           ページ一覧を取得
+cos page list           ページ一覧を取得 (--pinned でピン留めページのみ表示)
 cos page get            ページ本文を取得
 cos page text           ページのテキスト (コードブロックなし) を取得
 cos page context        ページ起点の Smart Context (リンク先本文) を取得

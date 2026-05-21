@@ -10,6 +10,58 @@ import { pageListCommand } from "@/commands/page/list"
 import * as pages from "@/core/pages"
 import pageListFixture from "../../../fixtures/page-list.json"
 
+/** ピン留めテスト用フィクスチャ: pin: 0 が2件 + pin > 0 が1件 */
+const pinnedPageListFixture = {
+  projectName: "テストプロジェクト",
+  skip: 0,
+  limit: 30,
+  count: 3,
+  pages: [
+    {
+      id: "page-id-hello",
+      title: "Hello World",
+      image: null,
+      descriptions: ["最初の行", "2行目"],
+      user: { id: "user-id-1" },
+      pin: 0,
+      views: 10,
+      linked: 3,
+      created: 1700000000,
+      updated: 1700100000,
+      accessed: 1700200000,
+      snapshotCreated: null,
+    },
+    {
+      id: "page-id-japanese",
+      title: "日本語タイトル",
+      image: null,
+      descriptions: ["日本語の説明文"],
+      user: { id: "user-id-1" },
+      pin: 0,
+      views: 5,
+      linked: 0,
+      created: 1700050000,
+      updated: 1700150000,
+      accessed: 1700250000,
+      snapshotCreated: null,
+    },
+    {
+      id: "page-id-pinned",
+      title: "ピン留めページ",
+      image: null,
+      descriptions: ["ピン留めされたページの説明"],
+      user: { id: "user-id-1" },
+      pin: 1700000001,
+      views: 20,
+      linked: 5,
+      created: 1700000000,
+      updated: 1700100001,
+      accessed: 1700200001,
+      snapshotCreated: null,
+    },
+  ],
+}
+
 /** listPages に渡された opts をキャプチャする */
 const capturedListPagesCalls: { limit?: number; skip?: number }[] = []
 
@@ -219,6 +271,138 @@ describe("pageListCommand", () => {
       expect(exitMock).not.toHaveBeenCalled()
       expect(capturedListPagesCalls).toHaveLength(1)
       expect(capturedListPagesCalls[0]?.limit).toBe(100)
+    })
+  })
+
+  describe("--pinned フィルタリング", () => {
+    beforeEach(() => {
+      // ピン留めテスト専用フィクスチャ（pin: 0 × 2件 + pin > 0 × 1件）を返すよう上書きする
+      listPagesSpy.mockImplementation(
+        async (
+          _client: Parameters<typeof pages.listPages>[0],
+          opts: Parameters<typeof pages.listPages>[1],
+        ) => {
+          const captured: { limit?: number; skip?: number } = {}
+          if (opts.limit !== undefined) captured.limit = opts.limit
+          if (opts.skip !== undefined) captured.skip = opts.skip
+          capturedListPagesCalls.push(captured)
+          return pinnedPageListFixture
+        },
+      )
+    })
+
+    it("--pinned なしのとき pin: 0 のページも含む全ページが出力される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          pinned: false,
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("Hello World")
+      expect(output).toContain("日本語タイトル")
+      expect(output).toContain("ピン留めページ")
+    })
+
+    it("--pinned ありのとき pin > 0 のページのみ出力される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          pinned: true,
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      // pin > 0 のページのみ出力される
+      expect(output).toContain("ピン留めページ")
+      // pin: 0 のページは除外される
+      expect(output).not.toContain("Hello World")
+      expect(output).not.toContain("日本語タイトル")
+    })
+
+    it("--pinned + --limit 1 のとき pin フィルタ後に limit が適用される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: "1",
+          skip: undefined,
+          sort: undefined,
+          pinned: true,
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      expect(output).toContain("ピン留めページ")
+    })
+
+    it("--pinned のとき API 呼び出しに limit が渡らない", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: "5",
+          skip: undefined,
+          sort: undefined,
+          pinned: true,
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      // --pinned 時はクライアントサイドでフィルタするため API には limit を渡さない
+      expect(capturedListPagesCalls).toHaveLength(1)
+      expect(capturedListPagesCalls[0]?.limit).toBeUndefined()
+    })
+
+    it("--pinned + --json のとき JSON 出力の pages にピン留めページのみ含まれる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          pinned: true,
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls as string[][]).map((c) => c[0]).join("")
+      const parsed = JSON.parse(output) as { data: { pages: { title: string }[] } }
+      expect(parsed.data.pages).toHaveLength(1)
+      expect(parsed.data.pages[0]?.title).toBe("ピン留めページ")
     })
   })
 
