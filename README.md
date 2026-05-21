@@ -146,7 +146,11 @@ cos project list    参加プロジェクト一覧を取得
 cos project info    プロジェクト情報を取得
 cos project stream  プロジェクトの最近更新フィードを取得 (--watch でポーリング監視)
 cos project graph   ページ間リンクをグラフとして export する (DOT / JSON / TSV)
-cos project search  参加プロジェクト全体を横断してプロジェクトを検索する
+cos project search  参加プロジェクト全体を横断してプロジェクトを検索する (--watch-list でウォッチリスト絞り込み、--joined で参加プロジェクト全体を明示)
+
+cos watch-list list    ウォッチリストのプロジェクト一覧を表示する
+cos watch-list add     プロジェクトをウォッチリストに追加する
+cos watch-list remove  プロジェクトをウォッチリストから削除する
 
 cos search          全文検索 (--vector でベクトル検索、--infobox で infobox 定義ページを検索)
 
@@ -367,6 +371,8 @@ cos config set <key> <value>  # 設定値を保存
 |---|---|---|
 | `defaultProject` | string | `--project` 省略時のデフォルトプロジェクト名 (注: sandbox の権限解決では使用されない — `defaultPermission` はプロジェクトを明示指定した場合にのみ適用される) |
 | `defaultProfile` | string | 認証プロファイル名 (未設定: `"default"`) |
+| `watchlist` | string[] | ウォッチリストに登録されたプロジェクト名の一覧 (`cos watch-list` で管理) |
+| `autoWatchlist` | boolean | `true` にすると `--project` 指定時にそのプロジェクトをウォッチリストへ自動追加する |
 
 #### 出力設定 (`output`)
 
