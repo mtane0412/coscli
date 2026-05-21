@@ -460,6 +460,80 @@ describe("CosenseRestClient", () => {
     })
   })
 
+  describe("replaceLinks", () => {
+    beforeEach(() => {
+      // replaceLinks 用の POST ハンドラーを登録する (afterEach でリセットされる)
+      server.use(
+        http.post(`${BASE_URL}/api/pages/:project/replace/links`, async ({ request, params }) => {
+          const cookie = request.headers.get("Cookie")
+          if (!cookie?.includes("connect.sid")) {
+            return HttpResponse.json({ message: "Unauthorized" }, { status: 401 })
+          }
+          if (params["project"] !== TEST_PROJECT) {
+            return HttpResponse.json({ message: "Not found" }, { status: 404 })
+          }
+          return HttpResponse.json({ message: "3 pages have been successfully updated!" })
+        }),
+      )
+    })
+
+    it("リンクを置換して更新ページ数を返す", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.replaceLinks(TEST_PROJECT, "旧タイトル", "新タイトル")
+      expect(result.updatedCount).toBe(3)
+    })
+
+    it("リクエストに X-CSRF-TOKEN ヘッダが付与されていること", async () => {
+      // me.json の csrfToken が X-CSRF-TOKEN として送信されることを検証する
+      let capturedCsrfToken = ""
+      server.use(
+        http.post(`${BASE_URL}/api/pages/:project/replace/links`, async ({ request }) => {
+          capturedCsrfToken = request.headers.get("X-CSRF-TOKEN") ?? ""
+          return HttpResponse.json({ message: "0 pages have been successfully updated!" })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await client.replaceLinks(TEST_PROJECT, "旧タイトル", "新タイトル")
+      expect(capturedCsrfToken).toBe("test-csrf-token-12345")
+    })
+
+    it("リクエストボディに from / to が含まれること", async () => {
+      let capturedBody: unknown = null
+      server.use(
+        http.post(`${BASE_URL}/api/pages/:project/replace/links`, async ({ request }) => {
+          capturedBody = await request.json()
+          return HttpResponse.json({ message: "2 pages have been successfully updated!" })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await client.replaceLinks(TEST_PROJECT, "Node.js", "Node")
+      expect(capturedBody).toEqual({ from: "Node.js", to: "Node" })
+    })
+
+    it("更新ページ数 0 の場合は updatedCount: 0 を返す", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/pages/:project/replace/links`, async () => {
+          return HttpResponse.json({ message: "0 pages have been successfully updated!" })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      const result = await client.replaceLinks(TEST_PROJECT, "存在しないリンク", "新タイトル")
+      expect(result.updatedCount).toBe(0)
+    })
+
+    it("存在しないプロジェクトは NotFoundError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await expect(
+        client.replaceLinks("存在しないプロジェクト", "旧タイトル", "新タイトル"),
+      ).rejects.toThrow()
+    })
+
+    it("未認証の場合は AuthError をスローする", async () => {
+      const client = new CosenseRestClient({ sid: "" })
+      await expect(client.replaceLinks(TEST_PROJECT, "旧タイトル", "新タイトル")).rejects.toThrow()
+    })
+  })
+
   describe("Service Account 認証", () => {
     // テスト用 SA キー (cs_ + 64桁16進数)
     const TEST_SA_KEY = "cs_0000000000000000000000000000000000000000000000000000000000000001"

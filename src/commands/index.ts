@@ -30,6 +30,7 @@ import { pageSnapshotListCommand } from "@/commands/page/snapshot/list"
 import { pageTableCommand } from "@/commands/page/table"
 import { pageTextCommand } from "@/commands/page/text"
 import { pageUnpinCommand } from "@/commands/page/unpin"
+import { pageUpdateLinksCommand } from "@/commands/page/update-links"
 import { pageUrlCommand } from "@/commands/page/url"
 import { pageWatchCommand } from "@/commands/page/watch"
 
@@ -121,6 +122,8 @@ export const pageCommand = defineCommand({
     insert: pageInsertCommand,
     rename: pageRenameCommand,
     mv: pageRenameCommand,
+    "update-links": pageUpdateLinksCommand,
+    "replace-links": pageUpdateLinksCommand,
     pin: pagePinCommand,
     unpin: pageUnpinCommand,
     icon: pageIconCommand,

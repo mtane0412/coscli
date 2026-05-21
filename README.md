@@ -128,7 +128,8 @@ cos page edit           ページを編集 (楽観ロック付き)
 cos page append         ページ末尾に行を追記
 cos page prepend        ページ先頭 (タイトル直後) に行を挿入
 cos page insert         指定行の後ろに行を挿入 (--after <n>)
-cos page rename         ページタイトルを変更
+cos page rename         ページタイトルを変更 (--update-links でリネーム後に被リンクを一括更新)
+cos page update-links   プロジェクト内のリンクを一括置換する
 cos page pin            ページをピン留め
 cos page unpin          ページのピン留めを解除
 cos page watch          ページ更新をリアルタイム監視 (WebSocket)
