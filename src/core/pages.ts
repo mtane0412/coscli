@@ -289,6 +289,14 @@ export async function deleteLinesFromPage(
   })
 }
 
+/** updateLinks はプロジェクト内のリンクテキストを一括置換する。 */
+export async function updateLinks(
+  client: CosenseRestClient,
+  opts: { project: string; from: string; to: string },
+) {
+  return client.replaceLinks(opts.project, opts.from, opts.to)
+}
+
 /** pinPage はページをピン留めする (WebSocket commit)。 */
 export async function pinPage(
   writer: ScrapboxWriter,

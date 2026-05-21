@@ -281,6 +281,20 @@ export class CosenseRestClient {
     return PageSnapshotResultSchema.parse(data)
   }
 
+  /** replaceLinks は /api/pages/:project/replace/links を叩いてプロジェクト内リンクを一括置換する。 */
+  async replaceLinks(project: string, from: string, to: string): Promise<{ updatedCount: number }> {
+    // CSRF トークンを /api/users/me から取得する
+    const me = await this.getMe()
+    const data = await this.postJson(
+      `${BASE_URL}/api/pages/${encodeURIComponent(project)}/replace/links`,
+      JSON.stringify({ from, to }),
+      me.csrfToken,
+    )
+    const { message } = data as { message: string }
+    const updatedCount = Number.parseInt(message.match(/\d+/)?.[0] ?? "0")
+    return { updatedCount }
+  }
+
   /** getProjectStream は /api/stream/:project/ を叩いてプロジェクトの最近更新フィードを返す。 */
   async getProjectStream(project: string, opts: { limit?: number } = {}): Promise<StreamResponse> {
     const params = new URLSearchParams()
@@ -290,6 +304,27 @@ export class CosenseRestClient {
       `${BASE_URL}/api/stream/${encodeURIComponent(project)}/${query}`,
     )
     return StreamResponseSchema.parse(data)
+  }
+
+  private async postJson(url: string, body: string, csrfToken: string): Promise<unknown> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.timeout)
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          ...this.buildHeaders(),
+          "Content-Type": "application/json;charset=utf-8",
+          "X-CSRF-TOKEN": csrfToken,
+        },
+        body,
+        signal: controller.signal,
+      })
+      if (!response.ok) await this.handleError(response, url)
+      return response.json()
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   private buildHeaders(): Record<string, string> {

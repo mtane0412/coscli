@@ -4,9 +4,11 @@
  * 重複チェックおよびリネーム元 persistent チェックのロジックを検証する。
  * issue #57: persistent:false のスタブページを重複と誤判定しないよう修正。
  * issue #112: リネーム元が persistent:false/404 の場合に NOT_FOUND (exit 4) で終了する。
+ * issue #150: --update-links フラグでリネーム後に被リンクを一括更新する。
  *
  * - REST getPage は msw でモックする。
  * - WebSocket 書き込み (renamePage) は spyOn でモックして WS 接続を回避する。
+ * - updateLinks は spyOn でモックして REST 呼び出しを回避する。
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -43,6 +45,7 @@ afterAll(() => server.close())
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let renamePageSpy: ReturnType<typeof spyOn>
+let updateLinksSpy: ReturnType<typeof spyOn>
 
 /** コマンド run ヘルパー */
 async function runRename(args: Record<string, unknown>) {
@@ -71,12 +74,17 @@ beforeEach(() => {
     commitId: "ダミーコミットID",
     pageId: "ダミーページID",
   }))
+  // updateLinks をモックして REST 呼び出しを回避する
+  updateLinksSpy = spyOn(pages, "updateLinks").mockImplementation(async () => ({
+    updatedCount: 3,
+  }))
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   renamePageSpy.mockRestore()
+  updateLinksSpy.mockRestore()
   server.resetHandlers()
   Reflect.deleteProperty(process.env, "COS_SID")
 })
@@ -557,5 +565,123 @@ describe("pageRenameCommand", () => {
     expect(stdoutOutput).toContain("NOT_FOUND")
     // persistent が不明なページへの rename は実行されない
     expect(renamePageSpy).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// --update-links フラグのテスト (issue #150)
+// ---------------------------------------------------------------------------
+
+describe("pageRenameCommand --update-links", () => {
+  /** persistent:true の実体ページを返すハンドラーを設定する */
+  function setupPersistentPageHandler(project: string, title: string) {
+    server.use(
+      http.get(`${BASE_URL}/api/pages/:project/:title`, ({ params }) => {
+        const p = decodeURIComponent(params["project"] as string)
+        const t = decodeURIComponent(params["title"] as string)
+        if (p === project && t === title) {
+          return HttpResponse.json({
+            id: "source-page-id",
+            title,
+            persistent: true,
+            created: 1700000000,
+            updated: 1700000000,
+            lines: [
+              { id: "l1", text: title, userId: "u1", created: 1700000000, updated: 1700000000 },
+            ],
+          })
+        }
+        // 新タイトルは存在しない (404)
+        return HttpResponse.json({ message: "Not found" }, { status: 404 })
+      }),
+    )
+  }
+
+  it("--update-links を指定するとリネーム後に updateLinks が呼ばれる", async () => {
+    setupPersistentPageHandler(TEST_PROJECT, "旧タイトル")
+
+    await runRename({
+      title: "旧タイトル",
+      "new-title": "新タイトル",
+      project: TEST_PROJECT,
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+      "force-fallback": false,
+      "update-links": true,
+    })
+
+    // renamePage が呼ばれていること
+    expect(renamePageSpy).toHaveBeenCalledTimes(1)
+    // updateLinks が正しい引数で呼ばれていること
+    expect(updateLinksSpy).toHaveBeenCalledTimes(1)
+    expect(updateLinksSpy).toHaveBeenCalledWith(
+      expect.objectContaining({}), // REST クライアント
+      { project: TEST_PROJECT, from: "旧タイトル", to: "新タイトル" },
+    )
+  })
+
+  it("--update-links なしの場合は updateLinks が呼ばれない", async () => {
+    setupPersistentPageHandler(TEST_PROJECT, "旧タイトル")
+
+    await runRename({
+      title: "旧タイトル",
+      "new-title": "新タイトル",
+      project: TEST_PROJECT,
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+      "force-fallback": false,
+      "update-links": false,
+    })
+
+    expect(renamePageSpy).toHaveBeenCalledTimes(1)
+    expect(updateLinksSpy).not.toHaveBeenCalled()
+  })
+
+  it("--dry-run 時は updateLinks が呼ばれない", async () => {
+    // 前提: --dry-run のとき DryRunWriter 経由で renamePage は呼ばれるが、
+    //       updateLinks はリネームが確定しないため呼ばれない。
+    await runRename({
+      title: "旧タイトル",
+      "new-title": "新タイトル",
+      project: TEST_PROJECT,
+      json: false,
+      plain: false,
+      "results-only": false,
+      "dry-run": true,
+      quiet: false,
+      "force-fallback": false,
+      "update-links": true,
+    })
+
+    // updateLinks は呼ばれない (--update-links && !dry-run の条件を満たさない)
+    expect(updateLinksSpy).not.toHaveBeenCalled()
+  })
+
+  it("--update-links 指定時の JSON 出力に linksUpdated が含まれる", async () => {
+    setupPersistentPageHandler(TEST_PROJECT, "旧タイトル")
+
+    await runRename({
+      title: "旧タイトル",
+      "new-title": "新タイトル",
+      project: TEST_PROJECT,
+      json: true,
+      plain: false,
+      "results-only": false,
+      "dry-run": false,
+      quiet: false,
+      "force-fallback": false,
+      "update-links": true,
+    })
+
+    const output = stdoutMock.mock.calls.flat().join("") as string
+    const parsed = JSON.parse(output)
+    // updateLinks スパイが updatedCount: 3 を返すため linksUpdated: 3 が含まれること
+    expect(parsed.data.linksUpdated).toBe(3)
   })
 })

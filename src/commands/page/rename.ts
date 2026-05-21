@@ -24,7 +24,7 @@ import {
   requireProject,
 } from "@/commands/_shared"
 import { EXIT_NOT_FOUND } from "@/core/exit-codes"
-import { renamePage } from "@/core/pages"
+import { renamePage, updateLinks } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
 import { defineCommand } from "citty"
 
@@ -48,12 +48,18 @@ export const pageRenameCommand = defineCommand({
       description: "重複タイトル時に @cosense/std の suggestUnDupTitle による自動補正を許可する",
       default: false,
     },
+    "update-links": {
+      type: "boolean",
+      description: "リネーム後にプロジェクト内の被リンクを一括更新する",
+      default: false,
+    },
   },
   async run({ args }) {
     const a = args as WriteCommonArgs & {
       title: string
       "new-title": string
       "force-fallback": boolean
+      "update-links": boolean
     }
     checkSandbox("page.rename", a)
     const logger = buildLogger(a)
@@ -113,17 +119,33 @@ export const pageRenameCommand = defineCommand({
     }
 
     const writer = await buildWriter(a)
-    const result = await renamePage(writer, {
+    const renameResult = await renamePage(writer, {
       project,
       title: a.title,
       newTitle: a["new-title"],
     })
 
+    // --update-links: リネーム後に被リンクを一括更新する
+    let linksUpdated: number | undefined
+    if (a["update-links"] && !a["dry-run"]) {
+      const client = await buildRestClient(a)
+      const updateResult = await updateLinks(client, {
+        project,
+        from: a.title,
+        to: a["new-title"],
+      })
+      linksUpdated = updateResult.updatedCount
+    }
+
     if (a.json || a["dry-run"]) {
-      writeJson(result, { command: "page.rename", startTime }, buildJsonOpts(a))
+      const data = linksUpdated !== undefined ? { ...renameResult, linksUpdated } : renameResult
+      writeJson(data, { command: "page.rename", startTime }, buildJsonOpts(a))
       return
     }
 
     logger.success(`ページ "${a.title}" を "${a["new-title"]}" に変更しました`)
+    if (linksUpdated !== undefined) {
+      logger.success(`被リンクを ${linksUpdated} ページで更新しました`)
+    }
   },
 })

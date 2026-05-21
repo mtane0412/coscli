@@ -26,6 +26,7 @@ import {
   renamePage,
   replaceLinesInPage,
   unpinPage,
+  updateLinks,
 } from "@/core/pages"
 import { createTestWriter } from "../../helpers/scrapbox-writer"
 
@@ -687,5 +688,19 @@ describe("unpinPage", () => {
       project: "proj",
       title: "ピン解除ページ",
     })
+  })
+})
+
+describe("updateLinks", () => {
+  it("REST クライアントの replaceLinks を正しい引数で呼ぶ", async () => {
+    const replaceLinks = mock(async () => ({ updatedCount: 5 }))
+    const client = createMockRestClient({ replaceLinks })
+    const result = await updateLinks(client, {
+      project: "テストプロジェクト",
+      from: "Node.js",
+      to: "Node",
+    })
+    expect(replaceLinks).toHaveBeenCalledWith("テストプロジェクト", "Node.js", "Node")
+    expect(result.updatedCount).toBe(5)
   })
 })

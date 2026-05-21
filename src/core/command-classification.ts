@@ -61,6 +61,7 @@ export const WRITE_COMMANDS: readonly string[] = [
   "page.prepend",
   "page.rename",
   "page.unpin",
+  "page.update-links",
   "serve.rest",
   "sync.push",
   "watch-list.add",
