@@ -590,6 +590,28 @@ describe("pageListCommand", () => {
       expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
     })
 
+    it("--icon '   ' (空白のみ) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          icon: "   ",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+      // バリデーションで弾かれているため API は呼ばれない
+      expect(capturedListPagesCalls).toHaveLength(0)
+    })
+
     it("--icon と --limit を同時指定した場合、filterValue と limit の両方が API に渡される", async () => {
       try {
         await runList({

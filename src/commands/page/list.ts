@@ -129,8 +129,9 @@ export const pageListCommand = defineCommand({
     }
     if (a.sort) listOpts.sort = a.sort
 
-    // --icon バリデーション: 空文字は不正（認証前に弾く）
-    if (a.icon !== undefined && a.icon.trim() === "") {
+    // --icon バリデーション: 空文字・空白のみは不正（認証前に弾く）
+    const normalizedIcon = a.icon?.trim()
+    if (normalizedIcon !== undefined && normalizedIcon === "") {
       writeErrorJson(
         "VALIDATION_ERROR",
         "--icon の値が無効です",
@@ -138,7 +139,7 @@ export const pageListCommand = defineCommand({
       )
       exitWithError(5, "VALIDATION_ERROR")
     }
-    if (a.icon) listOpts.filterValue = a.icon
+    if (normalizedIcon) listOpts.filterValue = normalizedIcon
 
     const client = await buildRestClient(a)
     const result = await listPages(client, listOpts)
