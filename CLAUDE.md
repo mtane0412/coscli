@@ -38,6 +38,9 @@ bun test                     # テスト全件 pass 必須
 1. `src/commands/<noun>/<verb>.ts` — 実装
 2. `tests/unit/commands/<noun>/<verb>.test.ts` — テスト
 3. alias がある場合は `src/cli.ts` の両方の登録箇所を更新
+4. `README.md` のコマンド一覧を更新する
+
+**コマンドの変更・削除時も同様に `README.md` を更新すること。**
 
 ### alias ルール
 
