@@ -486,4 +486,64 @@ describe("pageListCommand", () => {
       expect(capturedListPagesCalls[0]?.skip).toBe(0)
     })
   })
+
+  describe("--sort のバリデーション", () => {
+    it("--sort invalid (無効な値) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: "invalid",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("invalid"))
+    })
+
+    it("--sort linked (有効な値) は正常動作し API が呼び出される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: "linked",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      expect(listPagesSpy).toHaveBeenCalled()
+    })
+
+    it("--sort updatedWithMe (有効な値) は正常動作し API が呼び出される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: "updatedWithMe",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      expect(listPagesSpy).toHaveBeenCalled()
+    })
+  })
 })

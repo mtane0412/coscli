@@ -20,6 +20,18 @@ import { writeErrorJson, writeJson } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
+/** --sort に指定できる有効な値 */
+const VALID_SORT_VALUES = [
+  "updated",
+  "created",
+  "accessed",
+  "pageRank",
+  "linked",
+  "views",
+  "title",
+  "updatedWithMe",
+] as const
+
 export const pageListCommand = defineCommand({
   meta: { name: "list", description: "ページ一覧を取得する" },
   args: {
@@ -34,7 +46,7 @@ export const pageListCommand = defineCommand({
     },
     sort: {
       type: "string",
-      description: "ソート順 (updated/created/accessed/pageRank/links/views/title)",
+      description: "ソート順 (updated/created/accessed/pageRank/linked/views/title/updatedWithMe)",
     },
     pinned: {
       type: "boolean",
@@ -94,6 +106,15 @@ export const pageListCommand = defineCommand({
       listOpts.skip = Number(a.skip)
     }
 
+    // --sort バリデーション: 許可された値のみ受け付ける
+    if (a.sort !== undefined && !(VALID_SORT_VALUES as readonly string[]).includes(a.sort)) {
+      writeErrorJson(
+        "VALIDATION_ERROR",
+        `--sort=${a.sort} は無効な値です`,
+        `有効な値: ${VALID_SORT_VALUES.join(", ")}`,
+      )
+      exitWithError(5, "VALIDATION_ERROR")
+    }
     if (a.sort) listOpts.sort = a.sort
     const client = await buildRestClient(a)
     const result = await listPages(client, listOpts)
