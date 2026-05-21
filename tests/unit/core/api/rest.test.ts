@@ -223,6 +223,44 @@ describe("CosenseRestClient", () => {
       const client = new CosenseRestClient({ sid: TEST_SID })
       await expect(client.listPages("存在しないプロジェクト")).rejects.toThrow()
     })
+
+    it("filterValue 指定時に filterType=icon&filterValue=<value> がリクエスト URL に含まれる", async () => {
+      // await 後の TypeScript の変数フロー解析問題を回避するため配列でキャプチャする
+      const capturedUrls: URL[] = []
+      server.use(
+        http.get(`${BASE_URL}/api/pages/:project`, ({ request, params }) => {
+          capturedUrls.push(new URL(request.url))
+          if (params["project"] === TEST_PROJECT) {
+            return HttpResponse.json(pageListFixture)
+          }
+          return HttpResponse.json({ message: "Not found" }, { status: 404 })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await client.listPages(TEST_PROJECT, { filterValue: "mtane0412" })
+      const capturedUrl = capturedUrls[0]
+      expect(capturedUrl?.searchParams.get("filterType")).toBe("icon")
+      expect(capturedUrl?.searchParams.get("filterValue")).toBe("mtane0412")
+    })
+
+    it("filterValue 未指定時に filterType および filterValue がリクエスト URL に含まれない", async () => {
+      // await 後の TypeScript の変数フロー解析問題を回避するため配列でキャプチャする
+      const capturedUrls: URL[] = []
+      server.use(
+        http.get(`${BASE_URL}/api/pages/:project`, ({ request, params }) => {
+          capturedUrls.push(new URL(request.url))
+          if (params["project"] === TEST_PROJECT) {
+            return HttpResponse.json(pageListFixture)
+          }
+          return HttpResponse.json({ message: "Not found" }, { status: 404 })
+        }),
+      )
+      const client = new CosenseRestClient({ sid: TEST_SID })
+      await client.listPages(TEST_PROJECT)
+      const capturedUrl = capturedUrls[0]
+      expect(capturedUrl?.searchParams.has("filterType")).toBe(false)
+      expect(capturedUrl?.searchParams.has("filterValue")).toBe(false)
+    })
   })
 
   describe("getPage", () => {

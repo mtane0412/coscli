@@ -4,6 +4,7 @@
  * プロジェクトのページ一覧を取得して出力する。
  * --json で envelope 形式、--plain で TSV 出力。
  * --pinned でピン留めページのみに絞り込む（クライアントサイドフィルタ）。
+ * --icon でアイコンが含まれるページのみに絞り込む（サーバーサイドフィルタ）。
  */
 
 import {
@@ -53,6 +54,10 @@ export const pageListCommand = defineCommand({
       description: "ピン留めされたページのみ表示する",
       default: false,
     },
+    icon: {
+      type: "string",
+      description: "指定したアイコンが含まれるページのみ表示する (例: --icon mtane0412)",
+    },
   },
   async run({ args }) {
     const a = args as CommonArgs & {
@@ -60,12 +65,19 @@ export const pageListCommand = defineCommand({
       skip?: string
       sort?: string
       pinned?: boolean
+      icon?: string
     }
     checkSandbox("page.list", a)
     const project = requireProject(a)
     const startTime = Date.now()
 
-    const listOpts: { project: string; limit?: number; skip?: number; sort?: string } = { project }
+    const listOpts: {
+      project: string
+      limit?: number
+      skip?: number
+      sort?: string
+      filterValue?: string
+    } = { project }
 
     let limitNum: number | undefined
 
@@ -116,6 +128,19 @@ export const pageListCommand = defineCommand({
       exitWithError(5, "VALIDATION_ERROR")
     }
     if (a.sort) listOpts.sort = a.sort
+
+    // --icon バリデーション: 空文字・空白のみは不正（認証前に弾く）
+    const normalizedIcon = a.icon?.trim()
+    if (normalizedIcon !== undefined && normalizedIcon === "") {
+      writeErrorJson(
+        "VALIDATION_ERROR",
+        "--icon の値が無効です",
+        "アイコン名を指定してください (例: --icon mtane0412)",
+      )
+      exitWithError(5, "VALIDATION_ERROR")
+    }
+    if (normalizedIcon) listOpts.filterValue = normalizedIcon
+
     const client = await buildRestClient(a)
     const result = await listPages(client, listOpts)
 

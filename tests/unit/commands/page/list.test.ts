@@ -63,7 +63,7 @@ const pinnedPageListFixture = {
 }
 
 /** listPages に渡された opts をキャプチャする */
-const capturedListPagesCalls: { limit?: number; skip?: number }[] = []
+const capturedListPagesCalls: { limit?: number; skip?: number; filterValue?: string }[] = []
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
@@ -98,9 +98,10 @@ beforeEach(() => {
   capturedListPagesCalls.length = 0
   listPagesSpy = spyOn(pages, "listPages").mockImplementation(async (_client, opts) => {
     // exactOptionalPropertyTypes: true のためオプショナルプロパティへは条件付き代入を使う
-    const captured: { limit?: number; skip?: number } = {}
+    const captured: { limit?: number; skip?: number; filterValue?: string } = {}
     if (opts.limit !== undefined) captured.limit = opts.limit
     if (opts.skip !== undefined) captured.skip = opts.skip
+    if (opts.filterValue !== undefined) captured.filterValue = opts.filterValue
     capturedListPagesCalls.push(captured)
     return pageListFixture
   })
@@ -544,6 +545,94 @@ describe("pageListCommand", () => {
       }
       expect(exitMock).not.toHaveBeenCalled()
       expect(listPagesSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe("--icon フラグ", () => {
+    it("--icon mtane0412 を指定すると filterValue: 'mtane0412' が API に渡される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          icon: "mtane0412",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      expect(capturedListPagesCalls).toHaveLength(1)
+      expect(capturedListPagesCalls[0]?.filterValue).toBe("mtane0412")
+    })
+
+    it("--icon '' (空文字) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          icon: "",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+    })
+
+    it("--icon '   ' (空白のみ) は VALIDATION_ERROR で exit 5 になる", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: undefined,
+          skip: undefined,
+          sort: undefined,
+          icon: "   ",
+          json: true,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続による throw は想定内
+      }
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+      // バリデーションで弾かれているため API は呼ばれない
+      expect(capturedListPagesCalls).toHaveLength(0)
+    })
+
+    it("--icon と --limit を同時指定した場合、filterValue と limit の両方が API に渡される", async () => {
+      try {
+        await runList({
+          project: "テストプロジェクト",
+          limit: "5",
+          skip: undefined,
+          sort: undefined,
+          icon: "mtane0412",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // REST クライアント初期化中の throw は想定内
+      }
+      expect(exitMock).not.toHaveBeenCalled()
+      expect(capturedListPagesCalls).toHaveLength(1)
+      expect(capturedListPagesCalls[0]?.filterValue).toBe("mtane0412")
+      // --icon はサーバーサイドフィルタなので limit も API に渡される
+      expect(capturedListPagesCalls[0]?.limit).toBe(5)
     })
   })
 })

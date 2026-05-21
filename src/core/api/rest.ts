@@ -119,12 +119,16 @@ export class CosenseRestClient {
   /** listPages は /api/pages/:project を叩いてページ一覧を返す。 */
   async listPages(
     project: string,
-    opts: { skip?: number; limit?: number; sort?: string } = {},
+    opts: { skip?: number; limit?: number; sort?: string; filterValue?: string } = {},
   ): Promise<PageListResponse> {
     const params = new URLSearchParams()
     if (opts.skip !== undefined) params.set("skip", String(opts.skip))
     if (opts.limit !== undefined) params.set("limit", String(opts.limit))
     if (opts.sort) params.set("sort", opts.sort)
+    if (opts.filterValue) {
+      params.set("filterType", "icon")
+      params.set("filterValue", opts.filterValue)
+    }
     const query = params.size > 0 ? `?${params.toString()}` : ""
     const data = await this.fetchJson(
       `${BASE_URL}/api/pages/${encodeURIComponent(project)}${query}`,

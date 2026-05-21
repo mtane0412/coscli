@@ -12,7 +12,7 @@ import { CommitConflictError, PageLineError } from "@/core/errors"
 /** listPages はプロジェクトのページ一覧を取得する。 */
 export async function listPages(
   client: CosenseRestClient,
-  opts: { project: string; limit?: number; skip?: number; sort?: string },
+  opts: { project: string; limit?: number; skip?: number; sort?: string; filterValue?: string },
 ) {
   const { project, ...restOpts } = opts
   return client.listPages(project, restOpts)
