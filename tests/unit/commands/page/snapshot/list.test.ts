@@ -120,7 +120,7 @@ describe("pageSnapshotListCommand", () => {
       expect(snapshotOpts.pageId).toBe(pageDetailFixture.id)
     })
 
-    it("--plain で <timestampId>  <日時> 形式の行が 1 件ずつ出力される", async () => {
+    it("--plain で TSV 形式（ヘッダー行 + データ行）が出力される", async () => {
       try {
         await runSnapshotList({ ...defaultArgs, json: false, plain: true })
       } catch {
@@ -129,11 +129,13 @@ describe("pageSnapshotListCommand", () => {
 
       expect(exitMock).not.toHaveBeenCalled()
 
-      // stdout.write が各スナップショット分 (3件) 呼ばれた
+      // writeTsv: ヘッダー1行 + フィクスチャ3件 = 4回 write が呼ばれる
       const writtenLines = stdoutMock.mock.calls.map((c: unknown[]) => c[0] as string)
-      expect(writtenLines).toHaveLength(3)
-      // 1 件目は "1700000000-snap2  2023-11-14 ..." 形式
-      expect(writtenLines[0]).toMatch(/^1700000000-snap2\s+20\d{2}-/)
+      expect(writtenLines).toHaveLength(4)
+      // ヘッダー行はタブ区切りの列名
+      expect(writtenLines[0]).toBe("id\tcreated\n")
+      // データ行はタブ区切りの id と ISO 8601 日時
+      expect(writtenLines[1]).toMatch(/^1700000000-snap2\t20\d{2}-/)
     })
   })
 

@@ -202,6 +202,25 @@ describe("pageHistoryCommand", () => {
     })
   })
 
+  describe("--plain フラグ", () => {
+    it("--plain で TSV 形式（ヘッダー行 + データ行）が出力される", async () => {
+      try {
+        await runHistory({ ...defaultArgs, json: false, plain: true })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      // writeTsv: ヘッダー1行 + フィクスチャ3件 = 4回 write が呼ばれる
+      const writtenLines = stdoutMock.mock.calls.map((c: unknown[]) => c[0] as string)
+      expect(writtenLines).toHaveLength(4)
+      // ヘッダー行はタブ区切りの列名
+      expect(writtenLines[0]).toBe("id\tcreated\tuserId\tchanges\n")
+      // データ行はタブ区切りの id、ISO 8601 日時、userId、changes 数
+      expect(writtenLines[1]).toMatch(/^commit-id-2\t20\d{2}-/)
+    })
+  })
+
   describe("エラー系", () => {
     it("project 未指定は PROJECT_REQUIRED で exit 5 になる", async () => {
       try {

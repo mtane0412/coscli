@@ -17,6 +17,7 @@ import {
 } from "@/commands/_shared"
 import { getPage, getPageCommits } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
+import { writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
 /** pageHistoryCommand はページのコミット履歴を取得するコマンドを返す。 */
@@ -94,13 +95,16 @@ export const pageHistoryCommand = defineCommand({
         return
       }
 
-      // plain 出力: 1 コミット 1 行
-      for (const commit of commits) {
-        const date = new Date(commit.created * 1000).toISOString().replace("T", " ").slice(0, 19)
-        process.stdout.write(
-          `${commit.id}  ${date}  user=${commit.userId}  changes=${commit.changes.length}\n`,
-        )
-      }
+      // plain 出力: TSV（ヘッダー行 + データ行）
+      writeTsv(
+        ["id", "created", "userId", "changes"],
+        commits.map((c) => [
+          c.id,
+          new Date(c.created * 1000).toISOString(),
+          c.userId,
+          String(c.changes.length),
+        ]),
+      )
     } catch (err) {
       handleRestError(err, { resourceKind: "page", resourceName: a.title })
       throw err
