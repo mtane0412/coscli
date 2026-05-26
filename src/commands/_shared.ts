@@ -276,8 +276,32 @@ export class SidValidationError extends Error {
 
 /** assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。 */
 export function assertValidSid(sid: string): void {
+  // PAT を SID に誤投入した場合の明示ガード (SID_PATTERN は pat_ + hex を素通しするため)
+  if (sid.startsWith("pat_")) {
+    throw new SidValidationError()
+  }
   if (sid.length === 0 || sid.length > SID_MAX_LENGTH || !SID_PATTERN.test(sid)) {
     throw new SidValidationError()
+  }
+}
+
+// Personal Access Token は pat_ プレフィックスと 64桁小文字16進数から構成される
+const PAT_PATTERN = /^pat_[0-9a-f]{64}$/
+
+/** PersonalAccessTokenValidationError は PAT フォーマット違反を表すエラー。 */
+export class PersonalAccessTokenValidationError extends Error {
+  constructor() {
+    super(
+      "Personal Access Token のフォーマットが不正です。pat_ で始まる 68 文字 (pat_ + 64 桁小文字 16 進数) を指定してください",
+    )
+    this.name = "PersonalAccessTokenValidationError"
+  }
+}
+
+/** assertValidPersonalAccessToken は PAT のフォーマットを検証し、違反時は PersonalAccessTokenValidationError をスローする。 */
+export function assertValidPersonalAccessToken(pat: string): void {
+  if (!PAT_PATTERN.test(pat)) {
+    throw new PersonalAccessTokenValidationError()
   }
 }
 

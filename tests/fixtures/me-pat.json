@@ -1,0 +1,9 @@
+{
+  "id": "user-id-me",
+  "name": "テストユーザー",
+  "displayName": "テストユーザー表示名",
+  "email": "test@example.com",
+  "photo": "https://example.com/photo.jpg",
+  "isPasswordUser": false,
+  "isGitHubUser": true
+}
