@@ -7,7 +7,15 @@
 
 import { AuthError, CosenseRestClient, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
-import { loadSession } from "@/core/auth/session"
+import {
+  type Credential,
+  canWrite,
+  detectCredentialKind,
+  isValidSaKeyFormat,
+  parseCredential,
+} from "@/core/auth/credential"
+import { TokenStoreCredentialAdapter } from "@/core/auth/credential-store"
+import type { CredentialStore } from "@/core/auth/credential-store"
 import { lintNotation } from "@/core/notation/lint"
 import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
 import { PolicyError, createPolicy } from "@/core/sandbox"
@@ -262,10 +270,6 @@ export function getRawFlagValue(argv: string[], flagName: string): string | unde
   return result
 }
 
-const SID_MAX_LENGTH = 4096
-// RFC 6265 cookie-octet: DQUOTE(0x22), comma(0x2C), semicolon(0x3B), backslash(0x5C), CTL, SP を除外
-const SID_PATTERN = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/
-
 /** SidValidationError は SID フォーマット違反を表すエラー。 */
 export class SidValidationError extends Error {
   constructor() {
@@ -274,19 +278,22 @@ export class SidValidationError extends Error {
   }
 }
 
-/** assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。 */
+/**
+ * assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。
+ *
+ * PAT/SA Key を誤投入した場合も SidValidationError をスローする。
+ * フォーマット検証は credential.ts の parseCredential に委譲する。
+ */
 export function assertValidSid(sid: string): void {
-  // PAT を SID に誤投入した場合の明示ガード (SID_PATTERN は pat_ + hex を素通しするため)
-  if (sid.startsWith("pat_")) {
-    throw new SidValidationError()
-  }
-  if (sid.length === 0 || sid.length > SID_MAX_LENGTH || !SID_PATTERN.test(sid)) {
+  try {
+    const cred = parseCredential(sid)
+    // PAT または SA として判別された場合は SID として無効
+    if (cred.kind !== "sid") throw new SidValidationError()
+  } catch (e) {
+    if (e instanceof SidValidationError) throw e
     throw new SidValidationError()
   }
 }
-
-// Personal Access Token は pat_ プレフィックスと 64桁小文字16進数から構成される
-const PAT_PATTERN = /^pat_[0-9a-f]{64}$/
 
 /** PersonalAccessTokenValidationError は PAT フォーマット違反を表すエラー。 */
 export class PersonalAccessTokenValidationError extends Error {
@@ -298,15 +305,20 @@ export class PersonalAccessTokenValidationError extends Error {
   }
 }
 
-/** assertValidPersonalAccessToken は PAT のフォーマットを検証し、違反時は PersonalAccessTokenValidationError をスローする。 */
+/**
+ * assertValidPersonalAccessToken は PAT のフォーマットを検証し、違反時は PersonalAccessTokenValidationError をスローする。
+ *
+ * フォーマット検証は credential.ts の parseCredential に委譲する。
+ */
 export function assertValidPersonalAccessToken(pat: string): void {
-  if (!PAT_PATTERN.test(pat)) {
+  try {
+    const cred = parseCredential(pat)
+    if (cred.kind !== "pat") throw new PersonalAccessTokenValidationError()
+  } catch (e) {
+    if (e instanceof PersonalAccessTokenValidationError) throw e
     throw new PersonalAccessTokenValidationError()
   }
 }
-
-// Service Account Access Key は cs_ プレフィックスと 64桁小文字16進数から構成される
-const SA_KEY_PATTERN = /^cs_[0-9a-f]{64}$/
 
 /** ServiceAccountKeyValidationError は Service Account キーのフォーマット違反を表すエラー。 */
 export class ServiceAccountKeyValidationError extends Error {
@@ -318,30 +330,92 @@ export class ServiceAccountKeyValidationError extends Error {
   }
 }
 
-/** assertValidServiceAccountKey は Service Account キーのフォーマットを検証し、違反時は ServiceAccountKeyValidationError をスローする。 */
+/**
+ * assertValidServiceAccountKey は Service Account キーのフォーマットを検証し、違反時は ServiceAccountKeyValidationError をスローする。
+ *
+ * project を必要としないフォーマット検証は credential.ts の isValidSaKeyFormat に委譲する。
+ */
 export function assertValidServiceAccountKey(key: string): void {
-  if (!SA_KEY_PATTERN.test(key)) {
+  if (!isValidSaKeyFormat(key)) {
     throw new ServiceAccountKeyValidationError()
   }
 }
 
-/** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */
-export async function requireSid(profile?: string): Promise<string> {
-  // CI・エージェント向けに COS_SID 環境変数を優先チェック (プロファイル指定時は無視)
-  if (!profile) {
+/**
+ * resolveActiveCredential は認証情報を優先順位に従って解決して Credential を返す。
+ *
+ * 解決優先順位:
+ * 1. COS_PERSONAL_ACCESS_TOKEN env → 匿名 PAT Credential
+ * 2. COS_SERVICE_ACCOUNT_KEY env   → 匿名 SA Credential (COS_PROJECT / --project を defaultProject に設定)
+ * 3. COS_SID env (profile 未指定時) → SID Credential。pat_* の場合は互換 PAT + stderr 警告
+ * 4-7. CredentialStore の該当プロファイル (--profile > "default")
+ *
+ * @param args - コマンドの共通引数 (profile, project 等)
+ * @param store - Credential ストア実装 (テストでは InMemoryCredentialStore を注入)
+ */
+export async function resolveActiveCredential(
+  args: CommonArgs,
+  store: CredentialStore,
+): Promise<Credential> {
+  // 1. COS_PERSONAL_ACCESS_TOKEN を最優先チェック
+  const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
+  if (envPat !== undefined) {
+    try {
+      const cred = parseCredential(envPat)
+      if (cred.kind !== "pat") throw new Error("PAT 形式でありません")
+      return cred
+    } catch {
+      writeErrorJson(
+        "INVALID_PERSONAL_ACCESS_TOKEN",
+        "COS_PERSONAL_ACCESS_TOKEN のフォーマットが不正です",
+        "pat_ で始まる 68 文字の Personal Access Token を指定してください",
+      )
+      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+    }
+  }
+
+  // 2. COS_SERVICE_ACCOUNT_KEY を次優先チェック
+  const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
+  if (envKey !== undefined) {
+    if (!isValidSaKeyFormat(envKey)) {
+      writeErrorJson(
+        "INVALID_SERVICE_ACCOUNT_KEY",
+        "COS_SERVICE_ACCOUNT_KEY のフォーマットが不正です",
+        "cs_ で始まる 67 文字のキーを指定してください",
+      )
+      exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+    }
+    const project = args.project ?? process.env["COS_PROJECT"]
+    const credSa: { kind: "sa"; value: string; defaultProject?: string } = {
+      kind: "sa",
+      value: envKey,
+    }
+    if (project !== undefined) credSa.defaultProject = project
+    return credSa
+  }
+
+  // 3. COS_SID env (profile 未指定時のみ)
+  if (!args.profile) {
     const envSid = process.env["COS_SID"]
     if (envSid !== undefined) {
-      // PAT を COS_SID に誤投入した場合: 書き込み不可を明示 (exit 2)
-      if (envSid.startsWith("pat_")) {
-        writeErrorJson(
-          "AUTH_WRITE_NOT_SUPPORTED",
-          "Personal Access Token (PAT) では書き込み操作を実行できません",
-          "書き込みコマンドには connect.sid が必要です。`cos auth login --sid <connect.sid>` でログインしてください",
+      // PAT が COS_SID に設定された場合の互換処理 (Phase 6 で hard error に切り替え)
+      if (detectCredentialKind(envSid) === "pat") {
+        process.stderr.write(
+          "警告: COS_SID に Personal Access Token が設定されています。COS_PERSONAL_ACCESS_TOKEN 環境変数の使用を推奨します。\n",
         )
-        exitWithError(2, "AUTH_WRITE_NOT_SUPPORTED")
+        try {
+          return parseCredential(envSid)
+        } catch {
+          writeErrorJson(
+            "INVALID_PERSONAL_ACCESS_TOKEN",
+            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
+            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
+          )
+          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+        }
       }
       try {
-        assertValidSid(envSid)
+        return parseCredential(envSid)
       } catch {
         writeErrorJson(
           "INVALID_SID",
@@ -350,13 +424,13 @@ export async function requireSid(profile?: string): Promise<string> {
         )
         exitWithError(5, "INVALID_SID")
       }
-      return envSid
     }
   }
-  const store = createTokenStore()
-  const sessionOpts = profile !== undefined ? { profile } : {}
-  const sid = await loadSession(store, sessionOpts)
-  if (!sid) {
+
+  // 4-7. CredentialStore からプロファイルを解決 (--profile > "default")
+  const profile = args.profile ?? "default"
+  const cred = await store.load(profile)
+  if (cred === null) {
     writeErrorJson(
       "AUTH_REQUIRED",
       "認証情報が見つかりません",
@@ -364,26 +438,35 @@ export async function requireSid(profile?: string): Promise<string> {
     )
     exitWithError(2, "AUTH_REQUIRED")
   }
-  // キーチェーンに PAT が保存されている場合: 書き込み不可を明示 (exit 2)
-  if (sid.startsWith("pat_")) {
+  return cred
+}
+
+/**
+ * requireSid はセッション ID を取得し、未認証または書き込み不可の場合はエラーで終了する。
+ *
+ * 認証解決は resolveActiveCredential に委譲し、canWrite で書き込み可否を判定する。
+ * SID Credential (kind === "sid") のみ通過させ、PAT / SA は exit 2 で拒否する。
+ */
+export async function requireSid(profile?: string): Promise<string> {
+  const argsForResolve: CommonArgs = {
+    json: false,
+    plain: false,
+    "results-only": false,
+    quiet: false,
+  }
+  if (profile !== undefined) argsForResolve.profile = profile
+  const store = new TokenStoreCredentialAdapter(createTokenStore())
+  const cred = await resolveActiveCredential(argsForResolve, store)
+
+  if (!canWrite(cred)) {
     writeErrorJson(
       "AUTH_WRITE_NOT_SUPPORTED",
-      "Personal Access Token (PAT) では書き込み操作を実行できません",
-      "書き込みコマンドには connect.sid が必要です。`cos auth login` で SID でログインしてください",
+      "この認証方式では書き込み操作を実行できません",
+      "書き込みコマンドには connect.sid が必要です。`cos auth login --sid <connect.sid>` でログインしてください",
     )
     exitWithError(2, "AUTH_WRITE_NOT_SUPPORTED")
   }
-  try {
-    assertValidSid(sid)
-  } catch {
-    writeErrorJson(
-      "INVALID_SID",
-      "キーチェーンに保存された SID のフォーマットが不正です",
-      "`cos auth logout` 後に再ログインしてください",
-    )
-    exitWithError(5, "INVALID_SID")
-  }
-  return sid
+  return cred.value
 }
 
 /** requireProject はプロジェクト名を取得し、未指定の場合はエラーで終了する。 */
@@ -404,51 +487,21 @@ export function requireProject(args: CommonArgs): string {
  * buildRestClient は認証情報を解決して REST クライアントを生成する。
  *
  * 認証解決の優先順位:
- * 0. COS_PERSONAL_ACCESS_TOKEN 環境変数 (PAT 認証、最優先)
- * 1. COS_SERVICE_ACCOUNT_KEY 環境変数 (Service Account キー認証)
- * 2. --project 指定時 + 設定ファイルの serviceAccounts に該当プロジェクトが存在 (Service Account キー認証)
- * 3. キーチェーン / COS_SID 環境変数 (PAT または SID 認証、値の pat_ プレフィックスで自動判別)
+ * 1. COS_PERSONAL_ACCESS_TOKEN env → PAT 認証
+ * 2. COS_SERVICE_ACCOUNT_KEY env   → SA Key 認証
+ * 3. config.serviceAccounts[project] → SA Key 認証 (Phase 4 で削除予定)
+ * 4-7. resolveActiveCredential (COS_SID / keychain)
  */
 export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClient> {
-  // 0. 環境変数 COS_PERSONAL_ACCESS_TOKEN を最優先チェック (PAT > SA Key > sid)
-  const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
-  if (envPat !== undefined) {
-    try {
-      assertValidPersonalAccessToken(envPat)
-    } catch {
-      writeErrorJson(
-        "INVALID_PERSONAL_ACCESS_TOKEN",
-        "COS_PERSONAL_ACCESS_TOKEN のフォーマットが不正です",
-        "pat_ で始まる 68 文字の Personal Access Token を指定してください",
-      )
-      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-    }
-    const projectForAutoWatch = args.project ?? process.env["COS_PROJECT"]
-    if (projectForAutoWatch) maybeAutoAddToWatchlist(projectForAutoWatch)
-    return new CosenseRestClient({ personalAccessToken: envPat })
-  }
-
-  // 1. 環境変数 COS_SERVICE_ACCOUNT_KEY を次優先チェック
-  const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
-  if (envKey !== undefined) {
-    try {
-      assertValidServiceAccountKey(envKey)
-    } catch {
-      writeErrorJson(
-        "INVALID_SERVICE_ACCOUNT_KEY",
-        "COS_SERVICE_ACCOUNT_KEY のフォーマットが不正です",
-        "cs_ で始まる 67 文字のキーを指定してください",
-      )
-      exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
-    }
-    const projectForAutoWatch = args.project ?? process.env["COS_PROJECT"]
-    if (projectForAutoWatch) maybeAutoAddToWatchlist(projectForAutoWatch)
-    return new CosenseRestClient({ serviceAccountKey: envKey })
-  }
-
-  // 2. --project 指定時は設定ファイルから SA キーを検索
   const project = args.project ?? process.env["COS_PROJECT"]
-  if (project) {
+
+  // config.serviceAccounts フォールバック (Phase 4 で削除予定)
+  // env vars が未設定かつプロジェクト指定時のみ config から SA キーを検索する
+  if (
+    project &&
+    process.env["COS_PERSONAL_ACCESS_TOKEN"] === undefined &&
+    process.env["COS_SERVICE_ACCOUNT_KEY"] === undefined
+  ) {
     const config = loadConfig()
     const saKey = config.serviceAccounts?.[project]
     if (saKey !== undefined) {
@@ -467,77 +520,18 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
     }
   }
 
-  // 3. キーチェーン / COS_SID 環境変数から認証情報を取得 (PAT / SID 自動判別)
-  // requireSid は pat_ を拒否するため、buildRestClient では直接 loadSession を使う
-  if (!args.profile) {
-    const envSid = process.env["COS_SID"]
-    if (envSid !== undefined) {
-      // pat_ プレフィックスの場合は PAT として処理する (COS_PERSONAL_ACCESS_TOKEN への移行を推奨)
-      if (envSid.startsWith("pat_")) {
-        try {
-          assertValidPersonalAccessToken(envSid)
-        } catch {
-          writeErrorJson(
-            "INVALID_PERSONAL_ACCESS_TOKEN",
-            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
-            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
-          )
-          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-        }
-        if (project) maybeAutoAddToWatchlist(project)
-        return new CosenseRestClient({ personalAccessToken: envSid })
-      }
-      try {
-        assertValidSid(envSid)
-      } catch {
-        writeErrorJson(
-          "INVALID_SID",
-          "COS_SID のフォーマットが不正です",
-          "改行・制御文字・空白を含まない印字可能 ASCII 文字列を指定してください",
-        )
-        exitWithError(5, "INVALID_SID")
-      }
-      if (project) maybeAutoAddToWatchlist(project)
-      return new CosenseRestClient({ sid: envSid })
-    }
-  }
-  const store = createTokenStore()
-  const sessionOpts = args.profile !== undefined ? { profile: args.profile } : {}
-  const token = await loadSession(store, sessionOpts)
-  if (!token) {
-    writeErrorJson(
-      "AUTH_REQUIRED",
-      "認証情報が見つかりません",
-      "`cos auth login` を実行してログインしてください",
-    )
-    exitWithError(2, "AUTH_REQUIRED")
-  }
+  // env vars / COS_SID / keychain を resolveActiveCredential に委譲
+  const credStore = new TokenStoreCredentialAdapter(createTokenStore())
+  const cred = await resolveActiveCredential(args, credStore)
   if (project) maybeAutoAddToWatchlist(project)
-  // PAT プレフィックスの場合は PAT 認証、それ以外は SID 認証
-  if (token.startsWith("pat_")) {
-    try {
-      assertValidPersonalAccessToken(token)
-    } catch {
-      writeErrorJson(
-        "INVALID_PERSONAL_ACCESS_TOKEN",
-        "キーチェーンに保存された Personal Access Token のフォーマットが不正です",
-        "`cos auth logout` 後に `cos auth login --pat <token>` で再ログインしてください",
-      )
-      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-    }
-    return new CosenseRestClient({ personalAccessToken: token })
+
+  if (cred.kind === "pat") {
+    return new CosenseRestClient({ personalAccessToken: cred.value })
   }
-  try {
-    assertValidSid(token)
-  } catch {
-    writeErrorJson(
-      "INVALID_SID",
-      "キーチェーンに保存された SID のフォーマットが不正です",
-      "`cos auth logout` 後に再ログインしてください",
-    )
-    exitWithError(5, "INVALID_SID")
+  if (cred.kind === "sa") {
+    return new CosenseRestClient({ serviceAccountKey: cred.value })
   }
-  return new CosenseRestClient({ sid: token })
+  return new CosenseRestClient({ sid: cred.value })
 }
 
 /**

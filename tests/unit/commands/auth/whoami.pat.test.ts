@@ -110,12 +110,17 @@ beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stderrMock = spyOn(process.stderr, "write").mockImplementation(() => true)
   Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+  Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock?.mockRestore()
   stderrMock.mockRestore()
+  Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+  Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
 })
 
 // ---------------------------------------------------------------------------
