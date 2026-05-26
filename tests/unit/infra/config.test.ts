@@ -5,8 +5,8 @@
  * テスト終了後にクリーンアップする。
  */
 
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, statSync, unlinkSync } from "node:fs"
+import { afterAll, afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import { existsSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -51,6 +51,29 @@ describe("loadConfig", () => {
     Bun.write(path, "{ 不正なJSON5 :")
     expect(() => loadConfig(path)).toThrow("設定ファイルの読み込みに失敗しました")
     unlinkSync(path)
+  })
+
+  it("serviceAccounts フィールドが残っている場合は cos auth migrate を案内する警告を stderr に出すこと", () => {
+    const path = tmpConfigPath()
+    // 旧フォーマット: serviceAccounts が残っているユーザーの設定ファイルを再現する
+    writeFileSync(
+      path,
+      JSON.stringify({
+        defaultProject: "マイプロジェクト",
+        serviceAccounts: {
+          マイプロジェクト: "cs_0000000000000000000000000000000000000000000000000000000000000001",
+        },
+      }),
+    )
+    const stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+    try {
+      loadConfig(path)
+      const stderrOutput = stderrSpy.mock.calls.map((c) => String(c[0])).join("")
+      expect(stderrOutput).toContain("cos auth migrate")
+    } finally {
+      stderrSpy.mockRestore()
+      unlinkSync(path)
+    }
   })
 })
 

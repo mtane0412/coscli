@@ -63,6 +63,8 @@ src/
 │   │   ├── rest.ts       # REST 読み取り + CSRF + リトライ
 │   │   └── ws.ts         # ScrapboxWriter interface + @cosense/std ラッパ
 │   ├── auth/
+│   │   ├── credential.ts        # Credential タグ付きユニオン型・判別関数
+│   │   ├── credential-store.ts  # CredentialStore interface + アダプタ
 │   │   ├── session.ts
 │   │   └── store.ts      # TokenStore interface
 │   ├── pages.ts
@@ -120,16 +122,48 @@ config 経由の設定:
 
 コマンド分類: `src/core/command-classification.ts` で read/write を一元管理
 
-## Personal Access Token (PAT) 制約
+## 認証システム
+
+SID / PAT / SA Key の 3 方式を `Credential` タグ付きユニオン (`src/core/auth/credential.ts`) で統一管理。
+
+### Credential 型
+
+```ts
+type Credential =
+  | { kind: "sid"; value: string; defaultProject?: string }
+  | { kind: "pat"; value: string; defaultProject?: string }
+  | { kind: "sa"; value: string; defaultProject: string }
+```
+
+`canWrite(cred)` は `cred.kind === "sid"` のみ `true`。
+
+### CredentialStore
+
+`src/core/auth/credential-store.ts` に `CredentialStore` interface と `TokenStoreCredentialAdapter`。keychain 値は `{"kind":"sid"|"pat"|"sa","value":"...","defaultProject"?:"..."}` の JSON エンベロープで保存。旧平文 SID/PAT は legacy 互換で自動解釈。
+
+### resolveActiveCredential の 7 段優先順位
+
+1. `COS_PERSONAL_ACCESS_TOKEN` env → PAT Credential
+2. `COS_SERVICE_ACCOUNT_KEY` env → SA Credential
+3. `COS_SID` env (profile 未指定時のみ、`pat_*` は警告付きで受理)
+4. `--profile <name>` フラグ → keychain
+5. `COS_PROFILE` env → keychain
+6. `config.defaultProfile` → keychain
+7. `"default"` プロファイル → keychain
+
+`requireSid` は `canWrite` が false なら exit 2 + `AUTH_WRITE_NOT_SUPPORTED`。
+
+### PAT 制約
 
 PAT (`pat_` + 64桁小文字16進数、ヘッダ `x-personal-access-token`) は**読み取り系 REST のみ**対応。
 
-- **書き込み不可**: `page edit`、`page pin`、`sync push` 等は `connect.sid` が必要。書き込みコマンドで PAT を使おうとすると exit 2 + `AUTH_WRITE_NOT_SUPPORTED`
+- **書き込み不可**: `page edit`、`page pin`、`sync push` 等は `connect.sid` が必要
 - **csrfToken 欠落**: PAT セッションでは `/api/users/me` が csrfToken を返さない。`MeSchema.csrfToken` は `.optional()` にしてある
 - **`replaceLinks` ガード**: `csrfToken === undefined` のとき `AUTH_WRITE_NOT_SUPPORTED` を throw
-- **TokenStore 同居**: PAT は SID と同じ TokenStore に保存。値の `pat_` プレフィックスで自動判別
-- **`requireSid` 拒否**: 書き込みコマンドが使う `requireSid` は `pat_` を検出すると exit 2 で明示拒否
-- **`buildRestClient` 優先順位**: env `COS_PERSONAL_ACCESS_TOKEN` > env `COS_SERVICE_ACCOUNT_KEY` > config SA > keychain (値の `pat_` 判別)
+
+### SA Key の管理
+
+SA キーは OS キーチェーンにプロファイル名 `cs_<project>` で保存。旧 `config.serviceAccounts` からの移行は `cos auth migrate` で行う。
 
 ## 終了コード
 

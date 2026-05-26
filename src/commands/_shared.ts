@@ -486,41 +486,13 @@ export function requireProject(args: CommonArgs): string {
 /**
  * buildRestClient は認証情報を解決して REST クライアントを生成する。
  *
- * 認証解決の優先順位:
+ * 認証解決の優先順位 (resolveActiveCredential の 7 段優先順位に委譲):
  * 1. COS_PERSONAL_ACCESS_TOKEN env → PAT 認証
  * 2. COS_SERVICE_ACCOUNT_KEY env   → SA Key 認証
- * 3. config.serviceAccounts[project] → SA Key 認証 (Phase 4 で削除予定)
- * 4-7. resolveActiveCredential (COS_SID / keychain)
+ * 3-7. COS_SID env / keychain プロファイル
  */
 export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClient> {
   const project = args.project ?? process.env["COS_PROJECT"]
-
-  // config.serviceAccounts フォールバック (Phase 4 で削除予定)
-  // env vars が未設定かつプロジェクト指定時のみ config から SA キーを検索する
-  if (
-    project &&
-    process.env["COS_PERSONAL_ACCESS_TOKEN"] === undefined &&
-    process.env["COS_SERVICE_ACCOUNT_KEY"] === undefined
-  ) {
-    const config = loadConfig()
-    const saKey = config.serviceAccounts?.[project]
-    if (saKey !== undefined) {
-      try {
-        assertValidServiceAccountKey(saKey)
-      } catch {
-        writeErrorJson(
-          "INVALID_SERVICE_ACCOUNT_KEY",
-          `設定ファイルの ${project} の Service Account キーのフォーマットが不正です`,
-          "cs_ で始まる 67 文字のキーを指定してください",
-        )
-        exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
-      }
-      maybeAutoAddToWatchlist(project)
-      return new CosenseRestClient({ serviceAccountKey: saKey })
-    }
-  }
-
-  // env vars / COS_SID / keychain を resolveActiveCredential に委譲
   const credStore = new TokenStoreCredentialAdapter(createTokenStore())
   const cred = await resolveActiveCredential(args, credStore)
   if (project) maybeAutoAddToWatchlist(project)

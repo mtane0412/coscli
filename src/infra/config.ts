@@ -55,11 +55,6 @@ export const CoscliConfigSchema = z.object({
   defaultProject: z.string().optional(),
   defaultProfile: z.string().optional(),
   /**
-   * プロジェクト名をキー、Service Account Access Key を値とするマップ。
-   * `cos auth sa add` で登録し `buildRestClient` が自動参照する。
-   */
-  serviceAccounts: z.record(z.string(), z.string()).optional(),
-  /**
    * projects に未列挙のプロジェクトへの既定権限プリセット。
    * プロジェクト指定時のみ適用される (プロジェクト未指定コマンドには無効)。
    * 未設定: 全コマンド許可 (後方互換)。
@@ -100,6 +95,12 @@ export function loadConfig(filePath: string = defaultConfigPath()): CoscliConfig
   try {
     const raw = readFileSync(filePath, "utf-8")
     const parsed = JSON5.parse(raw) as unknown
+    // serviceAccounts が残っているユーザーへのマイグレーション案内
+    if (typeof parsed === "object" && parsed !== null && "serviceAccounts" in parsed) {
+      process.stderr.write(
+        "警告: config.serviceAccounts は廃止されました。`cos auth migrate` を実行して keychain に移行してください。\n",
+      )
+    }
     return CoscliConfigSchema.parse(parsed)
   } catch (err) {
     throw new Error(
@@ -115,6 +116,75 @@ export function saveConfig(config: CoscliConfig, filePath: string = defaultConfi
   // JSON5 形式のヘッダコメントを付与
   const header = "// coscli 設定ファイル (JSON5形式 — コメント・末尾カンマ可)\n"
   writeFileSync(filePath, header + JSON.stringify(config, null, 2), { mode: 0o600 })
+}
+
+/**
+ * loadLegacyServiceAccounts は旧フォーマットの config.serviceAccounts を直接読み出す。
+ *
+ * `cos auth migrate` コマンド専用。Zod スキーマを介さず JSON5 を生パースして取得する。
+ */
+export function loadLegacyServiceAccounts(
+  filePath: string = defaultConfigPath(),
+): Record<string, string> {
+  if (!existsSync(filePath)) return {}
+  try {
+    const raw = readFileSync(filePath, "utf-8")
+    const parsed = JSON5.parse(raw) as unknown
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "serviceAccounts" in parsed &&
+      typeof (parsed as Record<string, unknown>)["serviceAccounts"] === "object" &&
+      (parsed as Record<string, unknown>)["serviceAccounts"] !== null
+    ) {
+      return (parsed as Record<string, unknown>)["serviceAccounts"] as Record<string, string>
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * removeLegacyServiceAccounts は config ファイルから指定したプロジェクトの
+ * serviceAccounts エントリを削除して保存する。
+ *
+ * `cos auth migrate` コマンド専用。
+ * 全エントリを削除した場合は serviceAccounts キー自体を除去する。
+ * 未移行エントリが残る場合はその分を保持した状態でファイルに書き戻す。
+ */
+export function removeLegacyServiceAccounts(
+  keysToRemove: string[],
+  filePath: string = defaultConfigPath(),
+  /** defaultProfile を同時に設定する場合に指定する。 */
+  newDefaultProfile?: string,
+): void {
+  if (!existsSync(filePath)) return
+  const rawContent = readFileSync(filePath, "utf-8")
+  const parsed = JSON5.parse(rawContent) as unknown
+  if (typeof parsed !== "object" || parsed === null) return
+  const obj = parsed as Record<string, unknown>
+  const accounts = obj["serviceAccounts"]
+  if (typeof accounts === "object" && accounts !== null) {
+    // keysToRemove に含まれないエントリのみ残す
+    const remaining = Object.fromEntries(
+      Object.entries(accounts as Record<string, unknown>).filter(
+        ([k]) => !keysToRemove.includes(k),
+      ),
+    )
+    if (Object.keys(remaining).length === 0) {
+      obj["serviceAccounts"] = undefined
+    } else {
+      obj["serviceAccounts"] = remaining
+    }
+  }
+  if (newDefaultProfile !== undefined) {
+    obj["defaultProfile"] = newDefaultProfile
+  }
+  const dir = dirname(filePath)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  const header = "// coscli 設定ファイル (JSON5形式 — コメント・末尾カンマ可)\n"
+  writeFileSync(filePath, header + JSON.stringify(obj, null, 2), { mode: 0o600 })
 }
 
 /** FORBIDDEN_KEYS は prototype 汚染を引き起こす危険なキー名の集合。 */
