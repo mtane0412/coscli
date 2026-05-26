@@ -9,17 +9,16 @@
 
 import {
   type CommonArgs,
-  assertValidPersonalAccessToken,
   buildJsonOpts,
   checkSandbox,
   commonArgs,
-  exitWithError,
+  resolveActiveCredential,
 } from "@/commands/_shared"
 import { CosenseRestClient } from "@/core/api/rest"
-import { loadSession } from "@/core/auth/session"
+import { TokenStoreCredentialAdapter } from "@/core/auth/credential-store"
 import type { TokenStore } from "@/core/auth/store"
 import { createTokenStore } from "@/infra/keychain/index"
-import { writeErrorJson, writeJson } from "@/presenter/json"
+import { writeJson } from "@/presenter/json"
 import { writePlainTable } from "@/presenter/plain"
 import { defineCommand } from "citty"
 
@@ -41,35 +40,19 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
       checkSandbox("auth.whoami", a)
       const startTime = Date.now()
 
-      const store = createStore()
-      const token = await loadSession(store, a.profile !== undefined ? { profile: a.profile } : {})
-      if (!token) {
-        writeErrorJson(
-          "AUTH_REQUIRED",
-          "認証情報が見つかりません",
-          "`cos auth login` を実行してログインしてください",
-        )
-        exitWithError(2, "AUTH_REQUIRED")
-      }
+      // Credential を 7 段優先順位で解決する (env > keychain)
+      const tokenStore = createStore()
+      const credStore = new TokenStoreCredentialAdapter(tokenStore)
+      const cred = await resolveActiveCredential(a, credStore)
 
-      // pat_ プレフィックスで PAT / SID を自動判別
-      const authMethod: "pat" | "sid" = token.startsWith("pat_") ? "pat" : "sid"
-      if (authMethod === "pat") {
-        try {
-          assertValidPersonalAccessToken(token)
-        } catch {
-          writeErrorJson(
-            "INVALID_PERSONAL_ACCESS_TOKEN",
-            "キーチェーンに保存された Personal Access Token のフォーマットが不正です",
-            "`cos auth logout` 後に `cos auth login --pat <token>` で再ログインしてください",
-          )
-          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-        }
-      }
+      // kind で認証方式を決定してクライアントを生成する
+      const authMethod = cred.kind
       const client =
-        authMethod === "pat"
-          ? new CosenseRestClient({ personalAccessToken: token })
-          : new CosenseRestClient({ sid: token })
+        cred.kind === "pat"
+          ? new CosenseRestClient({ personalAccessToken: cred.value })
+          : cred.kind === "sa"
+            ? new CosenseRestClient({ serviceAccountKey: cred.value })
+            : new CosenseRestClient({ sid: cred.value })
       const me = await client.getMe()
 
       if (a.json || !a.plain) {
