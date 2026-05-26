@@ -158,6 +158,10 @@ cos search          全文検索 (--vector でベクトル検索、--infobox で
 cos auth login     認証ログイン (--sid / --pat でクレデンシャルを直接渡す)
 cos auth logout    ログアウト
 cos auth whoami    現在のログインユーザーを表示
+cos auth list      登録済みプロファイルを一覧表示する (alias: ls)
+cos auth status    現在のアクティブ認証情報と解決経路を表示する
+cos auth doctor    全プロファイルの健全性を検査する
+cos auth use       デフォルトプロファイルを切り替える (--unset で削除)
 cos auth migrate   旧 config.serviceAccounts の SA キーを keychain に移行する
 
 cos config get    設定値を取得
