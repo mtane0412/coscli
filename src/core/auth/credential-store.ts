@@ -64,6 +64,10 @@ function deserializeCredential(raw: string): Credential | null {
         typeof (env as CredentialEnvelope).value === "string"
       ) {
         const envelope = env as CredentialEnvelope
+        // 未知の kind は null を返して無効化する (壊れた JSON への防御)
+        if (envelope.kind !== "sid" && envelope.kind !== "pat" && envelope.kind !== "sa") {
+          return null
+        }
         if (envelope.kind === "sa") {
           if (!envelope.defaultProject) return null
           return { kind: "sa", value: envelope.value, defaultProject: envelope.defaultProject }
