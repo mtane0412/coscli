@@ -155,10 +155,10 @@ cos watch-list remove  プロジェクトをウォッチリストから削除す
 
 cos search          全文検索 (--vector でベクトル検索、--infobox で infobox 定義ページを検索)
 
-cos auth login              認証ログイン (--service-account で Service Account Access Key 認証)
-cos auth logout             ログアウト
-cos auth whoami             現在のログインユーザーを表示
-cos auth service-account    Service Account キー管理 (add / delete / list)
+cos auth login     認証ログイン (--sid / --pat でクレデンシャルを直接渡す)
+cos auth logout    ログアウト
+cos auth whoami    現在のログインユーザーを表示
+cos auth migrate   旧 config.serviceAccounts の SA キーを keychain に移行する
 
 cos config get    設定値を取得
 cos config set    設定値を保存
@@ -265,20 +265,19 @@ cos page infobox "ページタイトル" --project myproject --no-hallucination 
 
 ### Service Account 認証 (CI / エージェント向け)
 
-対話ログインが難しい環境では、Service Account Access Key を使った認証が利用できます。
+対話ログインが難しい環境では、Service Account Access Key を使った認証が利用できます。SA キーは OS キーチェーンにプロファイルとして保存されます。
 
 ```bash
-# キーを登録する (cs_ で始まる 67 文字のキー)
-cos auth service-account add --key "cs_xxxxxxxxxxxx" --project myproject
+# 環境変数で都度渡す場合 (キーチェーン登録不要)
+COS_SERVICE_ACCOUNT_KEY="cs_xxxx..." cos page list --project myproject
 
-# 登録済みプロジェクト一覧を確認する
-cos auth service-account list
-
-# 登録したキーを削除する
-cos auth service-account delete --project myproject
+# 旧 config.serviceAccounts 形式からキーチェーンへ移行する
+cos auth migrate
+cos auth migrate --dry-run          # 変更計画のみ確認
+cos auth migrate --set-default cs_myproject  # 移行後にデフォルトプロファイルを設定
 ```
 
-登録後は読み取り系コマンド（`buildRestClient` 経由）が Service Account として動作します。SA キーは設定ファイルに**プロジェクト名**をキーとして保存されるため、`--profile` フラグの影響を受けません。
+> **移行案内**: `cos auth sa add` を使って登録した SA キーは `config.serviceAccounts` に保存されています。`cos auth migrate` を実行してキーチェーンに移行してください。
 
 ### Personal Access Token (PAT) 認証 (AI エージェント向け)
 
@@ -317,18 +316,19 @@ Service Account Key・PAT はどちらも読み取り専用です。`page edit` 
 |---|---|---|---|
 | connect.sid | OS キーチェーン | プロファイル名 | あり |
 | PAT | OS キーチェーン | プロファイル名 | あり |
-| Service Account Key | 設定ファイル (`serviceAccounts`) | プロジェクト名 | **なし** |
+| Service Account Key | OS キーチェーン | プロファイル名 | あり |
 
-SID と PAT は同じキーチェーンにプロファイル名で保存されるため、同一プロファイルで共存できません。`cos auth login --pat` で上書きすると SID は失われます。別プロファイルを使うか環境変数（`COS_SID` / `COS_PERSONAL_ACCESS_TOKEN`）で使い分けてください。
+全認証方式が統一的にプロファイルとして管理されます。別プロファイルを使うか環境変数（`COS_SID` / `COS_PERSONAL_ACCESS_TOKEN` / `COS_SERVICE_ACCOUNT_KEY`）で使い分けてください。
 
-SA キーはプロジェクト名で引かれるため、どのプロファイルからでも `--project` が一致すれば自動的に使われます。
-
-**`buildRestClient` の認証解決優先順位（読み取りコマンド）:**
+**認証解決の優先順位:**
 
 1. 環境変数 `COS_PERSONAL_ACCESS_TOKEN`（PAT）
-2. 環境変数 `COS_SERVICE_ACCOUNT_KEY`（SA キー）
-3. 設定ファイル `serviceAccounts[project]`（SA キー、`--project` 指定時のみ）
-4. キーチェーン（SID または PAT、`pat_` プレフィックスで自動判別）/ 環境変数 `COS_SID`（`--profile` 未指定時のみ）
+2. 環境変数 `COS_SERVICE_ACCOUNT_KEY`（SA キー、`COS_PROJECT` / `--project` を `defaultProject` として使用）
+3. 環境変数 `COS_SID`（SID、`--profile` 未指定時のみ）
+4. `--profile <name>` フラグ → キーチェーンから取得
+5. `COS_PROFILE` 環境変数 → キーチェーンから取得
+6. `config.defaultProfile` → キーチェーンから取得
+7. `"default"` プロファイル → キーチェーンから取得
 
 ### Smart Context でリンク先ページの文脈を取得
 
