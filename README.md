@@ -278,7 +278,7 @@ cos auth service-account list
 cos auth service-account delete --project myproject
 ```
 
-登録後は通常の `cos` コマンドが Service Account として動作します。複数プロファイルを使い分ける場合は `--profile` フラグを指定してください。
+登録後は通常の `cos` コマンドが Service Account として動作します。SA キーは設定ファイルに**プロジェクト名**をキーとして保存されるため、`--profile` フラグの影響を受けません。
 
 ### Personal Access Token (PAT) 認証 (AI エージェント向け)
 
@@ -306,10 +306,29 @@ COS_PERSONAL_ACCESS_TOKEN="pat_xxxx..." cos page list --project myproject
 | 認証方法 | 読み取り | 書き込み | 個別失効 |
 |---|---|---|---|
 | connect.sid | ✓ | ✓ | ✗ (全ログアウトが必要) |
-| Service Account Key | ✓ | ✓ | ✓ |
+| Service Account Key | ✓ | ✗ | ✓ |
 | **PAT** | **✓** | **✗** | **✓** |
 
-PAT はアカウント全体の権限を持つ `connect.sid` より安全に AI エージェントへ渡せます。
+Service Account Key・PAT はどちらも読み取り専用です。`page edit` 等の書き込みコマンドには `connect.sid` が必要です。
+
+**認証情報の保存先とプロファイルの関係:**
+
+| 認証方式 | 保存先 | 識別キー | `--profile` の影響 |
+|---|---|---|---|
+| connect.sid | OS キーチェーン | プロファイル名 | あり |
+| PAT | OS キーチェーン | プロファイル名 | あり |
+| Service Account Key | 設定ファイル (`serviceAccounts`) | プロジェクト名 | **なし** |
+
+SID と PAT は同じキーチェーンにプロファイル名で保存されるため、同一プロファイルで共存できません。`cos auth login --pat` で上書きすると SID は失われます。別プロファイルを使うか環境変数（`COS_SID` / `COS_PERSONAL_ACCESS_TOKEN`）で使い分けてください。
+
+SA キーはプロジェクト名で引かれるため、どのプロファイルからでも `--project` が一致すれば自動的に使われます。
+
+**`buildRestClient` の認証解決優先順位（読み取りコマンド）:**
+
+1. 環境変数 `COS_PERSONAL_ACCESS_TOKEN`（PAT）
+2. 環境変数 `COS_SERVICE_ACCOUNT_KEY`（SA キー）
+3. 設定ファイル `serviceAccounts[project]`（SA キー、`--project` 指定時のみ）
+4. キーチェーン / 環境変数 `COS_SID`（SID または PAT、`pat_` プレフィックスで自動判別）
 
 ### Smart Context でリンク先ページの文脈を取得
 
