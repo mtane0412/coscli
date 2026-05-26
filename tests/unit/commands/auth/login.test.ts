@@ -284,3 +284,98 @@ describe("authLoginCommand — --sid フロー (回帰)", () => {
     expect(exitMock).toHaveBeenCalledWith(5)
   })
 })
+
+// ---------------------------------------------------------------------------
+// --pat フロー
+// ---------------------------------------------------------------------------
+
+// テスト用 PAT (pat_ + 64桁小文字16進数)
+const VALID_PAT = `pat_${"a".repeat(64)}`
+
+describe("authLoginCommand — --pat フロー", () => {
+  it("--pat で有効な PAT を渡した場合に TokenStore に保存される", async () => {
+    // InMemoryTokenStore への参照を保持して保存後に確認する
+    const store = new InMemoryTokenStore()
+    const command = createAuthLoginCommand({ createStore: () => store })
+    await (command.run as (ctx: { args: unknown; cmd: never; rawArgs: string[] }) => Promise<void>)(
+      {
+        args: {
+          pat: VALID_PAT,
+          input: true,
+          profile: "default",
+          json: false,
+          plain: false,
+          quiet: false,
+          verbose: false,
+        },
+        cmd: {} as never,
+        rawArgs: [],
+      },
+    )
+    // PAT 値が default プロファイルに保存されていること
+    const saved = await store.load("default")
+    expect(saved).toBe(VALID_PAT)
+  })
+
+  it("--pat と --sid を同時指定した場合は exit 5 で終了する (PAT_SID_EXCLUSIVE)", async () => {
+    try {
+      await runLogin({
+        pat: VALID_PAT,
+        sid: "s%3Atest-sid",
+        input: true,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    // writeErrorJson は stdout に書き込む
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("PAT_SID_EXCLUSIVE")
+  })
+
+  it("--pat と --browser を同時指定した場合は exit 5 で終了する (PAT_BROWSER_EXCLUSIVE)", async () => {
+    try {
+      await runLogin({
+        pat: VALID_PAT,
+        browser: true,
+        input: true,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+        "browser-port": 9222,
+        "browser-timeout": 300,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("PAT_BROWSER_EXCLUSIVE")
+  })
+
+  it("--pat にフォーマット不正な値を渡した場合は exit 5 で終了する (INVALID_PERSONAL_ACCESS_TOKEN)", async () => {
+    try {
+      await runLogin({
+        pat: "pat_invalid_too_short",
+        input: true,
+        profile: "default",
+        json: false,
+        plain: false,
+        quiet: false,
+        verbose: false,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("INVALID_PERSONAL_ACCESS_TOKEN")
+  })
+})

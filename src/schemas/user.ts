@@ -11,7 +11,7 @@ export const MeSchema = z.object({
   displayName: z.string(),
   email: z.string().optional(),
   photo: z.string().optional(),
-  csrfToken: z.string(),
+  csrfToken: z.string().optional(),
   isPasswordUser: z.boolean().optional(),
   isGitHubUser: z.boolean().optional(),
   config: z
