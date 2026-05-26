@@ -280,6 +280,37 @@ cos auth service-account delete --project myproject
 
 登録後は通常の `cos` コマンドが Service Account として動作します。複数プロファイルを使い分ける場合は `--profile` フラグを指定してください。
 
+### Personal Access Token (PAT) 認証 (AI エージェント向け)
+
+Cosense が発行する Personal Access Token (PAT) を使った**読み取り専用**認証が利用できます。PAT は `pat_` で始まる 68 文字のトークンで、アカウント設定から発行・失効できます。
+
+```bash
+# PAT をキーチェーンに保存してログイン
+cos auth login --pat "pat_xxxxxxxxxxxx..."
+
+# 認証状態を確認 (authMethod: "pat" と表示される)
+cos auth whoami
+
+# 環境変数で都度渡す場合 (ログイン不要)
+COS_PERSONAL_ACCESS_TOKEN="pat_xxxx..." cos page list --project myproject
+```
+
+**制限事項:**
+
+- PAT は**読み取り系 REST のみ**対応しています (`page list`、`search`、`page context` 等)
+- `page edit`、`page pin`、`sync push` 等の書き込みコマンドは `connect.sid` が必要です
+- 書き込みコマンドを PAT で実行しようとすると exit 2 + `AUTH_WRITE_NOT_SUPPORTED` エラーになります
+
+**AI エージェントへの credential 提供として推奨:**
+
+| 認証方法 | 読み取り | 書き込み | 個別失効 |
+|---|---|---|---|
+| connect.sid | ✓ | ✓ | ✗ (全ログアウトが必要) |
+| Service Account Key | ✓ | ✓ | ✓ |
+| **PAT** | **✓** | **✗** | **✓** |
+
+PAT はアカウント全体の権限を持つ `connect.sid` より安全に AI エージェントへ渡せます。
+
 ### Smart Context でリンク先ページの文脈を取得
 
 `cos page context` は Cosense の [Smart Context](https://cosen.se/) 機能を使い、指定ページを起点に 1hop / 2hop 先のリンク先ページ本文を LLM が読みやすい形式でまとめて取得します。

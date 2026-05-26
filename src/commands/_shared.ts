@@ -331,6 +331,15 @@ export async function requireSid(profile?: string): Promise<string> {
   if (!profile) {
     const envSid = process.env["COS_SID"]
     if (envSid !== undefined) {
+      // PAT を COS_SID に誤投入した場合: 書き込み不可を明示 (exit 2)
+      if (envSid.startsWith("pat_")) {
+        writeErrorJson(
+          "AUTH_WRITE_NOT_SUPPORTED",
+          "Personal Access Token (PAT) では書き込み操作を実行できません",
+          "書き込みコマンドには connect.sid が必要です。`cos auth login --sid <connect.sid>` でログインしてください",
+        )
+        exitWithError(2, "AUTH_WRITE_NOT_SUPPORTED")
+      }
       try {
         assertValidSid(envSid)
       } catch {
@@ -354,6 +363,15 @@ export async function requireSid(profile?: string): Promise<string> {
       "`cos auth login` を実行してログインしてください",
     )
     exitWithError(2, "AUTH_REQUIRED")
+  }
+  // キーチェーンに PAT が保存されている場合: 書き込み不可を明示 (exit 2)
+  if (sid.startsWith("pat_")) {
+    writeErrorJson(
+      "AUTH_WRITE_NOT_SUPPORTED",
+      "Personal Access Token (PAT) では書き込み操作を実行できません",
+      "書き込みコマンドには connect.sid が必要です。`cos auth login` で SID でログインしてください",
+    )
+    exitWithError(2, "AUTH_WRITE_NOT_SUPPORTED")
   }
   try {
     assertValidSid(sid)
