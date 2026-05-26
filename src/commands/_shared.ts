@@ -454,6 +454,21 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
   if (!args.profile) {
     const envSid = process.env["COS_SID"]
     if (envSid !== undefined) {
+      // pat_ プレフィックスの場合は PAT として処理する (COS_PERSONAL_ACCESS_TOKEN への移行を推奨)
+      if (envSid.startsWith("pat_")) {
+        try {
+          assertValidPersonalAccessToken(envSid)
+        } catch {
+          writeErrorJson(
+            "INVALID_PERSONAL_ACCESS_TOKEN",
+            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
+            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
+          )
+          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+        }
+        if (project) maybeAutoAddToWatchlist(project)
+        return new CosenseRestClient({ personalAccessToken: envSid })
+      }
       try {
         assertValidSid(envSid)
       } catch {
@@ -482,6 +497,16 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
   if (project) maybeAutoAddToWatchlist(project)
   // PAT プレフィックスの場合は PAT 認証、それ以外は SID 認証
   if (token.startsWith("pat_")) {
+    try {
+      assertValidPersonalAccessToken(token)
+    } catch {
+      writeErrorJson(
+        "INVALID_PERSONAL_ACCESS_TOKEN",
+        "キーチェーンに保存された Personal Access Token のフォーマットが不正です",
+        "`cos auth logout` 後に `cos auth login --pat <token>` で再ログインしてください",
+      )
+      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+    }
     return new CosenseRestClient({ personalAccessToken: token })
   }
   try {

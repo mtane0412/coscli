@@ -82,6 +82,16 @@ export class RateLimitError extends CosenseApiError {
   }
 }
 
+/** AuthWriteNotSupportedError は PAT 認証では書き込み操作を実行できない場合のエラー。HTTP エラーではないため CosenseApiError を継承しない。 */
+export class AuthWriteNotSupportedError extends Error {
+  constructor() {
+    super(
+      "AUTH_WRITE_NOT_SUPPORTED: Personal Access Token では書き込み操作を実行できません。`cos auth login --sid <value>` で connect.sid を保存してください",
+    )
+    this.name = "AuthWriteNotSupportedError"
+  }
+}
+
 /** CosenseRestClientOptions は REST クライアントの設定オプション。sid / serviceAccountKey / personalAccessToken は排他。 */
 export interface CosenseRestClientOptions {
   /** connect.sid 値 (Cookie ヘッダ認証)。他の認証オプションと排他。 */
@@ -301,9 +311,7 @@ export class CosenseRestClient {
     const me = await this.getMe()
     // PAT セッションでは csrfToken が返らないため書き込み不可
     if (me.csrfToken === undefined) {
-      throw new Error(
-        "AUTH_WRITE_NOT_SUPPORTED: Personal Access Token では書き込み操作を実行できません。`cos auth login --sid <value>` で connect.sid を保存してください",
-      )
+      throw new AuthWriteNotSupportedError()
     }
     const data = await this.postJson(
       `${BASE_URL}/api/pages/${encodeURIComponent(project)}/replace/links`,

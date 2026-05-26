@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "bun:test"
-import { CosenseRestClient } from "@/core/api/rest"
+import { AuthWriteNotSupportedError, CosenseRestClient } from "@/core/api/rest"
 import { http, HttpResponse } from "msw"
 import { useMswServer } from "../../../helpers/msw"
 
@@ -152,11 +152,11 @@ describe("CosenseRestClient — PAT 認証で REST 読み取り API", () => {
 })
 
 describe("CosenseRestClient — PAT 認証での replaceLinks", () => {
-  it("csrfToken が返らない PAT セッションで replaceLinks を呼ぶと AUTH_WRITE_NOT_SUPPORTED エラーをスローする", async () => {
+  it("csrfToken が返らない PAT セッションで replaceLinks を呼ぶと AuthWriteNotSupportedError をスローする", async () => {
     // PAT セッションでは getMe が csrfToken を返さないため、replaceLinks は使用不可
     const client = new CosenseRestClient({ personalAccessToken: VALID_PAT })
-    await expect(client.replaceLinks(TEST_PROJECT, "旧リンク", "新リンク")).rejects.toThrow(
-      "AUTH_WRITE_NOT_SUPPORTED",
-    )
+    const error = await client.replaceLinks(TEST_PROJECT, "旧リンク", "新リンク").catch((e) => e)
+    expect(error).toBeInstanceOf(AuthWriteNotSupportedError)
+    expect(error.message).toContain("AUTH_WRITE_NOT_SUPPORTED")
   })
 })

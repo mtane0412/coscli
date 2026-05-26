@@ -161,3 +161,55 @@ describe("buildRestClient — COS_PERSONAL_ACCESS_TOKEN 環境変数", () => {
     expect(client).toBeDefined()
   })
 })
+
+describe("buildRestClient — COS_SID 環境変数に PAT が設定された場合", () => {
+  let exitMock: ReturnType<typeof spyOn>
+  let stdoutMock: ReturnType<typeof spyOn>
+
+  beforeEach(() => {
+    exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
+    stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
+    Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+    Reflect.deleteProperty(process.env, "COS_SID")
+    Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
+  })
+
+  afterEach(() => {
+    exitMock.mockRestore()
+    stdoutMock.mockRestore()
+    Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+    Reflect.deleteProperty(process.env, "COS_SID")
+    Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
+  })
+
+  it("COS_SID に有効な PAT が設定されている場合は PAT クライアントを返す", async () => {
+    // COS_SID に誤って PAT を設定した場合、PAT として処理される
+    process.env["COS_SID"] = VALID_PAT
+    const client = await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+    })
+    expect(exitMock).not.toHaveBeenCalled()
+    expect(client).toBeDefined()
+  })
+
+  it("COS_SID に不正な PAT (pat_ プレフィックスだが形式が不正) が設定されている場合は exit 5 で終了する", async () => {
+    // pat_ プレフィックスはあるが 64桁の16進数でない
+    process.env["COS_SID"] = `pat_${"z".repeat(64)}`
+    try {
+      await buildRestClient({
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: true,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("INVALID_PERSONAL_ACCESS_TOKEN")
+  })
+})

@@ -3,11 +3,15 @@
  *
  * connect.sid を対話入力、--sid フラグ、または --browser (CDP 自動取得) で受け取り、
  * /api/users/me で検証後に TokenStore に保存する。
+ * Personal Access Token (PAT) は --pat フラグで指定する。PAT は読み取り REST 専用で
+ * 書き込みコマンドには使用できない。
  *
  * フラグ排他ルール:
  * - --browser と --sid は同時指定不可 (exit 5)
+ * - --browser と --pat は同時指定不可 (exit 5)
+ * - --sid と --pat は同時指定不可 (exit 5)
  * - --browser と --no-input は同時指定不可 (exit 5、ブラウザログインは対話前提)
- * - --no-input 時は --sid が必須 (exit 5)
+ * - --no-input 時は --sid または --pat が必須 (exit 5)
  *
  * 実装上の注意: citty は --no-X を args.X = false に自動変換するため、
  * args 定義は `input: { default: true }` とし、--no-input で input = false になることを利用する。
@@ -16,6 +20,11 @@
  * 1. Chrome/Chromium を CDP デバッグポートで起動する
  * 2. https://scrapbox.io/login を表示してユーザーにログインさせる
  * 3. connect.sid Cookie が取得できたら検証・保存して終了する
+ *
+ * --pat フロー:
+ * 1. PAT のフォーマットを検証する (pat_ + 64 桁小文字 16 進数)
+ * 2. /api/users/me で PAT の有効性を確認する
+ * 3. TokenStore に保存する (pat_ プレフィックスで SID と区別)
  */
 
 import { mkdir, rm } from "node:fs/promises"

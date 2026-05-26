@@ -9,6 +9,7 @@
 
 import {
   type CommonArgs,
+  assertValidPersonalAccessToken,
   buildJsonOpts,
   checkSandbox,
   commonArgs,
@@ -53,6 +54,18 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
 
       // pat_ プレフィックスで PAT / SID を自動判別
       const authMethod: "pat" | "sid" = token.startsWith("pat_") ? "pat" : "sid"
+      if (authMethod === "pat") {
+        try {
+          assertValidPersonalAccessToken(token)
+        } catch {
+          writeErrorJson(
+            "INVALID_PERSONAL_ACCESS_TOKEN",
+            "キーチェーンに保存された Personal Access Token のフォーマットが不正です",
+            "`cos auth logout` 後に `cos auth login --pat <token>` で再ログインしてください",
+          )
+          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+        }
+      }
       const client =
         authMethod === "pat"
           ? new CosenseRestClient({ personalAccessToken: token })
