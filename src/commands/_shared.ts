@@ -7,6 +7,7 @@
 
 import { AuthError, CosenseRestClient, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
+import { isValidSaKeyFormat, parseCredential } from "@/core/auth/credential"
 import { loadSession } from "@/core/auth/session"
 import { lintNotation } from "@/core/notation/lint"
 import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
@@ -262,10 +263,6 @@ export function getRawFlagValue(argv: string[], flagName: string): string | unde
   return result
 }
 
-const SID_MAX_LENGTH = 4096
-// RFC 6265 cookie-octet: DQUOTE(0x22), comma(0x2C), semicolon(0x3B), backslash(0x5C), CTL, SP を除外
-const SID_PATTERN = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/
-
 /** SidValidationError は SID フォーマット違反を表すエラー。 */
 export class SidValidationError extends Error {
   constructor() {
@@ -274,19 +271,22 @@ export class SidValidationError extends Error {
   }
 }
 
-/** assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。 */
+/**
+ * assertValidSid は SID 文字列のフォーマットを検証し、違反時は SidValidationError をスローする。
+ *
+ * PAT/SA Key を誤投入した場合も SidValidationError をスローする。
+ * フォーマット検証は credential.ts の parseCredential に委譲する。
+ */
 export function assertValidSid(sid: string): void {
-  // PAT を SID に誤投入した場合の明示ガード (SID_PATTERN は pat_ + hex を素通しするため)
-  if (sid.startsWith("pat_")) {
-    throw new SidValidationError()
-  }
-  if (sid.length === 0 || sid.length > SID_MAX_LENGTH || !SID_PATTERN.test(sid)) {
+  try {
+    const cred = parseCredential(sid)
+    // PAT または SA として判別された場合は SID として無効
+    if (cred.kind !== "sid") throw new SidValidationError()
+  } catch (e) {
+    if (e instanceof SidValidationError) throw e
     throw new SidValidationError()
   }
 }
-
-// Personal Access Token は pat_ プレフィックスと 64桁小文字16進数から構成される
-const PAT_PATTERN = /^pat_[0-9a-f]{64}$/
 
 /** PersonalAccessTokenValidationError は PAT フォーマット違反を表すエラー。 */
 export class PersonalAccessTokenValidationError extends Error {
@@ -298,15 +298,20 @@ export class PersonalAccessTokenValidationError extends Error {
   }
 }
 
-/** assertValidPersonalAccessToken は PAT のフォーマットを検証し、違反時は PersonalAccessTokenValidationError をスローする。 */
+/**
+ * assertValidPersonalAccessToken は PAT のフォーマットを検証し、違反時は PersonalAccessTokenValidationError をスローする。
+ *
+ * フォーマット検証は credential.ts の parseCredential に委譲する。
+ */
 export function assertValidPersonalAccessToken(pat: string): void {
-  if (!PAT_PATTERN.test(pat)) {
+  try {
+    const cred = parseCredential(pat)
+    if (cred.kind !== "pat") throw new PersonalAccessTokenValidationError()
+  } catch (e) {
+    if (e instanceof PersonalAccessTokenValidationError) throw e
     throw new PersonalAccessTokenValidationError()
   }
 }
-
-// Service Account Access Key は cs_ プレフィックスと 64桁小文字16進数から構成される
-const SA_KEY_PATTERN = /^cs_[0-9a-f]{64}$/
 
 /** ServiceAccountKeyValidationError は Service Account キーのフォーマット違反を表すエラー。 */
 export class ServiceAccountKeyValidationError extends Error {
@@ -318,9 +323,13 @@ export class ServiceAccountKeyValidationError extends Error {
   }
 }
 
-/** assertValidServiceAccountKey は Service Account キーのフォーマットを検証し、違反時は ServiceAccountKeyValidationError をスローする。 */
+/**
+ * assertValidServiceAccountKey は Service Account キーのフォーマットを検証し、違反時は ServiceAccountKeyValidationError をスローする。
+ *
+ * project を必要としないフォーマット検証は credential.ts の isValidSaKeyFormat に委譲する。
+ */
 export function assertValidServiceAccountKey(key: string): void {
-  if (!SA_KEY_PATTERN.test(key)) {
+  if (!isValidSaKeyFormat(key)) {
     throw new ServiceAccountKeyValidationError()
   }
 }
