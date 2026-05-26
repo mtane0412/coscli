@@ -120,6 +120,17 @@ config 経由の設定:
 
 コマンド分類: `src/core/command-classification.ts` で read/write を一元管理
 
+## Personal Access Token (PAT) 制約
+
+PAT (`pat_` + 64桁小文字16進数、ヘッダ `x-personal-access-token`) は**読み取り系 REST のみ**対応。
+
+- **書き込み不可**: `page edit`、`page pin`、`sync push` 等は `connect.sid` が必要。書き込みコマンドで PAT を使おうとすると exit 2 + `AUTH_WRITE_NOT_SUPPORTED`
+- **csrfToken 欠落**: PAT セッションでは `/api/users/me` が csrfToken を返さない。`MeSchema.csrfToken` は `.optional()` にしてある
+- **`replaceLinks` ガード**: `csrfToken === undefined` のとき `AUTH_WRITE_NOT_SUPPORTED` を throw
+- **TokenStore 同居**: PAT は SID と同じ TokenStore に保存。値の `pat_` プレフィックスで自動判別
+- **`requireSid` 拒否**: 書き込みコマンドが使う `requireSid` は `pat_` を検出すると exit 2 で明示拒否
+- **`buildRestClient` 優先順位**: env `COS_PERSONAL_ACCESS_TOKEN` > env `COS_SERVICE_ACCOUNT_KEY` > config SA > keychain (値の `pat_` 判別)
+
 ## 終了コード
 
 機械可読な一覧は `cos exit-codes --json` で取得できます（単一ソース: `src/core/exit-codes.ts`）。
@@ -128,7 +139,7 @@ config 経由の設定:
 |---|---|
 | 0 | 成功 |
 | 1 | 一般エラー |
-| 2 | 認証エラー (401) |
+| 2 | 認証エラー (401) / PAT で書き込み試行 (AUTH_WRITE_NOT_SUPPORTED) |
 | 3 | 権限エラー (403) |
 | 4 | NotFound (404) |
 | 5 | バリデーションエラー |

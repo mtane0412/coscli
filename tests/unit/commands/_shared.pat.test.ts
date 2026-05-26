@@ -4,6 +4,9 @@
  * PAT は `pat_` + 64 桁小文字 16 進数から構成される。
  * SID と同じ TokenStore に同居させ、値のプレフィックスで識別する設計のため
  * `assertValidSid` が `pat_` を誤って通過させないことも合わせて検証する。
+ *
+ * requireSid は書き込みコマンド専用のため、PAT を検出した場合は
+ * AUTH_WRITE_NOT_SUPPORTED (exit 2) で明示拒否する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -13,6 +16,7 @@ import {
   assertValidPersonalAccessToken,
   assertValidSid,
   buildRestClient,
+  requireSid,
 } from "@/commands/_shared"
 
 // pat_ + 64桁小文字16進数の有効な PAT
@@ -159,5 +163,47 @@ describe("buildRestClient — COS_PERSONAL_ACCESS_TOKEN 環境変数", () => {
     // exit が呼ばれずに返ること
     expect(exitMock).not.toHaveBeenCalled()
     expect(client).toBeDefined()
+  })
+})
+
+describe("requireSid — PAT 誤投入の明示拒否", () => {
+  let exitMock: ReturnType<typeof spyOn>
+  let stdoutMock: ReturnType<typeof spyOn>
+
+  beforeEach(() => {
+    exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
+    stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
+    Reflect.deleteProperty(process.env, "COS_SID")
+  })
+
+  afterEach(() => {
+    exitMock.mockRestore()
+    stdoutMock.mockRestore()
+    Reflect.deleteProperty(process.env, "COS_SID")
+  })
+
+  it("COS_SID 環境変数に PAT を設定した場合は exit 2 + AUTH_WRITE_NOT_SUPPORTED で終了する", async () => {
+    // COS_SID に誤って PAT を設定した場合 (書き込みコマンドは SID が必要)
+    process.env["COS_SID"] = VALID_PAT
+    try {
+      await requireSid()
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(2)
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("AUTH_WRITE_NOT_SUPPORTED")
+  })
+
+  it("エラー JSON に hint (sid への切り替え案内) が含まれること", async () => {
+    process.env["COS_SID"] = VALID_PAT
+    try {
+      await requireSid()
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    // ヒントに cos auth login の案内が含まれること
+    expect(stdoutOutput).toContain("cos auth login")
   })
 })
