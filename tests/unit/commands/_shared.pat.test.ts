@@ -247,7 +247,7 @@ describe("requireSid — PAT 誤投入の明示拒否", () => {
     expect(stdoutOutput).toContain("AUTH_WRITE_NOT_SUPPORTED")
   })
 
-  it("エラー JSON に hint (sid への切り替え案内) が含まれること", async () => {
+  it("エラー JSON に hint (--sid フラグ付きのログイン案内) が含まれること", async () => {
     process.env["COS_SID"] = VALID_PAT
     try {
       await requireSid()
@@ -255,7 +255,7 @@ describe("requireSid — PAT 誤投入の明示拒否", () => {
       // exitWithError による throw は想定内
     }
     const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
-    // ヒントに cos auth login の案内が含まれること
-    expect(stdoutOutput).toContain("cos auth login")
+    // ヒントに --sid フラグを含む具体的なログインコマンドが含まれること
+    expect(stdoutOutput).toContain("cos auth login --sid")
   })
 })

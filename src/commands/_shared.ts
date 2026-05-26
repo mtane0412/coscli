@@ -336,7 +336,7 @@ export async function requireSid(profile?: string): Promise<string> {
         writeErrorJson(
           "AUTH_WRITE_NOT_SUPPORTED",
           "Personal Access Token (PAT) では書き込み操作を実行できません",
-          "書き込みコマンドには connect.sid が必要です。`cos auth login` で SID でログインしてください",
+          "書き込みコマンドには connect.sid が必要です。`cos auth login --sid <connect.sid>` でログインしてください",
         )
         exitWithError(2, "AUTH_WRITE_NOT_SUPPORTED")
       }
