@@ -45,9 +45,13 @@ import { projectStreamCommand } from "@/commands/project/stream"
 import { searchCommand } from "@/commands/search"
 
 // 認証コマンド
+import { authDoctorCommand } from "@/commands/auth/doctor"
+import { authListCommand } from "@/commands/auth/list"
 import { authLoginCommand } from "@/commands/auth/login"
 import { authLogoutCommand } from "@/commands/auth/logout"
 import { authMigrateCommand } from "@/commands/auth/migrate"
+import { authStatusCommand } from "@/commands/auth/status"
+import { authUseCommand } from "@/commands/auth/use"
 import { authWhoamiCommand } from "@/commands/auth/whoami"
 
 // 設定コマンド
@@ -162,6 +166,11 @@ export const authCommand = defineCommand({
     whoami: authWhoamiCommand,
     me: authWhoamiCommand,
     migrate: authMigrateCommand,
+    list: authListCommand,
+    ls: authListCommand,
+    status: authStatusCommand,
+    doctor: authDoctorCommand,
+    use: authUseCommand,
   },
   run: showUsageIfNoSubCommand,
 })

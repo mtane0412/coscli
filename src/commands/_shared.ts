@@ -442,6 +442,110 @@ export async function resolveActiveCredential(
 }
 
 /**
+ * CredentialSource は resolveActiveCredentialWithSource が返す解決経路を表す。
+ *
+ * 形式:
+ * - `"env:COS_PERSONAL_ACCESS_TOKEN"` — 環境変数 COS_PERSONAL_ACCESS_TOKEN
+ * - `"env:COS_SERVICE_ACCOUNT_KEY"` — 環境変数 COS_SERVICE_ACCOUNT_KEY
+ * - `"env:COS_SID"` — 環境変数 COS_SID
+ * - `"profile:<name>"` — keychain のプロファイル名
+ */
+export type CredentialSource =
+  | "env:COS_PERSONAL_ACCESS_TOKEN"
+  | "env:COS_SERVICE_ACCOUNT_KEY"
+  | "env:COS_SID"
+  | `profile:${string}`
+
+/** CredentialWithSource は Credential と解決経路をまとめた型。 */
+export interface CredentialWithSource {
+  credential: Credential
+  source: CredentialSource
+}
+
+/**
+ * resolveActiveCredentialWithSource は resolveActiveCredential と同じ解決ロジックを実行し、
+ * Credential と解決経路 (CredentialSource) の両方を返す。
+ *
+ * auth status コマンド専用の内部 API。
+ */
+export async function resolveActiveCredentialWithSource(
+  args: CommonArgs,
+  store: CredentialStore,
+): Promise<CredentialWithSource> {
+  // 1. COS_PERSONAL_ACCESS_TOKEN
+  const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
+  if (envPat !== undefined) {
+    try {
+      const cred = parseCredential(envPat)
+      if (cred.kind !== "pat") throw new Error("PAT 形式でありません")
+      return { credential: cred, source: "env:COS_PERSONAL_ACCESS_TOKEN" }
+    } catch {
+      writeErrorJson(
+        "INVALID_PERSONAL_ACCESS_TOKEN",
+        "COS_PERSONAL_ACCESS_TOKEN のフォーマットが不正です",
+        "pat_ で始まる 68 文字の Personal Access Token を指定してください",
+      )
+      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+    }
+  }
+
+  // 2. COS_SERVICE_ACCOUNT_KEY
+  const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
+  if (envKey !== undefined) {
+    if (!isValidSaKeyFormat(envKey)) {
+      writeErrorJson(
+        "INVALID_SERVICE_ACCOUNT_KEY",
+        "COS_SERVICE_ACCOUNT_KEY のフォーマットが不正です",
+        "cs_ で始まる 67 文字のキーを指定してください",
+      )
+      exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+    }
+    const project = args.project ?? process.env["COS_PROJECT"]
+    const credSa: { kind: "sa"; value: string; defaultProject?: string } = {
+      kind: "sa",
+      value: envKey,
+    }
+    if (project !== undefined) credSa.defaultProject = project
+    return { credential: credSa, source: "env:COS_SERVICE_ACCOUNT_KEY" }
+  }
+
+  // 3. COS_SID env (profile 未指定時のみ)
+  if (!args.profile) {
+    const envSid = process.env["COS_SID"]
+    if (envSid !== undefined) {
+      if (detectCredentialKind(envSid) === "pat") {
+        process.stderr.write(
+          "警告: COS_SID に Personal Access Token が設定されています。COS_PERSONAL_ACCESS_TOKEN 環境変数の使用を推奨します。\n",
+        )
+        try {
+          return { credential: parseCredential(envSid), source: "env:COS_SID" }
+        } catch {
+          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+        }
+      }
+      try {
+        return { credential: parseCredential(envSid), source: "env:COS_SID" }
+      } catch {
+        exitWithError(5, "INVALID_SID")
+      }
+    }
+  }
+
+  // 4-7. CredentialStore からプロファイルを解決
+  const profile = args.profile ?? "default"
+  const cred = await store.load(profile)
+  if (cred === null) {
+    writeErrorJson(
+      "AUTH_REQUIRED",
+      "認証情報が見つかりません",
+      "`cos auth login` を実行してログインしてください",
+    )
+    exitWithError(2, "AUTH_REQUIRED")
+  }
+  return { credential: cred, source: `profile:${profile}` }
+}
+
+/**
  * requireSid はセッション ID を取得し、未認証または書き込み不可の場合はエラーで終了する。
  *
  * 認証解決は resolveActiveCredential に委譲し、canWrite で書き込み可否を判定する。
