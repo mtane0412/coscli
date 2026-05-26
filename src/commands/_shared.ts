@@ -7,7 +7,13 @@
 
 import { AuthError, CosenseRestClient, ForbiddenError, NotFoundError } from "@/core/api/rest"
 import { createScrapboxWriter } from "@/core/api/ws"
-import { isValidSaKeyFormat, parseCredential } from "@/core/auth/credential"
+import {
+  type Credential,
+  detectCredentialKind,
+  isValidSaKeyFormat,
+  parseCredential,
+} from "@/core/auth/credential"
+import type { CredentialStore } from "@/core/auth/credential-store"
 import { loadSession } from "@/core/auth/session"
 import { lintNotation } from "@/core/notation/lint"
 import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
@@ -332,6 +338,106 @@ export function assertValidServiceAccountKey(key: string): void {
   if (!isValidSaKeyFormat(key)) {
     throw new ServiceAccountKeyValidationError()
   }
+}
+
+/**
+ * resolveActiveCredential は認証情報を優先順位に従って解決して Credential を返す。
+ *
+ * 解決優先順位:
+ * 1. COS_PERSONAL_ACCESS_TOKEN env → 匿名 PAT Credential
+ * 2. COS_SERVICE_ACCOUNT_KEY env   → 匿名 SA Credential (COS_PROJECT / --project を defaultProject に設定)
+ * 3. COS_SID env (profile 未指定時) → SID Credential。pat_* の場合は互換 PAT + stderr 警告
+ * 4-7. CredentialStore の該当プロファイル (--profile > "default")
+ *
+ * @param args - コマンドの共通引数 (profile, project 等)
+ * @param store - Credential ストア実装 (テストでは InMemoryCredentialStore を注入)
+ */
+export async function resolveActiveCredential(
+  args: CommonArgs,
+  store: CredentialStore,
+): Promise<Credential> {
+  // 1. COS_PERSONAL_ACCESS_TOKEN を最優先チェック
+  const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
+  if (envPat !== undefined) {
+    try {
+      const cred = parseCredential(envPat)
+      if (cred.kind !== "pat") throw new Error("PAT 形式でありません")
+      return cred
+    } catch {
+      writeErrorJson(
+        "INVALID_PERSONAL_ACCESS_TOKEN",
+        "COS_PERSONAL_ACCESS_TOKEN のフォーマットが不正です",
+        "pat_ で始まる 68 文字の Personal Access Token を指定してください",
+      )
+      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+    }
+  }
+
+  // 2. COS_SERVICE_ACCOUNT_KEY を次優先チェック
+  const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
+  if (envKey !== undefined) {
+    if (!isValidSaKeyFormat(envKey)) {
+      writeErrorJson(
+        "INVALID_SERVICE_ACCOUNT_KEY",
+        "COS_SERVICE_ACCOUNT_KEY のフォーマットが不正です",
+        "cs_ で始まる 67 文字のキーを指定してください",
+      )
+      exitWithError(5, "INVALID_SERVICE_ACCOUNT_KEY")
+    }
+    const project = args.project ?? process.env["COS_PROJECT"]
+    const credSa: { kind: "sa"; value: string; defaultProject?: string } = {
+      kind: "sa",
+      value: envKey,
+    }
+    if (project !== undefined) credSa.defaultProject = project
+    return credSa
+  }
+
+  // 3. COS_SID env (profile 未指定時のみ)
+  if (!args.profile) {
+    const envSid = process.env["COS_SID"]
+    if (envSid !== undefined) {
+      // PAT が COS_SID に設定された場合の互換処理 (Phase 6 で hard error に切り替え)
+      if (detectCredentialKind(envSid) === "pat") {
+        process.stderr.write(
+          "警告: COS_SID に Personal Access Token が設定されています。COS_PERSONAL_ACCESS_TOKEN 環境変数の使用を推奨します。\n",
+        )
+        try {
+          return parseCredential(envSid)
+        } catch {
+          writeErrorJson(
+            "INVALID_PERSONAL_ACCESS_TOKEN",
+            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
+            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
+          )
+          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+        }
+      }
+      try {
+        return parseCredential(envSid)
+      } catch {
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID のフォーマットが不正です",
+          "改行・制御文字・空白を含まない印字可能 ASCII 文字列を指定してください",
+        )
+        exitWithError(5, "INVALID_SID")
+      }
+    }
+  }
+
+  // 4-7. CredentialStore からプロファイルを解決 (--profile > "default")
+  const profile = args.profile ?? "default"
+  const cred = await store.load(profile)
+  if (cred === null) {
+    writeErrorJson(
+      "AUTH_REQUIRED",
+      "認証情報が見つかりません",
+      "`cos auth login` を実行してログインしてください",
+    )
+    exitWithError(2, "AUTH_REQUIRED")
+  }
+  return cred
 }
 
 /** requireSid はセッション ID を取得し、未認証の場合はエラーで終了する。 */

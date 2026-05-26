@@ -24,12 +24,13 @@ export type CredentialKind = "sid" | "pat" | "sa"
  *
  * - sid: connect.sid Cookie。書き込み操作が可能な唯一の方式。defaultProject は省略可能。
  * - pat: Personal Access Token。読み取り専用。defaultProject は省略可能。
- * - sa: Service Account Key。読み取り専用。プロジェクト固有のため defaultProject は必須。
+ * - sa: Service Account Key。読み取り専用。defaultProject は省略可能 (keychain 保存時は必須)。
+ *   環境変数経由の匿名 SA Credential ではプロジェクトが不明な場合があるため省略可能とする。
  */
 export type Credential =
   | { kind: "sid"; value: string; defaultProject?: string }
   | { kind: "pat"; value: string; defaultProject?: string }
-  | { kind: "sa"; value: string; defaultProject: string }
+  | { kind: "sa"; value: string; defaultProject?: string }
 
 /** CredentialParseError は Credential の構築に失敗したことを表すエラー。 */
 export class CredentialParseError extends Error {
