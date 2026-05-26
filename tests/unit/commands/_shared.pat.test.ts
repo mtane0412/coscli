@@ -1,17 +1,18 @@
 /**
- * _shared.pat.test.ts — Personal Access Token (PAT) バリデーションの単体テスト。
+ * _shared.pat.test.ts — Personal Access Token (PAT) バリデーションおよび buildRestClient の単体テスト。
  *
  * PAT は `pat_` + 64 桁小文字 16 進数から構成される。
  * SID と同じ TokenStore に同居させ、値のプレフィックスで識別する設計のため
  * `assertValidSid` が `pat_` を誤って通過させないことも合わせて検証する。
  */
 
-import { describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import {
   PersonalAccessTokenValidationError,
   SidValidationError,
   assertValidPersonalAccessToken,
   assertValidSid,
+  buildRestClient,
 } from "@/commands/_shared"
 
 // pat_ + 64桁小文字16進数の有効な PAT
@@ -90,5 +91,73 @@ describe("assertValidSid — pat_ プレフィックスの誤通過防止", () =
 
   it("pat_xxx (短い) も SidValidationError をスローする", () => {
     expect(() => assertValidSid("pat_abc123")).toThrow(SidValidationError)
+  })
+})
+
+describe("buildRestClient — COS_PERSONAL_ACCESS_TOKEN 環境変数", () => {
+  let exitMock: ReturnType<typeof spyOn>
+  let stdoutMock: ReturnType<typeof spyOn>
+
+  beforeEach(() => {
+    exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
+    stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
+    Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+    Reflect.deleteProperty(process.env, "COS_SID")
+    Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
+  })
+
+  afterEach(() => {
+    exitMock.mockRestore()
+    stdoutMock.mockRestore()
+    Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
+    Reflect.deleteProperty(process.env, "COS_SID")
+    Reflect.deleteProperty(process.env, "COS_SERVICE_ACCOUNT_KEY")
+  })
+
+  it("COS_PERSONAL_ACCESS_TOKEN が有効な PAT の場合は PAT クライアントを返す", async () => {
+    // 環境変数に有効な PAT をセット
+    process.env["COS_PERSONAL_ACCESS_TOKEN"] = VALID_PAT
+    const client = await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+    })
+    // exit が呼ばれずに CosenseRestClient が返ること
+    expect(exitMock).not.toHaveBeenCalled()
+    expect(client).toBeDefined()
+  })
+
+  it("COS_PERSONAL_ACCESS_TOKEN に不正な値が設定されている場合は exit 5 で終了する", async () => {
+    // 不正フォーマット (pat_ プレフィックスがない)
+    process.env["COS_PERSONAL_ACCESS_TOKEN"] = "invalid-pat-format"
+    try {
+      await buildRestClient({
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: true,
+      })
+    } catch {
+      // exitWithError による throw は想定内
+    }
+    expect(exitMock).toHaveBeenCalledWith(5)
+    const stdoutOutput = (stdoutMock.mock.calls as Array<[string]>).map((c) => c[0]).join("")
+    expect(stdoutOutput).toContain("INVALID_PERSONAL_ACCESS_TOKEN")
+  })
+
+  it("COS_PERSONAL_ACCESS_TOKEN が COS_SERVICE_ACCOUNT_KEY より優先される", async () => {
+    // 両方設定されている場合、PAT が優先 (env の優先順位: PAT > SA Key > sid)
+    process.env["COS_PERSONAL_ACCESS_TOKEN"] = VALID_PAT
+    process.env["COS_SERVICE_ACCOUNT_KEY"] = `cs_${"0".repeat(64)}`
+    const client = await buildRestClient({
+      json: false,
+      plain: false,
+      "results-only": false,
+      quiet: true,
+    })
+    // exit が呼ばれずに返ること
+    expect(exitMock).not.toHaveBeenCalled()
+    expect(client).toBeDefined()
   })
 })

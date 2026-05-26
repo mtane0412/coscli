@@ -23,7 +23,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   type CommonArgs,
+  PersonalAccessTokenValidationError,
   SidValidationError,
+  assertValidPersonalAccessToken,
   assertValidSid,
   buildJsonOpts,
   buildLogger,
@@ -78,6 +80,11 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         type: "string",
         description: "connect.sid の値 (--no-input 時に使用)",
       },
+      pat: {
+        type: "string",
+        description:
+          "Personal Access Token (pat_ で始まる 68 文字)。読み取り REST 専用。書き込みコマンドは sid が必要",
+      },
       input: {
         type: "boolean",
         description:
@@ -107,6 +114,7 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
     async run({ args }) {
       type LoginArgs = CommonArgs & {
         sid?: string
+        pat?: string
         input: boolean
         browser: boolean
         "browser-path"?: string
@@ -128,6 +136,24 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
         exitWithError(5, "BROWSER_SID_EXCLUSIVE")
       }
 
+      // 排他チェック: --browser と --pat
+      if (a.browser && a.pat) {
+        writeErrorJson(
+          "PAT_BROWSER_EXCLUSIVE",
+          "--browser と --pat は同時に指定できません。どちらか一方を使用してください。",
+        )
+        exitWithError(5, "PAT_BROWSER_EXCLUSIVE")
+      }
+
+      // 排他チェック: --sid と --pat
+      if (a.sid && a.pat) {
+        writeErrorJson(
+          "PAT_SID_EXCLUSIVE",
+          "--sid と --pat は同時に指定できません。どちらか一方を使用してください。",
+        )
+        exitWithError(5, "PAT_SID_EXCLUSIVE")
+      }
+
       // 排他チェック: --browser と --no-input
       if (a.browser && !a.input) {
         writeErrorJson(
@@ -135,6 +161,36 @@ export function createAuthLoginCommand(deps: AuthLoginCommandDeps = {}) {
           "--browser フラグはブラウザでの手動ログインが必要なため --no-input と併用できません。",
         )
         exitWithError(5, "BROWSER_REQUIRES_INPUT")
+      }
+
+      // --pat フロー: PAT を検証して TokenStore に保存する
+      if (a.pat !== undefined) {
+        try {
+          assertValidPersonalAccessToken(a.pat)
+        } catch (err) {
+          if (err instanceof PersonalAccessTokenValidationError) {
+            writeErrorJson(
+              "INVALID_PERSONAL_ACCESS_TOKEN",
+              err.message,
+              "pat_ で始まる 68 文字の Personal Access Token を指定してください",
+            )
+            exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+          }
+          throw err
+        }
+        const client = new CosenseRestClient({ personalAccessToken: a.pat })
+        const me = await client.getMe()
+        const store = storeFactory()
+        await saveSession(store, { profile, sid: a.pat })
+        logger.success(`${me.name} としてログインしました (プロファイル: ${profile}, 認証: PAT)`)
+        if (a.json) {
+          writeJson(
+            { profile, name: me.name, authMethod: "pat" },
+            { command: "auth.login", startTime },
+            buildJsonOpts(a),
+          )
+        }
+        return
       }
 
       let sid: string

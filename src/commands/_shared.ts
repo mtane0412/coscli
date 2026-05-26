@@ -386,12 +386,31 @@ export function requireProject(args: CommonArgs): string {
  * buildRestClient は認証情報を解決して REST クライアントを生成する。
  *
  * 認証解決の優先順位:
+ * 0. COS_PERSONAL_ACCESS_TOKEN 環境変数 (PAT 認証、最優先)
  * 1. COS_SERVICE_ACCOUNT_KEY 環境変数 (Service Account キー認証)
  * 2. --project 指定時 + 設定ファイルの serviceAccounts に該当プロジェクトが存在 (Service Account キー認証)
- * 3. SID 認証 (connect.sid Cookie)
+ * 3. キーチェーン / COS_SID 環境変数 (PAT または SID 認証、値の pat_ プレフィックスで自動判別)
  */
 export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClient> {
-  // 1. 環境変数 COS_SERVICE_ACCOUNT_KEY を最優先チェック
+  // 0. 環境変数 COS_PERSONAL_ACCESS_TOKEN を最優先チェック (PAT > SA Key > sid)
+  const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
+  if (envPat !== undefined) {
+    try {
+      assertValidPersonalAccessToken(envPat)
+    } catch {
+      writeErrorJson(
+        "INVALID_PERSONAL_ACCESS_TOKEN",
+        "COS_PERSONAL_ACCESS_TOKEN のフォーマットが不正です",
+        "pat_ で始まる 68 文字の Personal Access Token を指定してください",
+      )
+      exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
+    }
+    const projectForAutoWatch = args.project ?? process.env["COS_PROJECT"]
+    if (projectForAutoWatch) maybeAutoAddToWatchlist(projectForAutoWatch)
+    return new CosenseRestClient({ personalAccessToken: envPat })
+  }
+
+  // 1. 環境変数 COS_SERVICE_ACCOUNT_KEY を次優先チェック
   const envKey = process.env["COS_SERVICE_ACCOUNT_KEY"]
   if (envKey !== undefined) {
     try {
@@ -430,10 +449,52 @@ export async function buildRestClient(args: CommonArgs): Promise<CosenseRestClie
     }
   }
 
-  // 3. SID 認証にフォールバック
-  const sid = await requireSid(args.profile)
+  // 3. キーチェーン / COS_SID 環境変数から認証情報を取得 (PAT / SID 自動判別)
+  // requireSid は pat_ を拒否するため、buildRestClient では直接 loadSession を使う
+  if (!args.profile) {
+    const envSid = process.env["COS_SID"]
+    if (envSid !== undefined) {
+      try {
+        assertValidSid(envSid)
+      } catch {
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID のフォーマットが不正です",
+          "改行・制御文字・空白を含まない印字可能 ASCII 文字列を指定してください",
+        )
+        exitWithError(5, "INVALID_SID")
+      }
+      if (project) maybeAutoAddToWatchlist(project)
+      return new CosenseRestClient({ sid: envSid })
+    }
+  }
+  const store = createTokenStore()
+  const sessionOpts = args.profile !== undefined ? { profile: args.profile } : {}
+  const token = await loadSession(store, sessionOpts)
+  if (!token) {
+    writeErrorJson(
+      "AUTH_REQUIRED",
+      "認証情報が見つかりません",
+      "`cos auth login` を実行してログインしてください",
+    )
+    exitWithError(2, "AUTH_REQUIRED")
+  }
   if (project) maybeAutoAddToWatchlist(project)
-  return new CosenseRestClient({ sid })
+  // PAT プレフィックスの場合は PAT 認証、それ以外は SID 認証
+  if (token.startsWith("pat_")) {
+    return new CosenseRestClient({ personalAccessToken: token })
+  }
+  try {
+    assertValidSid(token)
+  } catch {
+    writeErrorJson(
+      "INVALID_SID",
+      "キーチェーンに保存された SID のフォーマットが不正です",
+      "`cos auth logout` 後に再ログインしてください",
+    )
+    exitWithError(5, "INVALID_SID")
+  }
+  return new CosenseRestClient({ sid: token })
 }
 
 /**

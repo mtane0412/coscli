@@ -41,8 +41,8 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
       const startTime = Date.now()
 
       const store = createStore()
-      const sid = await loadSession(store, a.profile !== undefined ? { profile: a.profile } : {})
-      if (!sid) {
+      const token = await loadSession(store, a.profile !== undefined ? { profile: a.profile } : {})
+      if (!token) {
         writeErrorJson(
           "AUTH_REQUIRED",
           "認証情報が見つかりません",
@@ -51,13 +51,22 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
         exitWithError(2, "AUTH_REQUIRED")
       }
 
-      const client = new CosenseRestClient({ sid })
+      // pat_ プレフィックスで PAT / SID を自動判別
+      const authMethod: "pat" | "sid" = token.startsWith("pat_") ? "pat" : "sid"
+      const client =
+        authMethod === "pat"
+          ? new CosenseRestClient({ personalAccessToken: token })
+          : new CosenseRestClient({ sid: token })
       const me = await client.getMe()
 
       if (a.json || !a.plain) {
         // csrfToken は機密情報のため出力から除外する
         const { csrfToken: _csrfToken, ...safeMe } = me
-        writeJson(safeMe, { command: "auth.whoami", startTime }, buildJsonOpts(a))
+        writeJson(
+          { ...safeMe, authMethod },
+          { command: "auth.whoami", startTime },
+          buildJsonOpts(a),
+        )
         return
       }
 
@@ -66,6 +75,7 @@ export function createAuthWhoamiCommand(deps: AuthWhoamiCommandDeps = {}) {
         [
           ["名前", me.name],
           ["ID", me.id],
+          ["認証種別", authMethod],
         ],
       )
     },
