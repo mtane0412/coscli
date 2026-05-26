@@ -520,12 +520,22 @@ export async function resolveActiveCredentialWithSource(
         try {
           return { credential: parseCredential(envSid), source: "env:COS_SID" }
         } catch {
+          writeErrorJson(
+            "INVALID_PERSONAL_ACCESS_TOKEN",
+            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
+            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
+          )
           exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
         }
       }
       try {
         return { credential: parseCredential(envSid), source: "env:COS_SID" }
       } catch {
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID のフォーマットが不正です",
+          "改行・制御文字・空白を含まない印字可能 ASCII 文字列を指定してください",
+        )
         exitWithError(5, "INVALID_SID")
       }
     }

@@ -78,7 +78,7 @@ const jsonArgs = {
 
 const plainArgs = {
   json: false,
-  plain: false,
+  plain: true,
   quiet: false,
   verbose: false,
   profile: undefined,

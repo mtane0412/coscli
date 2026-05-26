@@ -98,7 +98,7 @@ describe("authDoctorCommand — プロファイルなし", () => {
     const output = getPlain()
 
     expect(exitMock).not.toHaveBeenCalled()
-    expect(output.length).toBeGreaterThanOrEqual(0)
+    expect(output).toContain("登録済みのプロファイルはありません")
   })
 })
 

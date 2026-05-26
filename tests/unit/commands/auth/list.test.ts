@@ -119,7 +119,7 @@ describe("authListCommand — プレーン出力", () => {
     await credStore.save("work-pat", { kind: "pat", value: `pat_${"a".repeat(64)}` })
 
     const getPlain = capturePlainOutput()
-    await runList(defaultArgs, credStore)
+    await runList({ ...defaultArgs, plain: true }, credStore)
     const output = getPlain()
 
     expect(output).toContain("default")
