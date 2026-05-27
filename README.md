@@ -364,9 +364,9 @@ Service Account Key・PAT はどちらも読み取り専用です。`page edit` 
 
 ```bash
 # プロファイルを保存する (--profile で名前を指定)
-cos auth add --type sid --key "s%3Axxx..." --profile 個人
-cos auth add --type pat --key-env MY_PAT    --profile ci-readonly
-cos auth add --type sa  --key-stdin --project myproject --profile cs_myproject < sa-key.txt
+cos auth add --type sid --key "s%3Axxx..."        --profile 個人
+cos auth add --type pat --key "pat_xxx..."         --profile ci-readonly
+cos auth add --type sa  --key "cs_xxx..." --project myproject --profile cs_myproject
 
 # 一覧確認
 cos auth list
@@ -395,6 +395,21 @@ cos auth logout --profile ci-readonly
 ```bash
 export COS_PROFILE=ci-readonly
 cos page list --project myproject
+```
+
+#### キーの渡し方
+
+`--key` / `--key-env` / `--key-stdin` はどの `--type` でも使えます。
+
+```bash
+# --key: 値を直接渡す (最もシンプル)
+cos auth add --type sid --key "s%3Axxx..." --profile 個人
+
+# --key-env: 環境変数名を渡す (argv に secret を露出させたくない CI 向け)
+cos auth add --type pat --key-env MY_PAT_TOKEN --profile ci-readonly
+
+# --key-stdin: ファイルやパイプから渡す
+cos auth add --type sa --key-stdin --project myproject --profile cs_myproject < sa-key.txt
 ```
 
 ### Smart Context でリンク先ページの文脈を取得
