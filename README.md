@@ -358,6 +358,45 @@ Service Account Key・PAT はどちらも読み取り専用です。`page edit` 
 6. `config.defaultProfile` → キーチェーンから取得
 7. `"default"` プロファイル → キーチェーンから取得
 
+### マルチプロファイル管理
+
+複数の Cosense アカウントや認証方式を「プロファイル」として使い分けられます。
+
+```bash
+# プロファイルを保存する (--profile で名前を指定)
+cos auth add --type sid --key "s%3Axxx..." --profile 個人
+cos auth add --type pat --key-env MY_PAT    --profile ci-readonly
+cos auth add --type sa  --key-stdin --project myproject --profile cs_myproject < sa-key.txt
+
+# 一覧確認
+cos auth list
+
+# 現在どのプロファイルが使われているか確認
+cos auth status
+
+# デフォルトを切り替える
+cos auth use 個人
+
+# コマンド実行時に一時的に指定
+cos page list --project myproject --profile ci-readonly
+
+# デフォルト設定を解除する (7 位の "default" プロファイルにフォールバック)
+cos auth use --unset
+
+# 全プロファイルの健全性チェック
+cos auth doctor
+
+# 特定プロファイルを削除する
+cos auth logout --profile ci-readonly
+```
+
+環境変数 `COS_PROFILE` でもプロファイルを指定できます（`--profile` フラグより優先度は低い）:
+
+```bash
+export COS_PROFILE=ci-readonly
+cos page list --project myproject
+```
+
 ### Smart Context でリンク先ページの文脈を取得
 
 `cos page context` は Cosense の [Smart Context](https://cosen.se/) 機能を使い、指定ページを起点に 1hop / 2hop 先のリンク先ページ本文を LLM が読みやすい形式でまとめて取得します。
