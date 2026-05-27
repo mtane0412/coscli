@@ -45,6 +45,7 @@ import { projectStreamCommand } from "@/commands/project/stream"
 import { searchCommand } from "@/commands/search"
 
 // 認証コマンド
+import { authAddCommand } from "@/commands/auth/add"
 import { authDoctorCommand } from "@/commands/auth/doctor"
 import { authListCommand } from "@/commands/auth/list"
 import { authLoginCommand } from "@/commands/auth/login"
@@ -161,6 +162,7 @@ export const projectCommand = defineCommand({
 export const authCommand = defineCommand({
   meta: { name: "auth", description: "認証コマンド" },
   subCommands: {
+    add: authAddCommand,
     login: authLoginCommand,
     logout: authLogoutCommand,
     whoami: authWhoamiCommand,

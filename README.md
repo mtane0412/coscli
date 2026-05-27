@@ -155,6 +155,7 @@ cos watch-list remove  プロジェクトをウォッチリストから削除す
 
 cos search          全文検索 (--vector でベクトル検索、--infobox で infobox 定義ページを検索)
 
+cos auth add       API 検証なしで認証情報を直接 keychain に保存する (non-interactive / CI 向け)
 cos auth login     認証ログイン (--sid / --pat でクレデンシャルを直接渡す)
 cos auth logout    ログアウト
 cos auth whoami    現在のログインユーザーを表示
@@ -280,6 +281,29 @@ cos auth migrate
 cos auth migrate --dry-run          # 変更計画のみ確認
 cos auth migrate --set-default cs_myproject  # 移行後にデフォルトプロファイルを設定
 ```
+
+### `cos auth add` — API 検証なしでキーチェーンに直接保存 (CI / エージェント向け)
+
+`cos auth login` が API へのアクセスを検証するのに対して、`cos auth add` はネットワーク不要で認証情報を直接キーチェーンに保存します。
+
+```bash
+# SID を直接指定して保存
+cos auth add --type sid --key "s%3Axxxxxxxx..." --profile 個人
+
+# PAT を環境変数経由で保存 (argv に secret を露出させない CI フレンドリーパターン)
+cos auth add --type pat --key-env MY_PAT_TOKEN --profile ci-readonly
+
+# SA Key を stdin から読み込んで保存し、デフォルトプロファイルに設定する
+echo "cs_xxxx..." | cos auth add --type sa --key-stdin --project myproject --set-default
+```
+
+**入力モード (排他)**:
+
+| フラグ | 説明 |
+|---|---|
+| `--key <value>` | 値を引数に直接渡す |
+| `--key-env <ENV_NAME>` | 環境変数名を渡し、その変数の値を使う |
+| `--key-stdin` | stdin から読み取る (末尾改行を自動 trim) |
 
 > **移行案内**: `cos auth sa add` を使って登録した SA キーは `config.serviceAccounts` に保存されています。`cos auth migrate` を実行してキーチェーンに移行してください。
 

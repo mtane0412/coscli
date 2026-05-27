@@ -20,7 +20,7 @@ import { lintNotation } from "@/core/notation/lint"
 import { normalizeCodeBlockEmptyLines } from "@/core/notation/normalize"
 import { PolicyError, createPolicy } from "@/core/sandbox"
 import { resolvePolicy } from "@/core/sandbox/resolve"
-import { loadConfig, saveConfig } from "@/infra/config"
+import { defaultConfigPath, loadConfig, saveConfig } from "@/infra/config"
 import { createTokenStore } from "@/infra/keychain/index"
 import { Logger } from "@/infra/logger"
 import { UnsafePathError, readFromFile, readStdinBounded } from "@/infra/safe-read"
@@ -347,15 +347,20 @@ export function assertValidServiceAccountKey(key: string): void {
  * 解決優先順位:
  * 1. COS_PERSONAL_ACCESS_TOKEN env → 匿名 PAT Credential
  * 2. COS_SERVICE_ACCOUNT_KEY env   → 匿名 SA Credential (COS_PROJECT / --project を defaultProject に設定)
- * 3. COS_SID env (profile 未指定時) → SID Credential。pat_* の場合は互換 PAT + stderr 警告
- * 4-7. CredentialStore の該当プロファイル (--profile > "default")
+ * 3. COS_SID env (profile 未指定時) → SID Credential。pat_* の場合は exit 5 + INVALID_SID (Phase 6)
+ * 4. --profile フラグ → keychain のプロファイル
+ * 5. COS_PROFILE env → keychain のプロファイル
+ * 6. config.defaultProfile → keychain のプロファイル
+ * 7. "default" プロファイル → keychain
  *
  * @param args - コマンドの共通引数 (profile, project 等)
  * @param store - Credential ストア実装 (テストでは InMemoryCredentialStore を注入)
+ * @param configPath - 設定ファイルパスの上書き (テスト用)。未指定時はデフォルトパスを使用する
  */
 export async function resolveActiveCredential(
   args: CommonArgs,
   store: CredentialStore,
+  configPath?: string,
 ): Promise<Credential> {
   // 1. COS_PERSONAL_ACCESS_TOKEN を最優先チェック
   const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
@@ -398,21 +403,14 @@ export async function resolveActiveCredential(
   if (!args.profile) {
     const envSid = process.env["COS_SID"]
     if (envSid !== undefined) {
-      // PAT が COS_SID に設定された場合の互換処理 (Phase 6 で hard error に切り替え)
+      // Phase 6: COS_SID に PAT を設定することは禁止 (互換モードを廃止して hard error)
       if (detectCredentialKind(envSid) === "pat") {
-        process.stderr.write(
-          "警告: COS_SID に Personal Access Token が設定されています。COS_PERSONAL_ACCESS_TOKEN 環境変数の使用を推奨します。\n",
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID に Personal Access Token を設定することはできません",
+          "Personal Access Token は COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
         )
-        try {
-          return parseCredential(envSid)
-        } catch {
-          writeErrorJson(
-            "INVALID_PERSONAL_ACCESS_TOKEN",
-            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
-            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
-          )
-          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-        }
+        exitWithError(5, "INVALID_SID")
       }
       try {
         return parseCredential(envSid)
@@ -427,8 +425,12 @@ export async function resolveActiveCredential(
     }
   }
 
-  // 4-7. CredentialStore からプロファイルを解決 (--profile > "default")
-  const profile = args.profile ?? "default"
+  // 4-7. CredentialStore からプロファイルを解決
+  const profile =
+    args.profile ?? // 4. --profile フラグ
+    process.env["COS_PROFILE"] ?? // 5. COS_PROFILE env
+    loadConfig(configPath ?? defaultConfigPath()).defaultProfile ?? // 6. config.defaultProfile
+    "default" // 7. "default" プロファイル
   const cred = await store.load(profile)
   if (cred === null) {
     writeErrorJson(
@@ -467,10 +469,15 @@ export interface CredentialWithSource {
  * Credential と解決経路 (CredentialSource) の両方を返す。
  *
  * auth status コマンド専用の内部 API。
+ *
+ * @param args - コマンドの共通引数 (profile, project 等)
+ * @param store - Credential ストア実装 (テストでは InMemoryCredentialStore を注入)
+ * @param configPath - 設定ファイルパスの上書き (テスト用)。未指定時はデフォルトパスを使用する
  */
 export async function resolveActiveCredentialWithSource(
   args: CommonArgs,
   store: CredentialStore,
+  configPath?: string,
 ): Promise<CredentialWithSource> {
   // 1. COS_PERSONAL_ACCESS_TOKEN
   const envPat = process.env["COS_PERSONAL_ACCESS_TOKEN"]
@@ -513,20 +520,14 @@ export async function resolveActiveCredentialWithSource(
   if (!args.profile) {
     const envSid = process.env["COS_SID"]
     if (envSid !== undefined) {
+      // Phase 6: COS_SID に PAT を設定することは禁止 (互換モードを廃止して hard error)
       if (detectCredentialKind(envSid) === "pat") {
-        process.stderr.write(
-          "警告: COS_SID に Personal Access Token が設定されています。COS_PERSONAL_ACCESS_TOKEN 環境変数の使用を推奨します。\n",
+        writeErrorJson(
+          "INVALID_SID",
+          "COS_SID に Personal Access Token を設定することはできません",
+          "Personal Access Token は COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
         )
-        try {
-          return { credential: parseCredential(envSid), source: "env:COS_SID" }
-        } catch {
-          writeErrorJson(
-            "INVALID_PERSONAL_ACCESS_TOKEN",
-            "COS_SID に設定された Personal Access Token のフォーマットが不正です",
-            "pat_ で始まる 68 文字の Personal Access Token を COS_PERSONAL_ACCESS_TOKEN 環境変数で指定してください",
-          )
-          exitWithError(5, "INVALID_PERSONAL_ACCESS_TOKEN")
-        }
+        exitWithError(5, "INVALID_SID")
       }
       try {
         return { credential: parseCredential(envSid), source: "env:COS_SID" }
@@ -542,7 +543,11 @@ export async function resolveActiveCredentialWithSource(
   }
 
   // 4-7. CredentialStore からプロファイルを解決
-  const profile = args.profile ?? "default"
+  const profile =
+    args.profile ?? // 4. --profile フラグ
+    process.env["COS_PROFILE"] ?? // 5. COS_PROFILE env
+    loadConfig(configPath ?? defaultConfigPath()).defaultProfile ?? // 6. config.defaultProfile
+    "default" // 7. "default" プロファイル
   const cred = await store.load(profile)
   if (cred === null) {
     writeErrorJson(
