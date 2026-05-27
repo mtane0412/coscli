@@ -124,14 +124,22 @@ describe("authDoctorCommand — 全プロファイル正常", () => {
 })
 
 describe("authDoctorCommand — プロファイルなし", () => {
-  it("プロファイルが空の場合は正常終了すること", async () => {
+  it("プロファイルが空の場合は正常終了し createClient が呼ばれないこと", async () => {
     const credStore = new InMemoryCredentialStore()
 
+    // プロファイルが空の場合は API 疎通確認が一切実行されないことを検証する
+    let createClientCallCount = 0
+    const createClient = (_c: Credential) => {
+      createClientCallCount++
+      return successClient()
+    }
+
     const getPlain = capturePlainOutput()
-    await runDoctor(defaultArgs, credStore, () => successClient())
+    await runDoctor(defaultArgs, credStore, createClient)
     const output = getPlain()
 
     expect(exitMock).not.toHaveBeenCalled()
+    expect(createClientCallCount).toBe(0)
     expect(output).toContain("登録済みのプロファイルはありません")
   })
 })

@@ -40,9 +40,18 @@ export interface AuthDoctorCommandDeps {
 }
 
 function defaultCreateClient(cred: Credential): DoctorApiClient {
-  if (cred.kind === "pat") return new CosenseRestClient({ personalAccessToken: cred.value })
-  if (cred.kind === "sa") return new CosenseRestClient({ serviceAccountKey: cred.value })
-  return new CosenseRestClient({ sid: cred.value })
+  switch (cred.kind) {
+    case "pat":
+      return new CosenseRestClient({ personalAccessToken: cred.value })
+    case "sa":
+      return new CosenseRestClient({ serviceAccountKey: cred.value })
+    case "sid":
+      return new CosenseRestClient({ sid: cred.value })
+    default: {
+      const _exhaustive: never = cred
+      throw new Error("未対応の Credential kind です")
+    }
+  }
 }
 
 /** createAuthDoctorCommand は依存を注入して doctor コマンドを生成する。 */
