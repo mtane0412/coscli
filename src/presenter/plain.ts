@@ -23,8 +23,7 @@ export interface PlainOutputOptions {
 }
 
 /**
- * writePlainTable は cli-table3 を使って罫線なしのスペースパディング整列テキストを出力する。
- * gogcli 風の整列テキストで、人間にも AI エージェントにもトークン効率よく読める。
+ * writePlainTable は罫線なしのスペースパディング整列テキスト (gogcli 風) を stream へ出力する。
  *
  * cli-table3 のネイティブスタイルは常に無効化し、ヘッダーを picocolors で色付けする。
  * これにより --color never/always の設定が非 TTY 環境でも確実に反映される。
