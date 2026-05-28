@@ -103,6 +103,8 @@ cos project search "キーワード" --json --results-only
 
 ## 書き込み — 第一選択は行編集 (page line)
 
+**⚠️ CRITICAL: 書き込みコンテンツは必ず `/cosense-notation` スキルで Cosense 記法を確認してから作成すること。Markdown（`## 見出し`、`- リスト`、`| テーブル |`）で書かないこと。**
+
 **⚠️ 部分的な書き換えは `cos page line replace` / `cos page line delete` を優先。`cos page edit` はページ全体書き換えのみ使う。書き込み系は必ず `--dry-run` で確認してから本実行すること。**
 
 | 用途 | 推奨コマンド |
