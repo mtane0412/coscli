@@ -41,10 +41,11 @@ cos exit-codes --json               # 終了コード一覧 (単一ソース)
 
 | フラグ | 効果 |
 |---|---|
+| なし (デフォルト) | 罫線なしのスペースパディング整列テキスト — 人間にも AI エージェントにも読みやすい |
 | `--json` / `-J` | envelope JSON 出力 (`{ "data": ..., "meta": ... }`) |
 | `--results-only` | `data` フィールドのみ出力 |
 | `--select '<path>'` | `data` 内フィールドを抽出 (例: `pages[].title`, `commitId`) |
-| `--plain` / `-P` | プレーン/TSV 出力 (人間向け) |
+| `--plain` / `-P` | タブ区切り TSV 出力 — `awk` / `cut` 等のスクリプト連携向け |
 
 **鉄則**: Claude Code から呼ぶときは `--json --results-only --select '<path>'` で最小データだけ受け取る。
 
@@ -282,7 +283,7 @@ cos serve --rest --port=8080 --allow-write --project <name>
 | `--project <name>` | `-p` | 対象プロジェクト (env: `COS_PROJECT`) |
 | `--profile <name>` | — | 認証プロファイル (デフォルト `default`) |
 | `--json` | `-J` | JSON envelope 出力 |
-| `--plain` | `-P` | プレーン/TSV 出力 |
+| `--plain` | `-P` | タブ区切り TSV 出力 (スクリプト向け) |
 | `--results-only` | — | `data` フィールドのみ出力 |
 | `--select <path>` | — | `data` 内フィールドを抽出 |
 | `--dry-run` | — | 書き込みをシミュレート |

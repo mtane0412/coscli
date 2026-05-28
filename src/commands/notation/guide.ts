@@ -18,20 +18,10 @@ import {
   commonArgs,
   exitWithError,
 } from "@/commands/_shared"
-import { NOTATION_GUIDE, type NotationSection } from "@/core/notation/guide"
+import { NOTATION_GUIDE } from "@/core/notation/guide"
 import { writeJson } from "@/presenter/json"
 import { writePlainTable, writeTsv } from "@/presenter/plain"
 import { defineCommand } from "citty"
-
-/** buildSectionRows は NotationSection の items を rows 配列に変換する。 */
-function buildSectionRows(section: NotationSection): string[][] {
-  const rows: string[][] = []
-  rows.push([`=== ${section.title} ===`, section.description ?? "", ""])
-  for (const item of section.items) {
-    rows.push([item.syntax, item.description, item.note ?? ""])
-  }
-  return rows
-}
 
 /** notationGuideCommand は Cosense 記法ガイドを出力するコマンド定義を返す。 */
 export const notationGuideCommand = defineCommand({
@@ -66,7 +56,7 @@ export const notationGuideCommand = defineCommand({
       }
 
       const headers = ["syntax", "description", "note"]
-      const rows = buildSectionRows(section)
+      const rows = section.items.map((item) => [item.syntax, item.description, item.note ?? ""])
       if (a.plain) {
         writeTsv(headers, rows)
       } else {

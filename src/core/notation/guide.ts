@@ -176,12 +176,12 @@ export const NOTATION_GUIDE: NotationGuide = {
         },
         {
           syntax: "[*** テキスト]",
-          description: "太字・大サイズ（見出しの代用に適する）",
+          description: "太字・大サイズ",
           note: "* の直後に半角スペースが必要",
         },
         {
           syntax: "[**** テキスト]",
-          description: "太字・最大サイズ（トップレベル見出しに適する）",
+          description: "太字・最大サイズ",
           note: "* の直後に半角スペースが必要",
         },
         {
@@ -339,17 +339,12 @@ export const NOTATION_GUIDE: NotationGuide = {
         {
           syntax: "[*** テキスト] または [**** テキスト]",
           description:
-            "【重要】* の数が多いほど大きく表示される (Markdownとは逆)。見出しには [*** テキスト] または [**** テキスト] を使う",
+            "【重要】* の数が多いほど大きく表示される (Markdownとは逆)。[* テキスト] が最小、[**** テキスト] が最大サイズ",
         },
         {
           syntax: "[* テキスト] ← スペース必須",
           description:
             "【重要】[* テキスト] の */ // -の直後には必ず半角スペースが必要。スペースなしの [*テキスト] はページリンクになる",
-        },
-        {
-          syntax: "(見出し記法なし)",
-          description:
-            "Cosenseに独立した「見出し記法」はない。[*** テキスト] のような太字サイズで見出しを表現する",
         },
         {
           syntax: "1行目",

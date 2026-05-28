@@ -1,9 +1,10 @@
 /**
- * plain.ts — --plain / TSV 出力フォーマット。
+ * plain.ts — デフォルト / TSV 出力フォーマット。
  *
- * cli-table3 でボーダー付きテーブルを描画するか、
+ * cli-table3 で罫線なしのスペースパディング整列テキスト (gogcli 風) を描画するか、
  * タブ区切り (TSV) で出力するかを選択できる。
- * AI エージェントやスクリプトには TSV が扱いやすい。
+ * デフォルト出力は人間にも AI エージェントにも読みやすい整列テキスト。
+ * スクリプト連携には --plain (TSV) を使用する。
  *
  * cli-table3 は @colors/colors の TTY 検出に依存するため --color always/never を直接制御できない。
  * ヘッダーを picocolors で色付けし、cli-table3 のネイティブスタイルは常に無効化することで
@@ -22,8 +23,7 @@ export interface PlainOutputOptions {
 }
 
 /**
- * writePlainTable は cli-table3 を使ってボーダー付きテーブルを出力する。
- * TTY 環境での人間向け表示に適する。
+ * writePlainTable は罫線なしのスペースパディング整列テキスト (gogcli 風) を stream へ出力する。
  *
  * cli-table3 のネイティブスタイルは常に無効化し、ヘッダーを picocolors で色付けする。
  * これにより --color never/always の設定が非 TTY 環境でも確実に反映される。
@@ -40,7 +40,30 @@ export function writePlainTable(
   const styledHeaders = isColorEnabled() ? headers.map((h) => color.bold(h)) : headers
   const table = new Table({
     head: styledHeaders,
-    style: { head: [] as string[], border: [] as string[] },
+    style: {
+      head: [] as string[],
+      border: [] as string[],
+      "padding-left": 0,
+      "padding-right": 2,
+    },
+    // 全ての罫線文字を空文字に設定し、列間はスペース 2 文字で区切る
+    chars: {
+      top: "",
+      "top-mid": "",
+      "top-left": "",
+      "top-right": "",
+      bottom: "",
+      "bottom-mid": "",
+      "bottom-left": "",
+      "bottom-right": "",
+      left: "",
+      "left-mid": "",
+      mid: "",
+      "mid-mid": "",
+      right: "",
+      "right-mid": "",
+      middle: "  ",
+    },
   })
   for (const row of rows) {
     table.push(row)
