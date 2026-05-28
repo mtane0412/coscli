@@ -640,6 +640,8 @@ $EDITOR "$(cos config path)"
 
 Inspired by [gogcli](https://github.com/openclaw/gogcli) — Google Workspace in your terminal.
 
+`.agents/skills/cosense-notation/SKILL.md` is based on [cosense-notation-skill.md](https://gist.github.com/taiseiue/493e17ed6d95a9fc5881d0701692e77e) by [@taiseiue](https://github.com/taiseiue).
+
 ## ライセンス
 
 MIT
