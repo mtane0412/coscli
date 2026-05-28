@@ -176,12 +176,12 @@ export const NOTATION_GUIDE: NotationGuide = {
         },
         {
           syntax: "[*** テキスト]",
-          description: "太字・大サイズ（見出しの代用に適する）",
+          description: "太字・大サイズ",
           note: "* の直後に半角スペースが必要",
         },
         {
           syntax: "[**** テキスト]",
-          description: "太字・最大サイズ（トップレベル見出しに適する）",
+          description: "太字・最大サイズ",
           note: "* の直後に半角スペースが必要",
         },
         {
