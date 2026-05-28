@@ -200,6 +200,13 @@ describe("notationGuideCommand", () => {
       const out = captureStdout()
       expect(out).not.toContain("===")
     })
+
+    it("デフォルト出力にもセクション見出し行が含まれない", async () => {
+      // テーブルモードでも === Decoration 記法 === のような見出し行を出力しないこと
+      await runNotation(makeArgs({ topic: "decoration" }))
+      const out = captureStdout()
+      expect(out).not.toContain("===")
+    })
   })
 
   describe("table トピック", () => {
