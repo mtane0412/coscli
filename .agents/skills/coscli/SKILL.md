@@ -1,0 +1,299 @@
+---
+name: coscli
+description: Cosense (旧 Scrapbox) のページ取得・編集・検索を行う coscli (cos コマンド) を使うスキル。ユーザーが Scrapbox/Cosense のページや特定プロジェクトについて言及した場合、ページの読み取り・作成・編集・検索を求めた場合に自動的に使用する。
+---
+
+# coscli (cos) スキル
+
+`cos` は Cosense (旧 Scrapbox) 向け AI エージェント親和的 CLI。
+
+インストール確認: `command -v cos` — 未インストールの場合: `brew install coscli`
+
+---
+
+## 認証確認 (すべての操作の前に)
+
+```bash
+cos auth whoami --json
+```
+
+exit 2 (未認証) の場合:
+
+```bash
+cos auth login                          # 対話ログイン
+cos auth login --browser                # ブラウザ自動取得
+COS_SID="..." cos page list --project myproject  # 環境変数で都度渡す
+```
+
+---
+
+## 動的スキーマ取得 (コマンド・フラグが不確かなら必ずこれで確認)
+
+```bash
+cos schema --json                   # 全コマンドツリー
+cos schema page list --json         # 特定コマンドのスキーマ
+cos exit-codes --json               # 終了コード一覧 (単一ソース)
+```
+
+---
+
+## 出力フォーマット
+
+| フラグ | 効果 |
+|---|---|
+| `--json` / `-J` | envelope JSON 出力 (`{ "data": ..., "meta": ... }`) |
+| `--results-only` | `data` フィールドのみ出力 |
+| `--select '<path>'` | `data` 内フィールドを抽出 (例: `pages[].title`, `commitId`) |
+| `--plain` / `-P` | プレーン/TSV 出力 (人間向け) |
+
+**鉄則**: Claude Code から呼ぶときは `--json --results-only --select '<path>'` で最小データだけ受け取る。
+
+---
+
+## 読み取り
+
+```bash
+# ページ一覧 (タイトルだけ)
+cos page list --project <name> --json --results-only --select 'pages[].title' --limit 50 --sort updated
+# sort: updated|created|accessed|pageRank|links|views|title
+
+# ページ全データ
+cos page get "タイトル" --project <name> --json --results-only
+# data: { id, title, lines: [{ text, ... }], commitId, persistent, ... }
+
+# 本文テキスト
+cos page text "タイトル" --project <name>
+cos page text "タイトル" --project <name> --format=md   # Markdown 変換
+
+# 本文 + リンク先文脈 (AI 文脈注入に最適)
+# data.text に "==[ページA]==\n本文...\n==[ページB]==\n..." 形式のテキストが入る
+cos page context "タイトル" --project <name> --json --results-only
+cos page context "タイトル" --project <name> --hops 2   # 2hop まで広げる (取得量大)
+
+# コードブロック / テーブル
+cos page code "タイトル" "filename.ts" --project <name>
+cos page table "タイトル" "filename" --project <name>   # CSV テキスト
+
+# スナップショット
+cos page snapshot list "タイトル" --project <name> --json --results-only  # alias: ls
+cos page snapshot get "タイトル" <timestampId> --project <name> --json --results-only
+
+# コミット履歴
+cos page history "タイトル" --project <name> -n 10 --json --results-only
+
+# 行・範囲取得
+cos page line get "タイトル" --line 3 --project <name> --json --results-only
+cos page line get "タイトル" --range 3:7 --project <name> --json --results-only
+
+# URL / アイコン
+cos page url "タイトル" --project <name> --json --results-only
+cos page icon "タイトル" --project <name> --json --results-only
+
+# 検索
+cos search "キーワード" --project <name> --json --results-only --select 'pages[].title'
+
+# プロジェクト情報・フィード・横断検索
+cos project list --json --results-only
+cos project info --project <name> --json --results-only
+cos project stream --project <name> --limit 20 --json --results-only
+cos project search "キーワード" --json --results-only
+```
+
+---
+
+## 書き込み — 第一選択は行編集 (page line)
+
+**⚠️ 部分的な書き換えは `cos page line replace` / `cos page line delete` を優先。`cos page edit` はページ全体書き換えのみ使う。書き込み系は必ず `--dry-run` で確認してから本実行すること。**
+
+| 用途 | 推奨コマンド |
+|---|---|
+| 既存の数行を書き換える | `cos page line replace --range a:b --text ...` |
+| 既存の数行を削除する | `cos page line delete --range a:b` (alias: `rm`) |
+| 末尾に追記 | `cos page append --line ...` |
+| 冒頭 (タイトル直後) に追記 | `cos page prepend --line ...` |
+| 特定行の直後に挿入 | `cos page insert --after N --line ...` |
+| ページ全体を作り直す | `cos page edit --from-file ... --expect-commit <id>` |
+| 新規ページを作る | `cos page new --line ...` |
+
+```bash
+# 行置換 (dry-run → 本実行)
+cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name> --dry-run
+cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name>
+# 複数行: --text "1行目\n2行目" / ファイル: --from-file ./patch.txt / stdin: --from-file -
+
+# 行削除 (alias: rm)
+cos page line delete "タイトル" --range 3:5 --project <name>
+
+# 末尾追記 / 冒頭追記 / 挿入
+cos page append "タイトル" --line "追加行" --project <name>
+cos page prepend "タイトル" --line "冒頭に追加" --project <name>
+cos page insert "タイトル" --after 3 --line "挿入テキスト" --project <name>
+
+# 新規ページ
+cos page new "タイトル" --line "本文\n2行目" --project <name>
+
+# ページ全体書き換え (楽観ロック付き)
+COMMIT=$(cos page get "タイトル" --project <name> --json --results-only --select 'commitId')
+cos page edit "タイトル" --from-file ./content.md --input-format=md \
+    --expect-commit "$COMMIT" --project <name> --dry-run
+cos page edit "タイトル" --from-file ./content.md --input-format=md \
+    --expect-commit "$COMMIT" --project <name>
+
+# ページ削除 (エージェント環境では --force --no-input が必須)
+cos page delete "タイトル" --force --no-input --project <name>
+
+# ピン留め / 解除 / リネーム
+cos page pin "タイトル" --project <name>
+cos page unpin "タイトル" --project <name>
+cos page rename "旧タイトル" "新タイトル" --project <name>
+```
+
+**行編集の制約 (v0.5.0)**: `page line replace` / `page line delete` は `--expect-commit` 未対応。厳密な楽観ロックが必要なら `cos page edit --expect-commit` を使う。
+**範囲指定**: `--line` と `--range` は排他。`--range a:b` は `a >= 1`, `a <= b` 必須。タイトル行 (1行目) は変更不可。exit 5 で失敗する。
+
+---
+
+## AI エージェント向け安全運用
+
+### Sandbox による権限制限
+
+```bash
+# 読み取り専用に制限
+cos --enable-commands "page.list,page.get,page.text,page.code,page.url,page.icon,\
+page.history,page.table,page.snapshot.list,page.snapshot.get,page.line.get,\
+page.context,page.watch,project.list,project.info,project.graph,\
+project.stream,project.search,search,auth.whoami,schema,exit-codes" \
+    page list --project <name> --json
+
+# 特定コマンドだけ禁止
+cos --disable-commands "page.delete" page list --project <name>
+
+# 環境変数でも設定可能
+COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
+```
+
+違反時: exit 7 / stderr に `[denied] <command> is disabled by policy`
+
+### Sandbox 識別子 — 読み取り系
+
+| 識別子 | コマンド |
+|---|---|
+| `page.list` / `page.get` / `page.text` | ページ読み取り |
+| `page.code` / `page.url` / `page.icon` | 読み取り補助 |
+| `page.history` / `page.table` | 履歴・テーブル取得 |
+| `page.snapshot.list` / `page.snapshot.get` | スナップショット取得 |
+| `page.line.get` | 行・範囲取得 |
+| `page.context` | Smart Context (リンク先本文取得、読み取り) |
+| `page.watch` | リアルタイム監視 (読み取りのみ) |
+| `project.list` / `project.info` / `project.graph` | プロジェクト情報 |
+| `project.stream` / `project.search` | フィード・横断検索 (読み取り) |
+| `search` | プロジェクト内ページ検索 |
+| `auth.whoami` / `auth.list` | 認証状態確認 |
+| `config.get` / `config.path` | 設定確認 |
+| `schema` / `exit-codes` | メタ情報 |
+
+### Sandbox 識別子 — 書き込み系
+
+| 識別子 | コマンド |
+|---|---|
+| `page.line.replace` / `page.line.delete` | 行・範囲編集 |
+| `page.new` / `page.edit` / `page.append` | ページ書き込み |
+| `page.prepend` / `page.insert` / `page.rename` | ページ書き込み |
+| `page.pin` / `page.unpin` | ピン留め |
+| `page.delete` | 削除 (破壊的) |
+| `page.watch` を除く `auth.*` | 認証変更 |
+| `config.set` | 設定変更 |
+| `sync.pull` / `sync.push` / `sync.diff` | 同期 |
+| `convert` | 変換 |
+| `serve.rest` | REST サーバー |
+
+### 設定ファイルによる永続制限
+
+`~/.config/coscli/config.json5` (パス確認: `cos config path`):
+
+```json5
+{
+  agent: {
+    defaultDisableCommands: ["page.delete", "auth.logout"]
+  }
+}
+```
+
+---
+
+## 終了コードと対処
+
+| コード | 意味 | 対処 |
+|---|---|---|
+| 0 | 成功 | — |
+| 1 | 一般エラー | stderr を確認 |
+| 2 | 認証エラー (401) / PAT で書き込み試行 | `cos auth login` |
+| 3 | 権限エラー (403) | プロジェクトへのアクセス権を確認 |
+| 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page new` で作成 |
+| 5 | バリデーションエラー | 引数・フラグを確認。重複タイトル: `--force-fallback` を追加 |
+| 6 | 楽観ロック競合 | 最新 commitId を再取得して `--expect-commit` を更新し再実行、または `page line` 系に切り替え |
+| 7 | sandbox 違反 | `--enable-commands` を緩和 |
+| 124 | タイムアウト | `--timeout` を延長 |
+
+**exit 6 の回復パターン**:
+
+```bash
+# 最新 commitId を再取得して再実行
+COMMIT=$(cos page get "タイトル" --project <name> --json --results-only --select 'commitId')
+cos page edit "タイトル" --from-file ./content.txt --expect-commit "$COMMIT" --project <name>
+# Markdown ファイルの場合は --input-format=md を追加
+
+# または: 変更範囲が局所的なら page line に切り替えて競合リスクを下げる
+# (行番号は先に cos page line get で確認する)
+cos page line replace "タイトル" --range 3:5 --from-file ./patch.txt --project <name>
+```
+
+**対話プロンプトで止まる (CONFIRMATION_REQUIRED)**: `--no-input` を付ける。`page delete` 等は `--force` も追加。
+
+---
+
+## 補助機能 (convert / sync / serve)
+
+```bash
+# テキスト変換 (Scrapbox ⇔ Markdown)
+cos convert --from=scrapbox --to=md --from-file input.txt
+cos convert --from=md --to=scrapbox --from-file input.md --to-file output.txt
+
+# ローカル同期
+cos sync diff "タイトル" --dir ./sync --project <name>   # まず確認
+cos sync pull "タイトル" --dir ./sync --project <name>
+cos sync push "タイトル" --dir ./sync --project <name>   # 競合(exit 6): pull してからマージ
+
+# ローカル REST プロキシ
+cos serve --rest --port=8080 --project <name>
+cos serve --rest --port=8080 --allow-write --project <name>
+```
+
+---
+
+## 共通フラグ早見表
+
+| フラグ | 省略 | 内容 |
+|---|---|---|
+| `--project <name>` | `-p` | 対象プロジェクト (env: `COS_PROJECT`) |
+| `--profile <name>` | — | 認証プロファイル (デフォルト `default`) |
+| `--json` | `-J` | JSON envelope 出力 |
+| `--plain` | `-P` | プレーン/TSV 出力 |
+| `--results-only` | — | `data` フィールドのみ出力 |
+| `--select <path>` | — | `data` 内フィールドを抽出 |
+| `--dry-run` | — | 書き込みをシミュレート |
+| `--no-input` | — | 対話入力を無効化 (CI/エージェント必須) |
+| `--verbose` | `-v` | 詳細ログ |
+| `--quiet` | `-q` | 成功時の人間向けメッセージを抑制 |
+| `--enable-commands <list>` | — | 許可コマンドを限定 |
+| `--disable-commands <list>` | — | 特定コマンドを禁止 |
+
+---
+
+## 参考
+
+- リポジトリ: https://github.com/mtane0412/coscli
+- 設定ファイル: `cos config path` で確認
+- 動的スキーマ: `cos schema --json` (最も信頼できる最新情報)
+- 終了コード: `cos exit-codes --json` (単一ソース)
+- 全コマンドヘルプ: `cos --help` / `cos page --help` / `cos <noun> <verb> --help`

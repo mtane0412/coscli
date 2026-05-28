@@ -39,13 +39,15 @@ bun test                     # テスト全件 pass 必須
 2. `tests/unit/commands/<noun>/<verb>.test.ts` — テスト
 3. alias がある場合は `src/cli.ts` の両方の登録箇所を更新
 4. `README.md` のコマンド一覧を更新する
+5. `.agents/skills/coscli/SKILL.md` の該当 noun.verb が登場する箇所 (読み取り/書き込みセクション、sandbox 識別子テーブル) を更新する
 
-**コマンドの変更・削除時も同様に `README.md` を更新すること。**
+**コマンドの変更・削除時も同様に `README.md` および `.agents/skills/coscli/SKILL.md` を更新すること。**
 
 ### alias ルール
 
 トップレベル alias は citty で別 command として二重登録している。
 alias を追加・変更する際は `src/cli.ts` の「エイリアス登録」セクションを必ず同時に更新すること。
+また `.agents/skills/coscli/SKILL.md` の該当 alias 記述 (`cos page snapshot ls`、`cos page line rm`、`cos auth me` など) も同時に更新すること。
 
 ## ディレクトリ構造
 

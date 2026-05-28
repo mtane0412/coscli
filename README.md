@@ -10,6 +10,7 @@
 - **sandbox 機能** (`--enable-commands` / `--disable-commands`) — AI エージェントに渡す権限を絞れる
 - **マルチプロファイル認証** — OS キーチェーンにセッション情報を安全に保存
 - **クロスプラットフォーム** — macOS / Linux / Windows 対応
+- **Claude Code Skill 同梱** (`.agents/skills/coscli/SKILL.md`) — AI エージェントが coscli を安全・効率的に使うための取扱説明書
 
 ## インストール
 
@@ -256,6 +257,25 @@ cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
 - `code:filename` のファイル名情報は ` ```filename ``` ` で保持するが、一部の Markdown パーサで認識されない可能性がある
 
 ## AI エージェント向け使い方
+
+### Claude Code Skill (.agents/skills/coscli/SKILL.md)
+
+`.agents/skills/coscli/SKILL.md` は Claude Skills 形式のエージェント向け取扱説明書です。認証方式ごとの制約・sandbox 設計・楽観ロック・`--dry-run` 必須といった暗黙ルールをまとめています。
+
+Claude Code から coscli を使う場合は `~/.claude/skills/coscli/` に配置してください。
+
+```bash
+# Homebrew / バイナリインストール済みの場合: curl でダウンロード
+mkdir -p ~/.claude/skills/coscli
+curl -sSL https://raw.githubusercontent.com/mtane0412/coscli/main/.agents/skills/coscli/SKILL.md \
+  -o ~/.claude/skills/coscli/SKILL.md
+
+# リポジトリを clone 済みの場合: symlink (リポジトリ更新が即時反映)
+mkdir -p ~/.claude/skills
+ln -s "$(pwd)/.agents/skills/coscli" ~/.claude/skills/coscli
+```
+
+最新コマンド定義は `cos schema --json` から動的取得できます。
 
 ### infobox でページ構造データを取得
 
