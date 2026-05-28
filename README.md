@@ -178,7 +178,10 @@ cos convert       Scrapbox 記法と Markdown を相互変換する
 
 cos serve         ローカル REST プロキシサーバーを起動する (AI エージェント向け)
 
-cos notation      Cosense 記法ガイドを出力する (エージェント向け)
+cos notation [topic]  Cosense 記法ガイドを出力する (引数なし→トピック一覧、指定時→個別トピック)
+                      topic: basics / list / link / hashtag / image / icon / decoration /
+                             inline-code / code-block / mermaid / table / quote / math /
+                             cli / helpfeel / location / tips
 cos exit-codes    終了コード一覧を出力する (エージェント向け)
 cos schema        コマンド/フラグのスキーマを JSON で出力する (エージェント向け)
 ```

@@ -105,6 +105,8 @@ cos project search "キーワード" --json --results-only
 
 **⚠️ CRITICAL: 書き込みコンテンツは必ず `/cosense-notation` スキルで Cosense 記法を確認してから作成すること。Markdown（`## 見出し`、`- リスト`、`| テーブル |`）で書かないこと。**
 
+記法をトピック別に確認する場合は `cos notation <topic>` を使う (例: `cos notation table` でテーブル記法のみ取得)。利用可能なトピック: `basics` / `link` / `decoration` / `table` / `code-block` / `mermaid` / `image` / `icon` など。`cos notation` で全トピック一覧を表示。
+
 **⚠️ 部分的な書き換えは `cos page line replace` / `cos page line delete` を優先。`cos page edit` はページ全体書き換えのみ使う。書き込み系は必ず `--dry-run` で確認してから本実行すること。**
 
 | 用途 | 推奨コマンド |
