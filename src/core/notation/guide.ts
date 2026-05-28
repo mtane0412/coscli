@@ -207,6 +207,12 @@ export const NOTATION_GUIDE: NotationGuide = {
           description: "ミックス記法: 打ち消し線 + 斜体 + 大きな文字を組み合わせ",
           note: "* / / / - を1つのブラケット内で組み合わせ可能 (公式: [-/*** 打ち消し斜体大きな文字])",
         },
+        {
+          syntax: "[! テキスト] / [{ テキスト] など任意記号",
+          description:
+            "*, /, - 以外の記号 !\"#%&'()+{|}<>_~ も使え、deco-! / deco-{ などの CSS class が出力される",
+          note: "Cosense 標準では見た目は変わらず、UserCSS 等で装飾を定義する",
+        },
       ],
     },
     {

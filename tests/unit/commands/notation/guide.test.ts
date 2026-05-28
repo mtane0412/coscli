@@ -207,6 +207,26 @@ describe("notationGuideCommand", () => {
       const out = captureStdout()
       expect(out).not.toContain("===")
     })
+
+    it("任意記号アイテム ([! テキスト] / deco-*) が含まれる", async () => {
+      // 公式 Cosense help-jp 準拠: * / / / - 以外の記号も装飾記法として使え、
+      // それらは deco-{記号} という CSS class として出力されることを decoration
+      // セクションに明示しているかを検証する。
+      await runNotation(makeArgs({ topic: "decoration" }))
+      const out = captureStdout()
+      expect(out).toContain("[! テキスト]")
+      expect(out).toContain("deco-")
+    })
+
+    it("--json レスポンスの items に任意記号エントリが含まれる", async () => {
+      // JSON エンベロープ経由でもアイテムを参照できることを保証する。
+      await runNotation(makeArgs({ json: true, topic: "decoration" }))
+      const out = captureStdout()
+      const parsed = JSON.parse(out)
+      const items = parsed.data.section.items as Array<{ syntax: string }>
+      const hasAnySymbolItem = items.some((item) => item.syntax.includes("[! テキスト]"))
+      expect(hasAnySymbolItem).toBe(true)
+    })
   })
 
   describe("table トピック", () => {
