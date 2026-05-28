@@ -265,12 +265,14 @@ cos convert --from=scrapbox --to=md --from-file page.txt --to-file page.md
 Claude Code から coscli を使う場合は `~/.claude/skills/coscli/` に配置してください。
 
 ```bash
-# symlink (推奨: リポジトリ更新が即時反映)
+# Homebrew / バイナリインストール済みの場合: curl でダウンロード
+mkdir -p ~/.claude/skills/coscli
+curl -sSL https://raw.githubusercontent.com/mtane0412/coscli/main/.agents/skills/coscli/SKILL.md \
+  -o ~/.claude/skills/coscli/SKILL.md
+
+# リポジトリを clone 済みの場合: symlink (リポジトリ更新が即時反映)
 mkdir -p ~/.claude/skills
 ln -s "$(pwd)/.agents/skills/coscli" ~/.claude/skills/coscli
-
-# コピー (バージョン固定)
-cp -R .agents/skills/coscli ~/.claude/skills/
 ```
 
 最新コマンド定義は `cos schema --json` から動的取得できます。
