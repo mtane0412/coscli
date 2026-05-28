@@ -7,6 +7,7 @@
 ## 特徴
 
 - **JSON 出力対応** (`--json`) — AI エージェントや jq と組み合わせやすい
+- **罫線なし整列テキスト出力** (デフォルト) — gogcli 風のスペースパディングで人間にも AI エージェントにも読みやすい。スクリプト連携には `--plain` (TSV) を使用する
 - **sandbox 機能** (`--enable-commands` / `--disable-commands`) — AI エージェントに渡す権限を絞れる
 - **マルチプロファイル認証** — OS キーチェーンにセッション情報を安全に保存
 - **クロスプラットフォーム** — macOS / Linux / Windows 対応
@@ -536,7 +537,15 @@ cos config set <key> <value>  # 設定値を保存
 |---|---|---|
 | `output.color` | `"auto"` \| `"always"` \| `"never"` | カラー出力モード (未設定: `"auto"`) |
 | `output.json` | boolean | 常に `--json` を有効にする |
-| `output.plain` | boolean | 常に `--plain` を有効にする |
+| `output.plain` | boolean | 常に `--plain` (TSV) を有効にする |
+
+**出力フォーマットの選択指針:**
+
+| フォーマット | フラグ | 用途 |
+|---|---|---|
+| 整列テキスト (デフォルト) | なし | 端末での確認・AI エージェントへの渡し |
+| TSV | `--plain` | `awk` / `cut` 等のスクリプト処理 |
+| JSON | `--json` | jq との組み合わせ・構造化データ処理 |
 
 #### コマンド権限設定
 

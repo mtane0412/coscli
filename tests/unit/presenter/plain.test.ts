@@ -75,6 +75,47 @@ describe("writePlainTable", () => {
     })
     expect(containsAnsi(stream.output)).toBe(true)
   })
+
+  it("Unicode 罫線文字が出力に含まれない", () => {
+    // gogcli 風のスペースパディング整列テキストであり、罫線は描画しないこと
+    initColor("never")
+    const stream = createMockStream()
+    writePlainTable(
+      ["名前", "表示名"],
+      [
+        ["icons", "Icons"],
+        ["mtane0412", "mtane0412"],
+      ],
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const BORDER_CHARS = ["├", "┤", "┌", "┐", "└", "┘", "─", "│", "┼", "┬", "┴"]
+    for (const ch of BORDER_CHARS) {
+      expect(stream.output).not.toContain(ch)
+    }
+  })
+
+  it("スペースパディングで列が整列されている", () => {
+    // 各列は最大幅に揃えられ、セル間はスペースで区切られること
+    initColor("never")
+    const stream = createMockStream()
+    writePlainTable(
+      ["名前", "値"],
+      [
+        ["短い", "abc"],
+        ["長いキー名前", "xyz"],
+      ],
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const lines = stream.output.split("\n").filter((l) => l.trim().length > 0)
+    // 全行に「名前」列の最大幅 (「長いキー名前」) が反映されていること
+    expect(lines[0]).toContain("名前")
+    expect(lines[1]).toContain("短い")
+    expect(lines[2]).toContain("長いキー名前")
+    // 行間でインデントが揃う (先頭スペースがないこと)
+    for (const line of lines) {
+      expect(line.startsWith(" ")).toBe(false)
+    }
+  })
 })
 
 describe("writeTsv", () => {

@@ -66,11 +66,12 @@ export const notationGuideCommand = defineCommand({
       }
 
       const headers = ["syntax", "description", "note"]
-      const rows = buildSectionRows(section)
       if (a.plain) {
+        // TSV モードではセクション見出し行を出力せず、items のみを行として渡す
+        const rows = section.items.map((item) => [item.syntax, item.description, item.note ?? ""])
         writeTsv(headers, rows)
       } else {
-        writePlainTable(headers, rows)
+        writePlainTable(headers, buildSectionRows(section))
       }
       return
     }
