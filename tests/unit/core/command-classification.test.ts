@@ -45,7 +45,8 @@ describe("READ_COMMANDS", () => {
   it("書き込みコマンドを含まない", () => {
     expect(READ_COMMANDS).not.toContain("page.new")
     expect(READ_COMMANDS).not.toContain("page.delete")
-    expect(READ_COMMANDS).not.toContain("page.edit")
+    expect(READ_COMMANDS).not.toContain("page.edit.preview")
+    expect(READ_COMMANDS).not.toContain("page.edit.submit")
     expect(READ_COMMANDS).not.toContain("page.append")
     expect(READ_COMMANDS).not.toContain("page.prepend")
     expect(READ_COMMANDS).not.toContain("page.insert")
@@ -74,7 +75,8 @@ describe("WRITE_COMMANDS", () => {
   it("ページ書き込み系コマンドを含む", () => {
     expect(WRITE_COMMANDS).toContain("page.new")
     expect(WRITE_COMMANDS).toContain("page.delete")
-    expect(WRITE_COMMANDS).toContain("page.edit")
+    expect(WRITE_COMMANDS).toContain("page.edit.preview")
+    expect(WRITE_COMMANDS).toContain("page.edit.submit")
     expect(WRITE_COMMANDS).toContain("page.append")
     expect(WRITE_COMMANDS).toContain("page.prepend")
     expect(WRITE_COMMANDS).toContain("page.insert")

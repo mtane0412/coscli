@@ -274,9 +274,12 @@ describe("--dry-run フラグ表示の回帰テスト", () => {
     expect(Object.keys(pageListCommand.args ?? {})).not.toContain("dry-run")
   })
 
-  test("pageEditCommand の args に --dry-run が含まれる (書き込み系)", async () => {
-    const { pageEditCommand } = await import("@/commands/page/edit")
-    expect(Object.keys(pageEditCommand.args ?? {})).toContain("dry-run")
+  test("pageEditPreviewCommand は書き込み系コマンド (--dry-run はなし、PAT 必須)", async () => {
+    const { pageEditPreviewCommand } = await import("@/commands/page/edit/preview")
+    // preview/submit は v2 API 自体が dry-run 相当のため --dry-run フラグは持たない
+    expect(Object.keys(pageEditPreviewCommand.args ?? {})).not.toContain("dry-run")
+    // title は必須位置引数
+    expect(Object.keys(pageEditPreviewCommand.args ?? {})).toContain("title")
   })
 })
 

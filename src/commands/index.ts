@@ -10,7 +10,8 @@ import { pageAppendCommand } from "@/commands/page/append"
 import { pageCodeCommand } from "@/commands/page/code"
 import { pageContextCommand } from "@/commands/page/context"
 import { pageDeleteCommand } from "@/commands/page/delete"
-import { pageEditCommand } from "@/commands/page/edit"
+import { pageEditPreviewCommand } from "@/commands/page/edit/preview"
+import { pageEditSubmitCommand } from "@/commands/page/edit/submit"
 import { pageGetCommand } from "@/commands/page/get"
 import { pageHistoryCommand } from "@/commands/page/history"
 import { pageIconCommand } from "@/commands/page/icon"
@@ -93,6 +94,16 @@ export const pageLineCommand = defineCommand({
     delete: pageLineDeleteCommand,
     rm: pageLineDeleteCommand,
     get: pageLineGetCommand,
+  },
+  run: showUsageIfNoSubCommand,
+})
+
+/** page edit サブコマンドグループ */
+export const pageEditCommand = defineCommand({
+  meta: { name: "edit", description: "ops ベースのページ編集 (preview / submit)" },
+  subCommands: {
+    preview: pageEditPreviewCommand,
+    submit: pageEditSubmitCommand,
   },
   run: showUsageIfNoSubCommand,
 })

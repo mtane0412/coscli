@@ -8,6 +8,8 @@
 import { encodePageTitle } from "@/core/api/encoder"
 import { commitsResponseSchema } from "@/schemas/commit"
 import type { CommitsResponse } from "@/schemas/commit"
+import { PreviewResponseSchema, SubmitResponseSchema } from "@/schemas/edit-v2"
+import type { PreviewResponse, RawChange, SubmitResponse } from "@/schemas/edit-v2"
 import {
   PageListResponseSchema,
   PageSchema,
@@ -337,6 +339,46 @@ export class CosenseRestClient {
     return { updatedCount }
   }
 
+  /**
+   * previewEditV2 は /api/pages/v2/:project/page-edit-for-ai/preview を叩いて
+   * ops を dry-run し previewId を取得する。
+   *
+   * PAT 認証のみ対応。SID / SA では HTTP 403 (ForbiddenError) が返る。
+   *
+   * @param project - プロジェクト名
+   * @param opts.pageId - 既存ページの ID（新規ページ作成時は省略）
+   * @param opts.changes - translateOps で変換した changes 配列
+   */
+  async previewEditV2(
+    project: string,
+    opts: { pageId?: string; changes: RawChange[] },
+  ): Promise<PreviewResponse> {
+    const body: Record<string, unknown> = { changes: opts.changes }
+    if (opts.pageId !== undefined) body["pageId"] = opts.pageId
+    const data = await this.postJsonNoCsrf(
+      `${BASE_URL}/api/pages/v2/${encodeURIComponent(project)}/page-edit-for-ai/preview`,
+      JSON.stringify(body),
+    )
+    return PreviewResponseSchema.parse(data)
+  }
+
+  /**
+   * submitEditV2 は /api/pages/v2/:project/page-edit-for-ai/submit を叩いて
+   * previewId を確定コミットに変換する。
+   *
+   * PAT 認証のみ対応。SID / SA では HTTP 403 (ForbiddenError) が返る。
+   *
+   * @param project - プロジェクト名
+   * @param previewId - previewEditV2 が返した previewId
+   */
+  async submitEditV2(project: string, previewId: string): Promise<SubmitResponse> {
+    const data = await this.postJsonNoCsrf(
+      `${BASE_URL}/api/pages/v2/${encodeURIComponent(project)}/page-edit-for-ai/submit`,
+      JSON.stringify({ previewId }),
+    )
+    return SubmitResponseSchema.parse(data)
+  }
+
   /** getProjectStream は /api/stream/:project/ を叩いてプロジェクトの最近更新フィードを返す。 */
   async getProjectStream(project: string, opts: { limit?: number } = {}): Promise<StreamResponse> {
     const params = new URLSearchParams()
@@ -346,6 +388,31 @@ export class CosenseRestClient {
       `${BASE_URL}/api/stream/${encodeURIComponent(project)}/${query}`,
     )
     return StreamResponseSchema.parse(data)
+  }
+
+  /**
+   * postJsonNoCsrf は CSRF トークン不要の POST リクエストを送信する。
+   *
+   * v2 AI 編集エンドポイント専用。PAT 認証はヘッダで完結するため CSRF 不要。
+   */
+  private async postJsonNoCsrf(url: string, body: string): Promise<unknown> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.timeout)
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          ...this.buildHeaders(),
+          "Content-Type": "application/json;charset=utf-8",
+        },
+        body,
+        signal: controller.signal,
+      })
+      if (!response.ok) await this.handleError(response, url)
+      return response.json()
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   private async postJson(url: string, body: string, csrfToken: string): Promise<unknown> {
