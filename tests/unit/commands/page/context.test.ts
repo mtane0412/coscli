@@ -1,7 +1,8 @@
 /**
  * page/context.test.ts — `cos page context <title>` コマンドのテスト。
  *
- * --hops バリデーション、1hop/2hop エンドポイント切り替え、--json envelope 出力を検証する。
+ * --hops バリデーション、1hop/2hop エンドポイント切り替え、--json envelope 出力、
+ * --query フィルタリングを検証する。
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -14,6 +15,15 @@ const TEST_PROJECT = "テストプロジェクト"
 const TEST_TITLE = "テストページ"
 const SMART_CONTEXT_1HOP = "1hop Smart Context テキスト"
 const SMART_CONTEXT_2HOP = "2hop Smart Context テキスト"
+
+/**
+ * --query テスト用の複数ページセクションを含む Smart Context テキスト。
+ * 実際の API が返す ==[title]== 形式を再現する。
+ */
+const SMART_CONTEXT_MULTI_SECTION =
+  "==[東京タワー]==\n東京都港区芝公園にある電波塔。高さ333m。\n" +
+  "==[スカイツリー]==\n東京都墨田区にある電波塔。東京タワーより高く634m。\n" +
+  "==[名古屋城]==\n愛知県名古屋市にある城。金のしゃちほこで有名。"
 
 const server = setupServer(
   // Smart Context: 1hop
@@ -87,6 +97,7 @@ describe("pageContextCommand", () => {
         title: TEST_TITLE,
         project: undefined,
         hops: 1,
+        query: "",
         json: false,
         plain: false,
         "results-only": false,
@@ -104,6 +115,7 @@ describe("pageContextCommand", () => {
         title: TEST_TITLE,
         project: TEST_PROJECT,
         hops: 3,
+        query: "",
         json: false,
         plain: false,
         "results-only": false,
@@ -121,6 +133,7 @@ describe("pageContextCommand", () => {
       title: TEST_TITLE,
       project: TEST_PROJECT,
       hops: 1,
+      query: "",
       json: false,
       plain: false,
       "results-only": false,
@@ -135,6 +148,7 @@ describe("pageContextCommand", () => {
       title: TEST_TITLE,
       project: TEST_PROJECT,
       hops: 2,
+      query: "",
       json: false,
       plain: false,
       "results-only": false,
@@ -149,6 +163,7 @@ describe("pageContextCommand", () => {
       title: TEST_TITLE,
       project: TEST_PROJECT,
       hops: 1,
+      query: "",
       json: true,
       plain: false,
       "results-only": false,
@@ -157,5 +172,96 @@ describe("pageContextCommand", () => {
     const calls = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
     const parsed = JSON.parse(calls)
     expect(parsed.data.text).toBe(SMART_CONTEXT_1HOP)
+  })
+
+  describe("--query オプション", () => {
+    // 各テストで複数セクションの Smart Context を返すようにハンドラを上書きする
+    beforeEach(() => {
+      server.use(
+        http.get(
+          `${BASE_URL}/api/smart-context/export-1hop-links/:project`,
+          ({ params, request }) => {
+            const projectParam = decodeURIComponent(params["project"] as string)
+            const project = projectParam.endsWith(".txt") ? projectParam.slice(0, -4) : projectParam
+            const url = new URL(request.url)
+            const title = url.searchParams.get("title")
+            if (project === TEST_PROJECT && title === TEST_TITLE) {
+              return new HttpResponse(SMART_CONTEXT_MULTI_SECTION)
+            }
+            return new HttpResponse("Not found", { status: 404 })
+          },
+        ),
+      )
+    })
+
+    it("--query に一致するセクションのみ stdout に出力される", async () => {
+      // 「東京」を含むセクションは「東京タワー」と「スカイツリー」、含まないのは「名古屋城」
+      await runContext({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        hops: 1,
+        query: "東京",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+      const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      expect(output).toContain("東京タワー")
+      expect(output).toContain("スカイツリー")
+      expect(output).not.toContain("名古屋城")
+    })
+
+    it("--query に一致するセクションが0件の場合は空文字を出力する", async () => {
+      // 「大阪」はどのセクションにも含まれない
+      await runContext({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        hops: 1,
+        query: "大阪",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+      const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      expect(output.trim()).toBe("")
+    })
+
+    it("--query + --json でフィルタ済みテキストが data.text に含まれる", async () => {
+      // 「名古屋城」のみを含むクエリ
+      await runContext({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        hops: 1,
+        query: "しゃちほこ",
+        json: true,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+      const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      const parsed = JSON.parse(output)
+      expect(parsed.data.text).toContain("名古屋城")
+      expect(parsed.data.text).not.toContain("東京タワー")
+      expect(parsed.data.text).not.toContain("スカイツリー")
+    })
+
+    it("--query 未指定の場合はフィルタなしでテキスト全体を返す", async () => {
+      await runContext({
+        title: TEST_TITLE,
+        project: TEST_PROJECT,
+        hops: 1,
+        query: "",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+      const output = (stdoutMock.mock.calls as unknown[][]).map((c) => String(c[0])).join("")
+      expect(output).toContain("東京タワー")
+      expect(output).toContain("スカイツリー")
+      expect(output).toContain("名古屋城")
+    })
   })
 })

@@ -448,6 +448,9 @@ cos page context "ページタイトル" --project myproject
 # 2hop 先 — さらに広い文脈を取得
 cos page context "ページタイトル" --project myproject --hops 2
 
+# --query でキーワードフィルタ — 本文に「機械学習」を含むページのみ返す
+cos page context "ページタイトル" --project myproject --query "機械学習"
+
 # JSON 出力 (エージェント向け)
 cos page context "ページタイトル" --project myproject --json
 ```
