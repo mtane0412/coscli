@@ -136,7 +136,7 @@ cos page update-links   プロジェクト内のリンクを一括置換する
 cos page pin            ページをピン留め
 cos page unpin          ページのピン留めを解除
 cos page watch          ページ更新をリアルタイム監視 (WebSocket)
-cos page history        コミット履歴を取得
+cos page history        コミット履歴を取得 (--page-id でリネーム後も追跡、--since で差分取得)
 cos page delete         ページを削除
 
 cos page line get       指定行または範囲を取得

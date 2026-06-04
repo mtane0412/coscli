@@ -1,22 +1,21 @@
 {
   "commits": [
     {
-      "id": "commit-id-2",
-      "parentId": "commit-id-1",
+      "id": "commit-id-0",
       "pageId": "page-id-hello",
       "userId": "user-id-1",
-      "created": 1700200000,
+      "created": 1700000000,
       "kind": "page",
       "changes": [
         {
-          "type": "update",
+          "type": "insert",
           "lines": [
             {
-              "id": "line-id-1",
-              "text": "更新した行",
+              "id": "line-id-title",
+              "text": "Hello World",
               "userId": "user-id-1",
-              "created": 1700200000,
-              "updated": 1700200000
+              "created": 1700000000,
+              "updated": 1700000000
             }
           ]
         }
@@ -45,21 +44,22 @@
       ]
     },
     {
-      "id": "commit-id-0",
+      "id": "commit-id-2",
+      "parentId": "commit-id-1",
       "pageId": "page-id-hello",
       "userId": "user-id-1",
-      "created": 1700000000,
+      "created": 1700200000,
       "kind": "page",
       "changes": [
         {
-          "type": "insert",
+          "type": "update",
           "lines": [
             {
-              "id": "line-id-title",
-              "text": "Hello World",
+              "id": "line-id-1",
+              "text": "更新した行",
               "userId": "user-id-1",
-              "created": 1700000000,
-              "updated": 1700000000
+              "created": 1700200000,
+              "updated": 1700200000
             }
           ]
         }
