@@ -85,7 +85,7 @@ export const pageEditPreviewCommand = defineCommand({
     },
     new: {
       type: "boolean" as const,
-      description: "新規ページ作成モード（本文を --body または stdin から読み込む）",
+      description: "新規ページ作成モード（--body でページ本文を指定する）",
       default: false,
     },
     body: {
