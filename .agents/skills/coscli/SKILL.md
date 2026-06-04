@@ -96,6 +96,7 @@ cos search "キーワード" --project <name> --json --results-only --select 'pa
 # プロジェクト情報・フィード・横断検索
 cos project list --json --results-only
 cos project info --project <name> --json --results-only
+cos project members --project <name> --json --results-only
 cos project stream --project <name> --limit 20 --json --results-only
 cos project search "キーワード" --json --results-only
 ```
@@ -166,7 +167,7 @@ cos page rename "旧タイトル" "新タイトル" --project <name>
 # 読み取り専用に制限
 cos --enable-commands "page.list,page.get,page.text,page.code,page.url,page.icon,\
 page.history,page.table,page.snapshot.list,page.snapshot.get,page.line.get,\
-page.context,page.watch,project.list,project.info,project.graph,\
+page.context,page.watch,project.list,project.info,project.members,project.graph,\
 project.stream,project.search,search,auth.whoami,schema,exit-codes" \
     page list --project <name> --json
 
@@ -190,7 +191,7 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | `page.line.get` | 行・範囲取得 |
 | `page.context` | Smart Context (リンク先本文取得、読み取り) |
 | `page.watch` | リアルタイム監視 (読み取りのみ) |
-| `project.list` / `project.info` / `project.graph` | プロジェクト情報 |
+| `project.list` / `project.info` / `project.members` / `project.graph` | プロジェクト情報 |
 | `project.stream` / `project.search` | フィード・横断検索 (読み取り) |
 | `search` | プロジェクト内ページ検索 |
 | `auth.whoami` / `auth.list` | 認証状態確認 |

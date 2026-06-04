@@ -147,6 +147,7 @@ cos page snapshot get   特定スナップショットを取得
 
 cos project list    参加プロジェクト一覧を取得
 cos project info    プロジェクト情報を取得
+cos project members プロジェクトメンバー一覧を取得
 cos project stream  プロジェクトの最近更新フィードを取得 (--watch でポーリング監視)
 cos project graph   ページ間リンクをグラフとして export する (DOT / JSON / TSV)
 cos project search  参加プロジェクト全体を横断してプロジェクトを検索する (--watch-list でウォッチリスト絞り込み、--joined で参加プロジェクト全体を明示)

@@ -38,6 +38,7 @@ import { projectGraphCommand } from "@/commands/project/graph"
 import { projectInfoCommand } from "@/commands/project/info"
 // プロジェクトコマンド
 import { projectListCommand } from "@/commands/project/list"
+import { projectMembersCommand } from "@/commands/project/members"
 import { projectSearchCommand } from "@/commands/project/search"
 import { projectStreamCommand } from "@/commands/project/stream"
 
@@ -151,6 +152,7 @@ export const projectCommand = defineCommand({
     list: projectListCommand,
     ls: projectListCommand,
     info: projectInfoCommand,
+    members: projectMembersCommand,
     graph: projectGraphCommand,
     stream: projectStreamCommand,
     search: projectSearchCommand,
