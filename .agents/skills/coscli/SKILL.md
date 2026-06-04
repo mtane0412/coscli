@@ -240,7 +240,7 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 |---|---|---|
 | 0 | 成功 | — |
 | 1 | 一般エラー | stderr を確認 |
-| 2 | 認証エラー (401) / PAT で書き込み試行 | `cos auth login` |
+| 2 | 認証エラー (401) / PAT 必須コマンドを非 PAT 認証で実行 | `cos auth login` または PAT を設定 |
 | 3 | 権限エラー (403) | プロジェクトへのアクセス権を確認 |
 | 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page new` で作成 |
 | 5 | バリデーションエラー | 引数・フラグを確認。重複タイトル: `--force-fallback` を追加 |

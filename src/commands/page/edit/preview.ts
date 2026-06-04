@@ -113,9 +113,9 @@ export const pageEditPreviewCommand = defineCommand({
       // 新規ページ作成モード
       const bodyText = a.body ?? ""
       const fullText = `${a.title}${bodyText ? `\n${bodyText}` : ""}`
-      let changes: ReturnType<typeof translateOps>["changes"]
+      let translateResult: ReturnType<typeof translateOps>
       try {
-        ;({ changes } = translateOps([{ insertBefore: "_end", text: fullText }]))
+        translateResult = translateOps([{ insertBefore: "_end", text: fullText }])
       } catch (err) {
         writeErrorJson(
           "INVALID_OPS",
@@ -124,7 +124,7 @@ export const pageEditPreviewCommand = defineCommand({
         exitWithError(5, "INVALID_OPS")
       }
 
-      const response = await client.previewEditV2(project, { changes })
+      const response = await client.previewEditV2(project, { changes: translateResult.changes })
       const status = response.pagePreview?.persistent === false ? "create" : "update"
       const result = buildPreviewResult(
         response.previewId,
@@ -132,10 +132,29 @@ export const pageEditPreviewCommand = defineCommand({
         status,
         a.title,
         response.pagePreview,
-        [],
+        [translateResult.newLineIds, translateResult.updatedLineIds],
       )
 
-      writeJson(result, { command: "page.edit.preview", startTime }, buildJsonOpts(a))
+      if (a.json) {
+        writeJson(result, { command: "page.edit.preview", startTime }, buildJsonOpts(a))
+        return
+      }
+
+      const newLines: string[] = [
+        `previewId: ${result.previewId}`,
+        `expireAt:  ${result.expireAt}`,
+        `status:    ${result.status}`,
+        `title:     ${result.title}`,
+      ]
+      if (result.lines.length > 0) {
+        newLines.push("")
+        newLines.push("page (after apply):")
+        for (const line of result.lines) {
+          const marker = line.marker === "new" ? "> " : line.marker === "updated" ? "* " : "  "
+          newLines.push(`${marker}${line.text}`)
+        }
+      }
+      process.stdout.write(`${newLines.join("\n")}\n`)
       return
     }
 
@@ -158,6 +177,16 @@ export const pageEditPreviewCommand = defineCommand({
       writeErrorJson(
         "INVALID_OPS_JSON",
         `ops JSON のパースに失敗しました: ${err instanceof Error ? err.message : String(err)}`,
+        "--ops に正しい JSON を指定してください",
+      )
+      exitWithError(5, "INVALID_OPS_JSON")
+    }
+
+    // null や配列など非オブジェクトは拒否する
+    if (!parsedInput || typeof parsedInput !== "object" || Array.isArray(parsedInput)) {
+      writeErrorJson(
+        "INVALID_OPS_JSON",
+        'ops JSON は {"ops": [...]} 形式のオブジェクトである必要があります',
         "--ops に正しい JSON を指定してください",
       )
       exitWithError(5, "INVALID_OPS_JSON")

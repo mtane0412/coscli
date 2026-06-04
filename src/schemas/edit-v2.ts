@@ -44,24 +44,22 @@ export type RawChange = z.infer<typeof RawChangeSchema>
 
 // ─── ユーザー向け ops フォーマット ────────────────────────────────────────
 
-/** InsertBeforeOpSchema は insertBefore 操作のスキーマ。 */
-export const InsertBeforeOpSchema = z.object({
-  insertBefore: z.string(),
-  text: z.string(),
-})
+/**
+ * InsertBeforeOpSchema は insertBefore 操作のスキーマ。
+ *
+ * `.strict()` で余分なキーを拒否し、複数操作キーの同時指定による曖昧な入力を防ぐ。
+ */
+export const InsertBeforeOpSchema = z
+  .object({ insertBefore: z.string(), text: z.string() })
+  .strict()
 export type InsertBeforeOp = z.infer<typeof InsertBeforeOpSchema>
 
-/** ReplaceOpSchema は replace 操作のスキーマ。 */
-export const ReplaceOpSchema = z.object({
-  replace: z.string(),
-  text: z.string(),
-})
+/** ReplaceOpSchema は replace 操作のスキーマ。`.strict()` で余分なキーを拒否する。 */
+export const ReplaceOpSchema = z.object({ replace: z.string(), text: z.string() }).strict()
 export type ReplaceOp = z.infer<typeof ReplaceOpSchema>
 
-/** DeleteOpSchema は delete 操作のスキーマ。 */
-export const DeleteOpSchema = z.object({
-  delete: z.string(),
-})
+/** DeleteOpSchema は delete 操作のスキーマ。`.strict()` で余分なキーを拒否する。 */
+export const DeleteOpSchema = z.object({ delete: z.string() }).strict()
 export type DeleteOp = z.infer<typeof DeleteOpSchema>
 
 /** OpSchema はユーザー向け ops フォーマットの Union 型スキーマ。 */

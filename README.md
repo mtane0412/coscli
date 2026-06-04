@@ -346,19 +346,19 @@ COS_PERSONAL_ACCESS_TOKEN="pat_xxxx..." cos page list --project myproject
 
 **制限事項:**
 
-- PAT は**読み取り系 REST のみ**対応しています (`page list`、`search`、`page context` 等)
-- `page edit`、`page pin`、`sync push` 等の書き込みコマンドは `connect.sid` が必要です
-- 書き込みコマンドを PAT で実行しようとすると exit 2 + `AUTH_WRITE_NOT_SUPPORTED` エラーになります
+- PAT は**読み取り系 REST** および **v2 AI 編集 API** (`page edit preview` / `page edit submit`) に対応しています
+- `page pin`、`sync push` 等の WebSocket 書き込みコマンドは `connect.sid` が必要です
+- v2 AI 編集 API は **PAT 限定**であり、connect.sid / Service Account Key では HTTP 403 になります
 
 **AI エージェントへの credential 提供として推奨:**
 
-| 認証方法 | 読み取り | 書き込み | 個別失効 |
-|---|---|---|---|
-| connect.sid | ✓ | ✓ | ✗ (全ログアウトが必要) |
-| Service Account Key | ✓ | ✗ | ✓ |
-| **PAT** | **✓** | **✗** | **✓** |
+| 認証方法 | 読み取り | v2 AI 編集 | WebSocket 書き込み | 個別失効 |
+|---|---|---|---|---|
+| connect.sid | ✓ | ✗ | ✓ | ✗ (全ログアウトが必要) |
+| Service Account Key | ✓ | ✗ | ✗ | ✓ |
+| **PAT** | **✓** | **✓** | **✗** | **✓** |
 
-Service Account Key・PAT はどちらも読み取り専用です。`page edit` 等の書き込みコマンドには `connect.sid` が必要です。
+AI エージェントには **PAT** が最も適しています。読み取りと ops ベース編集に対応し、個別失効も可能です。
 
 **認証情報の保存先とプロファイルの関係:**
 
