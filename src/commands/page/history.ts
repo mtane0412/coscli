@@ -1,8 +1,11 @@
 /**
- * page/history.ts — `cos page history <title>` コマンド。
+ * page/history.ts — `cos page history` コマンド。
  *
  * ページのコミット履歴 (GET /api/commits/:project/:pageid) を取得して出力する。
- * まず getPage でタイトルから pageId を解決し、getPageCommits で履歴を取得する。
+ * - `<title>` を指定した場合: getPage でタイトルから pageId を解決してから getPageCommits を呼ぶ
+ * - `--page-id <pageId>` を指定した場合: title → pageId 解決をスキップして直接 getPageCommits を呼ぶ
+ *   リネーム後も変更履歴を追跡できる。
+ * - `--since <commitId>` を指定した場合: その commitId より後（新しい）のコミットのみを返す
  */
 
 import {
@@ -27,8 +30,16 @@ export const pageHistoryCommand = defineCommand({
     ...commonArgs,
     title: {
       type: "positional",
-      description: "ページタイトル",
-      required: true,
+      description: "ページタイトル (--page-id を指定した場合は省略可)",
+      required: false,
+    },
+    "page-id": {
+      type: "string",
+      description: "ページ ID (指定するとタイトル解決をスキップしてリネーム後も追跡できる)",
+    },
+    since: {
+      type: "string",
+      description: "この commitId より後（新しい）のコミットのみを返す",
     },
     limit: {
       type: "string",
@@ -41,17 +52,24 @@ export const pageHistoryCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const a = args as CommonArgs & { title: string; limit?: string; head?: string }
+    const a = args as CommonArgs & {
+      title?: string
+      "page-id"?: string
+      since?: string
+      limit?: string
+      head?: string
+    }
     checkSandbox("page.history", a)
     const project = requireProject(a)
     const startTime = Date.now()
 
-    // title の空文字チェック (positional は required でも空文字が来うる)
-    if (!a.title) {
+    // title か --page-id のどちらかが必須
+    const pageId = a["page-id"]
+    if (!pageId && !a.title) {
       writeErrorJson(
         "VALIDATION_ERROR",
-        "title が指定されていません",
-        "ページタイトルを指定してください",
+        "title または --page-id が指定されていません",
+        "ページタイトルまたは --page-id を指定してください",
       )
       exitWithError(5, "VALIDATION_ERROR")
     }
@@ -74,21 +92,41 @@ export const pageHistoryCommand = defineCommand({
     try {
       const client = await buildRestClient(a)
 
-      // title → pageId 解決
-      const page = await getPage(client, { project, title: a.title })
+      let resolvedPageId: string
+      if (pageId) {
+        // --page-id 指定時は title → pageId 解決をスキップ
+        resolvedPageId = pageId
+      } else {
+        // title → pageId 解決
+        const page = await getPage(client, { project, title: a.title as string })
+        resolvedPageId = page.id
+      }
 
       // コミット履歴取得
       const opts: { project: string; pageId: string; head?: string } = {
         project,
-        pageId: page.id,
+        pageId: resolvedPageId,
       }
       if (a.head !== undefined) opts.head = a.head
 
       const commitsResponse = await getPageCommits(client, opts)
 
+      // --since によるフィルタリング: 指定 commitId より後（新しい）のコミットのみ返す
+      // commits は新しい順（最新→古い）で並んでいるため、
+      // 指定 commitId のインデックスより前（配列の先頭側）を返す
+      let commits = commitsResponse.commits
+      if (a.since !== undefined) {
+        const sinceIndex = commits.findIndex((c) => c.id === a.since)
+        if (sinceIndex >= 0) {
+          commits = commits.slice(0, sinceIndex)
+        }
+        // sinceIndex が -1 の場合（見つからない）は全件返す
+      }
+
       // --limit によるスライス
-      const commits =
-        limit !== undefined ? commitsResponse.commits.slice(0, limit) : commitsResponse.commits
+      if (limit !== undefined) {
+        commits = commits.slice(0, limit)
+      }
 
       if (a.json || !a.plain) {
         writeJson({ commits }, { command: "page.history", startTime }, buildJsonOpts(a))
@@ -106,7 +144,7 @@ export const pageHistoryCommand = defineCommand({
         ]),
       )
     } catch (err) {
-      handleRestError(err, { resourceKind: "page", resourceName: a.title })
+      handleRestError(err, { resourceKind: "page", resourceName: pageId ?? a.title ?? "" })
       throw err
     }
   },

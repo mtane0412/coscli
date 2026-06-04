@@ -82,6 +82,8 @@ cos page snapshot get "タイトル" <timestampId> --project <name> --json --res
 
 # コミット履歴
 cos page history "タイトル" --project <name> -n 10 --json --results-only
+cos page history --page-id <pageId> --project <name> --json --results-only  # リネーム後も追跡可能
+cos page history "タイトル" --project <name> --since <commitId> --json --results-only  # 差分のみ取得
 
 # 行・範囲取得
 cos page line get "タイトル" --line 3 --project <name> --json --results-only

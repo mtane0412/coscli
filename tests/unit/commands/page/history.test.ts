@@ -1,13 +1,16 @@
 /**
- * page/history.test.ts — `cos page history <title>` コマンドのテスト。
+ * page/history.test.ts — `cos page history` コマンドのテスト。
  *
  * Scrapbox commits API を叩いてページのコミット履歴を返すコマンドを検証する。
  * - 正常系: コミット一覧が JSON で取れる
  * - --limit によるスライス動作
  * - --head がクエリパラメータに乗ること
+ * - --page-id 指定で title → pageId 解決をスキップする
+ * - --since 指定で指定 commitId より後のコミットのみ返す
  * - 認証エラー → exit 2
  * - 404 (ページ未存在) → exit 4
  * - project 未指定 → exit 5
+ * - title と --page-id の両方未指定 → exit 5
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
@@ -37,6 +40,8 @@ async function runHistory(args: Record<string, unknown>) {
 const defaultArgs = {
   project: "テストプロジェクト",
   title: "Hello World",
+  "page-id": undefined,
+  since: undefined,
   limit: undefined,
   head: undefined,
   json: true,
@@ -221,6 +226,112 @@ describe("pageHistoryCommand", () => {
     })
   })
 
+  describe("--page-id フラグ", () => {
+    it("--page-id を指定すると title なしで getPageCommits が呼ばれる", async () => {
+      try {
+        await runHistory({ ...defaultArgs, title: "", "page-id": "page-id-hello" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      // --page-id 指定時は getPage をスキップするので呼ばれない
+      expect(getPageSpy).not.toHaveBeenCalled()
+      // getPageCommits は --page-id の値で呼ばれる
+      const callArgs = getPageCommitsSpy.mock.calls[0]
+      expect(callArgs?.[1]).toMatchObject({ pageId: "page-id-hello" })
+    })
+
+    it("--page-id 指定時は JSON でコミット一覧が返る", async () => {
+      try {
+        await runHistory({ ...defaultArgs, title: "", "page-id": "page-id-hello" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(3)
+    })
+  })
+
+  describe("--since フラグ", () => {
+    it("--since commit-id-1 を指定すると commit-id-1 より新しいコミットのみ返る", async () => {
+      // フィクスチャの順序: [commit-id-2, commit-id-1, commit-id-0]
+      // commit-id-1 のインデックス = 1 → インデックス 0 (commit-id-2) のみを返す
+      try {
+        await runHistory({ ...defaultArgs, since: "commit-id-1" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(1)
+      expect(json.data.commits[0].id).toBe("commit-id-2")
+    })
+
+    it("--since commit-id-0 を指定すると commit-id-2 と commit-id-1 が返る", async () => {
+      // commit-id-0 のインデックス = 2 → インデックス 0,1 (commit-id-2, commit-id-1) を返す
+      try {
+        await runHistory({ ...defaultArgs, since: "commit-id-0" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(2)
+      expect(json.data.commits[0].id).toBe("commit-id-2")
+      expect(json.data.commits[1].id).toBe("commit-id-1")
+    })
+
+    it("--since に存在しない commitId を指定した場合は全件返る", async () => {
+      try {
+        await runHistory({ ...defaultArgs, since: "commit-id-999" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(3)
+    })
+
+    it("--since が最新 commitId の場合は空配列が返る", async () => {
+      // commit-id-2 が最新 (index=0) → それより新しいコミットはない → 空
+      try {
+        await runHistory({ ...defaultArgs, since: "commit-id-2" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(0)
+    })
+
+    it("--since と --limit を組み合わせた場合は --since 適用後に --limit でスライスされる", async () => {
+      // --since commit-id-0 → [commit-id-2, commit-id-1] → --limit 1 → [commit-id-2]
+      try {
+        await runHistory({ ...defaultArgs, since: "commit-id-0", limit: "1" })
+      } catch {
+        // 想定内
+      }
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const json = JSON.parse(output)
+      expect(json.data.commits).toHaveLength(1)
+      expect(json.data.commits[0].id).toBe("commit-id-2")
+    })
+  })
+
   describe("エラー系", () => {
     it("project 未指定は PROJECT_REQUIRED で exit 5 になる", async () => {
       try {
@@ -236,11 +347,12 @@ describe("pageHistoryCommand", () => {
       expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("PROJECT_REQUIRED"))
     })
 
-    it("title 未指定は VALIDATION_ERROR で exit 5 になる", async () => {
+    it("title と --page-id の両方未指定は VALIDATION_ERROR で exit 5 になる", async () => {
       try {
         await runHistory({
           ...defaultArgs,
           title: "",
+          "page-id": undefined,
         })
       } catch {
         // 想定内
