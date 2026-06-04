@@ -4,7 +4,7 @@
  * 指定ページを起点に Smart Context API を叩き、
  * 1hop または 2hop 先までのリンク先ページ本文をテキストで取得して stdout に出力する。
  * LLM への文脈投入やエージェントによるページ関連情報収集に使う。
- * --query を指定すると、空行区切りのページセクション単位でキーワードフィルタを行う。
+ * --query を指定すると、ページセクション単位でキーワードフィルタを行う。
  */
 
 import {
@@ -24,22 +24,42 @@ import { defineCommand } from "citty"
 const VALID_HOPS = [1, 2] as const
 type Hops = (typeof VALID_HOPS)[number]
 
-/** Smart Context テキストのページセクション区切り行 (例: ==[ページタイトル]==)。m フラグで行単位にマッチ。 */
+/** Smart Context XML 形式のページブロック抽出パターン。<Page ...>...</Page> 単位でマッチ。 */
+const XML_PAGE_BLOCK_PATTERN = /<Page\s[^>]*>[\s\S]*?<\/Page>/g
+
+/** Smart Context テキストのページセクション区切り行 (==[ページタイトル]== 形式)。m フラグで行単位にマッチ。 */
 const SECTION_MARKER_PATTERN = /^==[^=\n]+==$/m
 
 /**
  * filterSmartContextByQuery は Smart Context テキストをクエリキーワードでフィルタする。
  *
- * テキストが ==[title]== 形式のマーカーを含む場合はマーカーでページセクションを分割し、
- * クエリを含むセクションのみ返す。マーカーがない場合は空行でセクションを分割する。
+ * フォーマット検出の優先順位:
+ *   1. `<Page title="...">...</Page>` XML 形式 (実際の Smart Context API が返す形式)
+ *   2. `==[title]==` マーカー行形式 (旧形式フォールバック)
+ *   3. 空行区切り形式 (その他フォールバック)
+ *
+ * XML 形式の場合は `<Page>...</Page>` ブロック単位でフィルタする。
  * クエリは大文字・小文字を区別しない。query が空文字のときはフィルタせず全文を返す。
  */
 export function filterSmartContextByQuery(text: string, query: string): string {
   if (!query) return text
   const lowerQuery = query.toLowerCase()
 
+  // <Page title="..."> ... </Page> XML 形式
+  if (/<Page\s+title=/.test(text)) {
+    const allBlocks: string[] = []
+    const regex = new RegExp(XML_PAGE_BLOCK_PATTERN.source, "g")
+    let match = regex.exec(text)
+    while (match !== null) {
+      allBlocks.push(match[0])
+      match = regex.exec(text)
+    }
+    const filtered = allBlocks.filter((block) => block.toLowerCase().includes(lowerQuery))
+    return filtered.join("\n\n\n")
+  }
+
+  // ==[title]== マーカー行形式
   if (SECTION_MARKER_PATTERN.test(text)) {
-    // ==[title]== マーカー行でページセクションを分割する
     const lines = text.split("\n")
     const sections: string[] = []
     let currentLines: string[] = []

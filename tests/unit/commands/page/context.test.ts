@@ -18,12 +18,20 @@ const SMART_CONTEXT_2HOP = "2hop Smart Context テキスト"
 
 /**
  * --query テスト用の複数ページセクションを含む Smart Context テキスト。
- * 実際の API が返す ==[title]== 形式を再現する。
+ * 実際の API が返す <Page title="...">...</Page> XML 形式を再現する。
  */
 const SMART_CONTEXT_MULTI_SECTION =
-  "==[東京タワー]==\n東京都港区芝公園にある電波塔。高さ333m。\n" +
-  "==[スカイツリー]==\n東京都墨田区にある電波塔。東京タワーより高く634m。\n" +
-  "==[名古屋城]==\n愛知県名古屋市にある城。金のしゃちほこで有名。"
+  "<PageList>\n" +
+  '<Page title="東京タワー" url="https://scrapbox.io/テストプロジェクト/東京タワー" updated="2026-01-01T00:00:00.000Z" created="2026-01-01T00:00:00.000Z" type="1hopLink">\n' +
+  "東京都港区芝公園にある電波塔。高さ333m。\n" +
+  "</Page>\n\n\n" +
+  '<Page title="スカイツリー" url="https://scrapbox.io/テストプロジェクト/スカイツリー" updated="2026-01-01T00:00:00.000Z" created="2026-01-01T00:00:00.000Z" type="1hopLink">\n' +
+  "東京都墨田区にある電波塔。東京タワーより高く634m。\n" +
+  "</Page>\n\n\n" +
+  '<Page title="名古屋城" url="https://scrapbox.io/テストプロジェクト/名古屋城" updated="2026-01-01T00:00:00.000Z" created="2026-01-01T00:00:00.000Z" type="1hopLink">\n' +
+  "愛知県名古屋市にある城。金のしゃちほこで有名。\n" +
+  "</Page>\n" +
+  "</PageList>"
 
 const server = setupServer(
   // Smart Context: 1hop
