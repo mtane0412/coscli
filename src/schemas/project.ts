@@ -67,3 +67,33 @@ export const ProjectSearchResultSchema = z.object({
   projects: z.array(FoundProjectSchema),
 })
 export type ProjectSearchResult = z.infer<typeof ProjectSearchResultSchema>
+
+/** ProjectMemberSchema は /api/projects/:project/users のレスポンス内の各メンバー要素。 */
+export const ProjectMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  displayName: z.string(),
+  email: z.string().optional(),
+  provider: z.string().optional(),
+  created: z.number(),
+  updated: z.number(),
+})
+export type ProjectMember = z.infer<typeof ProjectMemberSchema>
+
+/** MemberSnapshotSchema は退去済みメンバーの記録。 */
+export const MemberSnapshotSchema = z.object({
+  id: z.string(),
+  reason: z.string().optional(),
+  created: z.number(),
+  updated: z.number(),
+  data: z.record(z.unknown()).optional(),
+})
+export type MemberSnapshot = z.infer<typeof MemberSnapshotSchema>
+
+/** ProjectMembersResponseSchema は /api/projects/:project/users のレスポンス全体。 */
+export const ProjectMembersResponseSchema = z.object({
+  users: z.array(ProjectMemberSchema),
+  // プロジェクトによっては返らない場合がある
+  memberSnapshots: z.array(MemberSnapshotSchema).optional(),
+})
+export type ProjectMembersResponse = z.infer<typeof ProjectMembersResponseSchema>

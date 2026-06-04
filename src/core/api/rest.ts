@@ -24,10 +24,16 @@ import type {
 } from "@/schemas/page"
 import {
   ProjectListResponseSchema,
+  ProjectMembersResponseSchema,
   ProjectSchema,
   ProjectSearchResultSchema,
 } from "@/schemas/project"
-import type { Project, ProjectListResponse, ProjectSearchResult } from "@/schemas/project"
+import type {
+  Project,
+  ProjectListResponse,
+  ProjectMembersResponse,
+  ProjectSearchResult,
+} from "@/schemas/project"
 import { PageSnapshotListSchema, PageSnapshotResultSchema } from "@/schemas/snapshot"
 import type { PageSnapshotList, PageSnapshotResult } from "@/schemas/snapshot"
 import { StreamResponseSchema } from "@/schemas/stream"
@@ -260,6 +266,14 @@ export class CosenseRestClient {
   async listProjects(): Promise<ProjectListResponse> {
     const data = await this.fetchJson(`${BASE_URL}/api/projects`)
     return ProjectListResponseSchema.parse(data)
+  }
+
+  /** getProjectMembers は /api/projects/:project/users を叩いてプロジェクトメンバー一覧を返す。 */
+  async getProjectMembers(project: string): Promise<ProjectMembersResponse> {
+    const data = await this.fetchJson(
+      `${BASE_URL}/api/projects/${encodeURIComponent(project)}/users`,
+    )
+    return ProjectMembersResponseSchema.parse(data)
   }
 
   /**
