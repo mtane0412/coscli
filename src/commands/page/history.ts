@@ -112,13 +112,12 @@ export const pageHistoryCommand = defineCommand({
       const commitsResponse = await getPageCommits(client, opts)
 
       // --since によるフィルタリング: 指定 commitId より後（新しい）のコミットのみ返す
-      // commits は新しい順（最新→古い）で並んでいるため、
-      // 指定 commitId のインデックスより前（配列の先頭側）を返す
+      // API は古い順（最古→最新）で返すため、指定 commitId のインデックスより後ろ（配列の末尾側）を返す
       let commits = commitsResponse.commits
       if (a.since !== undefined) {
         const sinceIndex = commits.findIndex((c) => c.id === a.since)
         if (sinceIndex >= 0) {
-          commits = commits.slice(0, sinceIndex)
+          commits = commits.slice(sinceIndex + 1)
         }
         // sinceIndex が -1 の場合（見つからない）は全件返す
       }

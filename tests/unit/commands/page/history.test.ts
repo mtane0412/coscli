@@ -100,7 +100,8 @@ describe("pageHistoryCommand", () => {
       const json = JSON.parse(output)
       // writeJson の envelope 形式: { data: { commits: [...] }, meta: { ... } }
       expect(json.data.commits).toHaveLength(3)
-      expect(json.data.commits[0].id).toBe("commit-id-2")
+      // APIは古い順（最古が先頭）で返す
+      expect(json.data.commits[0].id).toBe("commit-id-0")
     })
 
     it("title に対応するページの pageId を使って getPageCommits が呼ばれる", async () => {
@@ -221,8 +222,8 @@ describe("pageHistoryCommand", () => {
       expect(writtenLines).toHaveLength(4)
       // ヘッダー行はタブ区切りの列名
       expect(writtenLines[0]).toBe("id\tcreated\tuserId\tchanges\n")
-      // データ行はタブ区切りの id、ISO 8601 日時、userId、changes 数
-      expect(writtenLines[1]).toMatch(/^commit-id-2\t20\d{2}-/)
+      // データ行はタブ区切りの id、ISO 8601 日時、userId、changes 数（古い順で先頭は commit-id-0）
+      expect(writtenLines[1]).toMatch(/^commit-id-0\t20\d{2}-/)
     })
   })
 
@@ -258,8 +259,8 @@ describe("pageHistoryCommand", () => {
 
   describe("--since フラグ", () => {
     it("--since commit-id-1 を指定すると commit-id-1 より新しいコミットのみ返る", async () => {
-      // フィクスチャの順序: [commit-id-2, commit-id-1, commit-id-0]
-      // commit-id-1 のインデックス = 1 → インデックス 0 (commit-id-2) のみを返す
+      // フィクスチャの順序（APIと同じ古い順）: [commit-id-0, commit-id-1, commit-id-2]
+      // commit-id-1 のインデックス = 1 → インデックス 2 (commit-id-2) のみを返す
       try {
         await runHistory({ ...defaultArgs, since: "commit-id-1" })
       } catch {
@@ -273,8 +274,8 @@ describe("pageHistoryCommand", () => {
       expect(json.data.commits[0].id).toBe("commit-id-2")
     })
 
-    it("--since commit-id-0 を指定すると commit-id-2 と commit-id-1 が返る", async () => {
-      // commit-id-0 のインデックス = 2 → インデックス 0,1 (commit-id-2, commit-id-1) を返す
+    it("--since commit-id-0 を指定すると commit-id-1 と commit-id-2 が返る", async () => {
+      // commit-id-0 のインデックス = 0 → インデックス 1,2 (commit-id-1, commit-id-2) を返す
       try {
         await runHistory({ ...defaultArgs, since: "commit-id-0" })
       } catch {
@@ -285,8 +286,8 @@ describe("pageHistoryCommand", () => {
       const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
       const json = JSON.parse(output)
       expect(json.data.commits).toHaveLength(2)
-      expect(json.data.commits[0].id).toBe("commit-id-2")
-      expect(json.data.commits[1].id).toBe("commit-id-1")
+      expect(json.data.commits[0].id).toBe("commit-id-1")
+      expect(json.data.commits[1].id).toBe("commit-id-2")
     })
 
     it("--since に存在しない commitId を指定した場合は全件返る", async () => {
@@ -303,7 +304,7 @@ describe("pageHistoryCommand", () => {
     })
 
     it("--since が最新 commitId の場合は空配列が返る", async () => {
-      // commit-id-2 が最新 (index=0) → それより新しいコミットはない → 空
+      // commit-id-2 が最新 (index=2, 末尾) → それより後ろのコミットはない → 空
       try {
         await runHistory({ ...defaultArgs, since: "commit-id-2" })
       } catch {
@@ -317,7 +318,7 @@ describe("pageHistoryCommand", () => {
     })
 
     it("--since と --limit を組み合わせた場合は --since 適用後に --limit でスライスされる", async () => {
-      // --since commit-id-0 → [commit-id-2, commit-id-1] → --limit 1 → [commit-id-2]
+      // --since commit-id-0 → [commit-id-1, commit-id-2] → --limit 1 → [commit-id-1]
       try {
         await runHistory({ ...defaultArgs, since: "commit-id-0", limit: "1" })
       } catch {
@@ -328,7 +329,7 @@ describe("pageHistoryCommand", () => {
       const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
       const json = JSON.parse(output)
       expect(json.data.commits).toHaveLength(1)
-      expect(json.data.commits[0].id).toBe("commit-id-2")
+      expect(json.data.commits[0].id).toBe("commit-id-1")
     })
   })
 
