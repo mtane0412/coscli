@@ -67,9 +67,10 @@ cos page text "タイトル" --project <name>
 cos page text "タイトル" --project <name> --format=md   # Markdown 変換
 
 # 本文 + リンク先文脈 (AI 文脈注入に最適)
-# data.text に "==[ページA]==\n本文...\n==[ページB]==\n..." 形式のテキストが入る
+# data.text に "<Page title="A">本文...</Page><Page title="B">本文...</Page>" XML 形式のテキストが入る
 cos page context "タイトル" --project <name> --json --results-only
-cos page context "タイトル" --project <name> --hops 2   # 2hop まで広げる (取得量大)
+cos page context "タイトル" --project <name> --hops 2                    # 2hop まで広げる (取得量大)
+cos page context "タイトル" --project <name> --query "キーワード"          # 本文フィルタ (トークン節約)
 
 # コードブロック / テーブル
 cos page code "タイトル" "filename.ts" --project <name>
