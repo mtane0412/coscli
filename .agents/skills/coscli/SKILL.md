@@ -110,19 +110,32 @@ cos project search "キーワード" --json --results-only
 
 記法をトピック別に確認する場合は `cos notation <topic>` を使う (例: `cos notation table` でテーブル記法のみ取得)。利用可能なトピック: `basics` / `link` / `decoration` / `table` / `code-block` / `mermaid` / `image` / `icon` など。`cos notation` で全トピック一覧を表示。
 
-**⚠️ 部分的な書き換えは `cos page line replace` / `cos page line delete` を優先。`cos page edit` はページ全体書き換えのみ使う。書き込み系は必ず `--dry-run` で確認してから本実行すること。**
+**⚠️ AI エージェントには `cos page edit preview` + `cos page edit submit` の 2 ステップ編集（PAT 必須）を推奨。行レベルの軽微な変更は `cos page line replace` / `cos page line delete` を優先。**
 
 | 用途 | 推奨コマンド |
 |---|---|
+| AI エージェントによる編集 (dry-run → 確定) | `cos page edit preview ... && cos page edit submit <previewId>` |
 | 既存の数行を書き換える | `cos page line replace --range a:b --text ...` |
 | 既存の数行を削除する | `cos page line delete --range a:b` (alias: `rm`) |
 | 末尾に追記 | `cos page append --line ...` |
 | 冒頭 (タイトル直後) に追記 | `cos page prepend --line ...` |
 | 特定行の直後に挿入 | `cos page insert --after N --line ...` |
-| ページ全体を作り直す | `cos page edit --from-file ... --expect-commit <id>` |
 | 新規ページを作る | `cos page new --line ...` |
 
 ```bash
+# AI エージェント向け 2 ステップ編集 (PAT 必須)
+# 1. 行 ID を取得
+cos page get "タイトル" --json -p <name> | jq '.data.lines[] | {id, text}'
+# 2. ops で dry-run → previewId を取得
+cos page edit preview "タイトル" -p <name> \
+    --ops '{"ops":[{"insertBefore":"<lineId>","text":"挿入テキスト"},{"delete":"<lineId>"}]}'
+# 3. previewId で確定
+cos page edit submit "<previewId>" -p <name>
+
+# 新規ページ作成 (--new モード)
+cos page edit preview "新しいページ" --new -p <name> --body "本文1行目\n本文2行目"
+cos page edit submit "<previewId>" -p <name>
+
 # 行置換 (dry-run → 本実行)
 cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name> --dry-run
 cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name>
@@ -139,13 +152,6 @@ cos page insert "タイトル" --after 3 --line "挿入テキスト" --project <
 # 新規ページ
 cos page new "タイトル" --line "本文\n2行目" --project <name>
 
-# ページ全体書き換え (楽観ロック付き)
-COMMIT=$(cos page get "タイトル" --project <name> --json --results-only --select 'commitId')
-cos page edit "タイトル" --from-file ./content.md --input-format=md \
-    --expect-commit "$COMMIT" --project <name> --dry-run
-cos page edit "タイトル" --from-file ./content.md --input-format=md \
-    --expect-commit "$COMMIT" --project <name>
-
 # ページ削除 (エージェント環境では --force --no-input が必須)
 cos page delete "タイトル" --force --no-input --project <name>
 
@@ -155,7 +161,7 @@ cos page unpin "タイトル" --project <name>
 cos page rename "旧タイトル" "新タイトル" --project <name>
 ```
 
-**行編集の制約 (v0.5.0)**: `page line replace` / `page line delete` は `--expect-commit` 未対応。厳密な楽観ロックが必要なら `cos page edit --expect-commit` を使う。
+**行編集の制約 (v0.5.0)**: `page line replace` / `page line delete` は `--expect-commit` 未対応。厳密な楽観ロックが必要なら `cos page edit preview` + `cos page edit submit` を使う。
 **範囲指定**: `--line` と `--range` は排他。`--range a:b` は `a >= 1`, `a <= b` 必須。タイトル行 (1行目) は変更不可。exit 5 で失敗する。
 
 ---
@@ -204,7 +210,7 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | 識別子 | コマンド |
 |---|---|
 | `page.line.replace` / `page.line.delete` | 行・範囲編集 |
-| `page.new` / `page.edit` / `page.append` | ページ書き込み |
+| `page.new` / `page.edit.preview` / `page.edit.submit` / `page.append` | ページ書き込み |
 | `page.prepend` / `page.insert` / `page.rename` | ページ書き込み |
 | `page.pin` / `page.unpin` | ピン留め |
 | `page.delete` | 削除 (破壊的) |
@@ -245,10 +251,9 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 **exit 6 の回復パターン**:
 
 ```bash
-# 最新 commitId を再取得して再実行
-COMMIT=$(cos page get "タイトル" --project <name> --json --results-only --select 'commitId')
-cos page edit "タイトル" --from-file ./content.txt --expect-commit "$COMMIT" --project <name>
-# Markdown ファイルの場合は --input-format=md を追加
+# page edit preview は内部で最新ページを取得するため、競合時はそのまま再実行する
+cos page edit preview "タイトル" -p <name> --ops '{"ops":[...]}'
+cos page edit submit "<newPreviewId>" -p <name>
 
 # または: 変更範囲が局所的なら page line に切り替えて競合リスクを下げる
 # (行番号は先に cos page line get で確認する)

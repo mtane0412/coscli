@@ -588,6 +588,27 @@ export async function requireSid(profile?: string): Promise<string> {
   return cred.value
 }
 
+/**
+ * requirePat は Personal Access Token を取得し、PAT 以外の認証方式では exit 2 で終了する。
+ *
+ * v2 AI 編集エンドポイントは PAT 認証のみ対応（SID・SA は HTTP 403）のため、
+ * 呼び出し前にこの関数で認証方式を確認する。
+ */
+export async function requirePat(args: CommonArgs): Promise<string> {
+  const store = new TokenStoreCredentialAdapter(createTokenStore())
+  const cred = await resolveActiveCredential(args, store)
+
+  if (cred.kind !== "pat") {
+    writeErrorJson(
+      "AUTH_PAT_REQUIRED",
+      "このコマンドには Personal Access Token が必要です",
+      "COS_PERSONAL_ACCESS_TOKEN 環境変数または `cos auth add --pat` でトークンを設定してください",
+    )
+    exitWithError(2, "AUTH_PAT_REQUIRED")
+  }
+  return cred.value
+}
+
 /** requireProject はプロジェクト名を取得し、未指定の場合はエラーで終了する。 */
 export function requireProject(args: CommonArgs): string {
   const project = args.project ?? process.env["COS_PROJECT"]

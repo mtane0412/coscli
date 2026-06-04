@@ -126,7 +126,8 @@ cos page table          ページ内のテーブルを CSV で取得
 cos page url            ページの URL を表示
 cos page icon           ページアイコン取得 URL を生成する (API 呼び出しなし)
 cos page new            ページを作成
-cos page edit           ページを編集 (楽観ロック付き)
+cos page edit preview   ops を dry-run して previewId を取得 (PAT 必須)
+cos page edit submit    previewId を確定コミットに変換 (PAT 必須)
 cos page append         ページ末尾に行を追記
 cos page prepend        ページ先頭 (タイトル直後) に行を挿入
 cos page insert         指定行の後ろに行を挿入 (--after <n>)
@@ -210,37 +211,33 @@ cos page text "ページタイトル" --format=md
 cos page text "ページタイトル" --format=md --bold-style=heading
 ```
 
-### Markdown ファイルで Scrapbox ページを全置換
+### AI エージェント向け ops ベース編集 (PAT 必須)
+
+`cos page edit preview` / `cos page edit submit` は Cosense v2 AI 編集 API を使った 2 ステップ編集です。
+行単位の ops を dry-run してプレビューを確認してから確定できます。**Personal Access Token (PAT) が必要です。**
 
 ```bash
-cos page edit "ページタイトル" --from-file page.md --input-format=md
+# 1. ページの現在の行 ID を取得
+cos page get "ページタイトル" --json -p my-project | jq '.data.lines[] | {id, text}'
+
+# 2. ops JSON を構築して preview (previewId を取得)
+cos page edit preview "ページタイトル" -p my-project \
+  --ops '{"ops":[{"insertBefore":"_end","text":"追加する行"}]}'
+
+# 3. previewId を使って確定
+cos page edit submit "プレビューID" -p my-project
 ```
 
-> **v0.4.0 非互換変更**: `page edit` はデフォルトで楽観ロックを有効化しました。
-> 編集中に他者がページを更新した場合は **exit 6** で停止します。
-> 従来の上書き挙動に戻すには `--force` を指定してください。
-
+新規ページ作成:
 ```bash
-# デフォルト: 競合を検知したら exit 6 で停止する
-cos page edit "ページタイトル" --from-file new-content.txt
-
-# --force: 他者の編集を上書きする (従来挙動)
-cos page edit "ページタイトル" --from-file new-content.txt --force
-
-# --expect-commit: 取得時の commitId を指定して、ページが変わっていれば止める
-COMMIT=$(cos page get "ページタイトル" --json | jq -r '.result.commitId')
-cos page edit "ページタイトル" --from-file new-content.txt --expect-commit "$COMMIT"
+cos page edit preview "新しいページ" --new -p my-project --body "本文1行目\n本文2行目"
+cos page edit submit "プレビューID" -p my-project
 ```
 
-### ページ本文のラウンドトリップ (取得→編集)
-
-タイトル行を含まない本文のみを取得して、そのまま `cos page edit` に渡せます:
-
-```bash
-cos page text "ページタイトル" --body-only | cos page edit "ページタイトル" --from-file -
-```
-
-`--body-only` を指定しない場合は `cos page text` の出力にタイトル行が含まれるため、`cos page edit` 側でタイトル行が本文先頭に重複して挿入されます。
+ops フォーマット:
+- `{"insertBefore": "<lineId>|_end", "text": "テキスト"}` — 指定行の前または末尾に挿入
+- `{"replace": "<lineId>", "text": "テキスト"}` — 指定行を置換
+- `{"delete": "<lineId>"}` — 指定行を削除
 
 ### stdin/stdout 純粋変換
 
