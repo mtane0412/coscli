@@ -70,12 +70,12 @@ function createMockRestClient(
   }
 }
 
-/** defaultArgs は全テストで共通の基本引数。 */
-const defaultArgs: Record<string, unknown> = {
+/** plainArgs はプレーンテキスト出力を期待するテストで使う基本引数。 */
+const plainArgs: Record<string, unknown> = {
   name: "テストプロジェクト",
   project: undefined,
   json: false,
-  plain: false,
+  plain: true,
   "results-only": false,
   select: undefined,
   "enable-commands": undefined,
@@ -84,6 +84,16 @@ const defaultArgs: Record<string, unknown> = {
   quiet: false,
   profile: undefined,
 }
+
+/** jsonArgs は JSON 出力を期待するテストで使う基本引数。 */
+const jsonArgs: Record<string, unknown> = {
+  ...plainArgs,
+  json: true,
+  plain: false,
+}
+
+/** defaultArgs は後方互換のエイリアス (バリデーション系テストで使用)。 */
+const defaultArgs = plainArgs
 
 /** createMockDeps はモック依存を生成する。個別フィールドを上書き可能。 */
 function createMockDeps(overrides: Partial<ProjectMembersDeps> = {}): ProjectMembersDeps {
@@ -110,8 +120,21 @@ async function runAndIgnoreExit(
 ): Promise<void> {
   try {
     await runMembers(args, deps)
-  } catch {
-    // process.exit モック後の継続による throw は想定内
+  } catch (err) {
+    // process.exit モック後に exitWithError が throw する Error のみ無視する
+    // exitWithError は process.exit 直後に throw new Error(code) を呼ぶため、
+    // 既知の終了コード文字列を持つ Error は想定内として握り潰す
+    const knownExitCodes = [
+      "PROJECT_REQUIRED",
+      "POLICY_DENIED",
+      "AUTH_ERROR",
+      "AUTH_REQUIRED",
+      "FORBIDDEN",
+      "NOT_FOUND",
+      "VALIDATION_ERROR",
+    ]
+    if (err instanceof Error && knownExitCodes.some((c) => err.message.includes(c))) return
+    throw err
   }
 }
 
@@ -162,6 +185,21 @@ describe("makeProjectMembersCommand", () => {
       // exit 5 (PROJECT_REQUIRED) は呼ばれない
       expect(exitMock).not.toHaveBeenCalledWith(5)
     })
+
+    it("--project フラグは COS_PROJECT 環境変数より優先される", async () => {
+      process.env["COS_PROJECT"] = "env-project"
+      let capturedProject: string | undefined
+      const deps = createMockDeps({
+        restClient: {
+          async getProjectMembers(project) {
+            capturedProject = project
+            return mockMembersResponse
+          },
+        },
+      })
+      await runAndIgnoreExit({ ...plainArgs, name: undefined, project: "cli-project" }, deps)
+      expect(capturedProject).toBe("cli-project")
+    })
   })
 
   describe("sandbox 違反", () => {
@@ -175,17 +213,25 @@ describe("makeProjectMembersCommand", () => {
   })
 
   describe("正常系 (プレーンテキスト出力)", () => {
-    it("デフォルトでメンバー情報を含む整列テキストを出力する", async () => {
-      await runAndIgnoreExit(defaultArgs, createMockDeps())
+    it("--plain でメンバー情報を含む整列テキストを出力する", async () => {
+      await runAndIgnoreExit(plainArgs, createMockDeps())
 
       const out = captureStdout()
       expect(out).toContain("山田太郎")
       expect(out).toContain("suzuki-hanako")
     })
 
-    it("メンバーが0件の場合は何も出力しない", async () => {
+    it("--plain で退去済みメンバー (memberSnapshots) も出力する", async () => {
+      await runAndIgnoreExit(plainArgs, createMockDeps())
+
+      const out = captureStdout()
+      // memberSnapshots にある退去ユーザーが出力に含まれること
+      expect(out).toContain("退去")
+    })
+
+    it("メンバーが0件・スナップショットも0件の場合は何も出力しない", async () => {
       await runAndIgnoreExit(
-        defaultArgs,
+        plainArgs,
         createMockDeps({ restClient: createMockRestClient(mockEmptyResponse) }),
       )
 
@@ -199,7 +245,7 @@ describe("makeProjectMembersCommand", () => {
 
   describe("正常系 (JSON 出力)", () => {
     it("--json の場合は envelope 形式で users/memberSnapshots を含む JSON を出力する", async () => {
-      await runAndIgnoreExit({ ...defaultArgs, json: true }, createMockDeps())
+      await runAndIgnoreExit(jsonArgs, createMockDeps())
 
       const out = captureStdout()
       const parsed = JSON.parse(out) as {
@@ -214,7 +260,7 @@ describe("makeProjectMembersCommand", () => {
     })
 
     it("--results-only の場合は data のみ出力する (meta なし)", async () => {
-      await runAndIgnoreExit({ ...defaultArgs, json: true, "results-only": true }, createMockDeps())
+      await runAndIgnoreExit({ ...jsonArgs, "results-only": true }, createMockDeps())
 
       const out = captureStdout()
       const parsed = JSON.parse(out) as ProjectMembersResponse
@@ -225,8 +271,7 @@ describe("makeProjectMembersCommand", () => {
     it("--select=users[].name の場合は name 配列のみ出力する", async () => {
       await runAndIgnoreExit(
         {
-          ...defaultArgs,
-          json: true,
+          ...jsonArgs,
           "results-only": true,
           select: "users[].name",
         },

@@ -43,12 +43,7 @@ export interface ProjectMembersDeps {
   restClient?: ProjectMembersRestClient
 }
 
-/**
- * makeProjectMembersCommand は ProjectMembersDeps を受け取り、citty コマンドを返すファクトリ。
- *
- * deps を省略すると本番実装 (実際の REST API 呼び出し) を使用する。
- * テスト時は deps にモックを渡してフローを検証する。
- */
+/** makeProjectMembersCommand は ProjectMembersDeps を受け取り、citty コマンドを返す。 */
 export function makeProjectMembersCommand(deps: ProjectMembersDeps = {}) {
   return defineCommand({
     meta: {
@@ -82,19 +77,27 @@ export function makeProjectMembersCommand(deps: ProjectMembersDeps = {}) {
         throw err
       }
 
-      if (a.json || !a.plain) {
+      if (a.json) {
         writeJson(result, { command: "project.members", startTime }, buildJsonOpts(a))
         return
       }
 
-      if (result.users.length === 0) {
+      const rows = [
+        ...result.users.map((u) => [u.id, u.name, u.displayName, u.provider ?? "", "在籍中"]),
+        ...(result.memberSnapshots ?? []).map((s) => [
+          s.id,
+          String((s.data as { name?: string } | undefined)?.name ?? ""),
+          String((s.data as { displayName?: string } | undefined)?.displayName ?? ""),
+          "",
+          `退去 (${s.reason ?? ""})`,
+        ]),
+      ]
+
+      if (rows.length === 0) {
         return
       }
 
-      writePlainTable(
-        ["ID", "ユーザー名", "表示名", "プロバイダ"],
-        result.users.map((u) => [u.id, u.name, u.displayName, u.provider ?? ""]),
-      )
+      writePlainTable(["ID", "ユーザー名", "表示名", "プロバイダ", "状態"], rows)
     },
   })
 }
