@@ -93,6 +93,7 @@ export type MemberSnapshot = z.infer<typeof MemberSnapshotSchema>
 /** ProjectMembersResponseSchema は /api/projects/:project/users のレスポンス全体。 */
 export const ProjectMembersResponseSchema = z.object({
   users: z.array(ProjectMemberSchema),
-  memberSnapshots: z.array(MemberSnapshotSchema),
+  // プロジェクトによっては返らない場合がある
+  memberSnapshots: z.array(MemberSnapshotSchema).optional(),
 })
 export type ProjectMembersResponse = z.infer<typeof ProjectMembersResponseSchema>
