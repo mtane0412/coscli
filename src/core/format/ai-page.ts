@@ -24,7 +24,7 @@ function formatTimestamp(unixSec: number): string {
 }
 
 /**
- * formatAiPage は Page と ProjectMembersResponse からエージェント向け Markdown を生成する。
+ * formatAiPage は Page と ProjectMembersResponse からエージェント向け Markdown を生成して返す。
  *
  * @param page - Cosense ページ詳細
  * @param members - プロジェクトメンバー情報。null の場合はユーザーID をそのまま使用する

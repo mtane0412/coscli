@@ -13,7 +13,7 @@ export type TelomereEntry = {
   /** memberMap にない場合は userId をそのまま使用する */
   displayName: string
   lineCount: number
-  /** ユーザーが書いた行の中で最も新しい updated タイムスタンプ (unix ms) */
+  /** ユーザーが書いた行の中で最も新しい updated タイムスタンプ (unix 秒) */
   latestUpdated: number
 }
 
