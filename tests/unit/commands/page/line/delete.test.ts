@@ -141,6 +141,55 @@ describe("pageLineDeletePreviewCommand", () => {
       expect(exitMock).toHaveBeenCalledWith(5)
     })
 
+    it("--line 1 (タイトル行) を指定した場合は TITLE_LINE_PROTECTED で exit 5 になる", async () => {
+      // タイトル行を削除するとページが意図せずリネームされるため事前にガードする
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runLineDeletePreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          line: "1",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("TITLE_LINE_PROTECTED"))
+    })
+
+    it("--range 1:3 (タイトル行を含む範囲) を指定した場合は TITLE_LINE_PROTECTED で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runLineDeletePreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          range: "1:3",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("TITLE_LINE_PROTECTED"))
+    })
+
     it("--line も --range も指定しない場合は VALIDATION_ERROR で exit 5 になる", async () => {
       requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
       buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(

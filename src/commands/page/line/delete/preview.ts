@@ -74,6 +74,16 @@ export const pageLineDeletePreviewCommand = defineCommand({
       throw err
     }
 
+    // タイトル行 (1行目) の削除を禁止する: 削除するとページが意図せずリネームされるため
+    if (start === 1) {
+      writeErrorJson(
+        "TITLE_LINE_PROTECTED",
+        "タイトル行 (1行目) は削除できません",
+        "ページを削除する場合は `cos page delete` を使用してください",
+      )
+      exitWithError(5, "TITLE_LINE_PROTECTED")
+    }
+
     const client = await buildRestClient(a)
     const page = await client.getPage(project, a.title)
 
