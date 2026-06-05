@@ -17,6 +17,7 @@ import {
   commonArgs,
   exitWithError,
   getRawFlagValue,
+  handlePreviewEditV2Error,
   readWriteInput,
   requirePat,
   requireProject,
@@ -79,14 +80,22 @@ export const pageInsertPreviewCommand = defineCommand({
     let afterN: number | undefined
 
     if (!afterId) {
+      // --after も --after-id も指定されていない場合
+      if (a.after === undefined) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          "--after または --after-id のどちらかを指定してください",
+          "--after <n>: 1-indexed の行番号  /  --after-id <lineId>: 行 ID を直接指定",
+        )
+        exitWithError(5, "VALIDATION_ERROR")
+      }
       // --after バリデーション (1-indexed、正の整数のみ許可)
-      const rawAfter =
-        a.after !== "" ? (a.after ?? "") : (getRawFlagValue(process.argv, "after") ?? "")
+      const rawAfter = a.after !== "" ? a.after : (getRawFlagValue(process.argv, "after") ?? "")
       if (!/^[1-9]\d*$/.test(rawAfter)) {
         writeErrorJson(
           "VALIDATION_ERROR",
           `--after の値が無効です: "${rawAfter}"`,
-          "1 以上の整数を指定してください (タイトル行=1)、または --after-id で lineId を指定してください",
+          "1 以上の整数を指定してください (タイトル行=1)",
         )
         exitWithError(5, "VALIDATION_ERROR")
       }
@@ -115,10 +124,15 @@ export const pageInsertPreviewCommand = defineCommand({
 
     const translateResult = buildInsertChanges(anchorLineId, lines)
 
-    const response = await client.previewEditV2(project, {
-      pageId: page.id,
-      changes: translateResult.changes,
-    })
+    let response: Awaited<ReturnType<typeof client.previewEditV2>>
+    try {
+      response = await client.previewEditV2(project, {
+        pageId: page.id,
+        changes: translateResult.changes,
+      })
+    } catch (err) {
+      handlePreviewEditV2Error(err, a.title)
+    }
 
     const status = response.pagePreview?.persistent === false ? "create" : "update"
     const result = buildPreviewResult(

@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import * as sharedModule from "@/commands/_shared"
 import { pageAppendPreviewCommand } from "@/commands/page/append/preview"
+import { NotFoundError } from "@/core/api/rest"
 import type * as restModule from "@/core/api/rest"
 
 let exitMock: ReturnType<typeof spyOn>
@@ -117,6 +118,41 @@ describe("pageAppendPreviewCommand", () => {
   })
 
   describe("バリデーションエラー", () => {
+    it("previewEditV2 が NotFoundError を返した場合は PAGE_NOT_FOUND で exit 4 になる", async () => {
+      // Cosense は存在しないページでもスタブ ID を返すため getPage は成功するが、
+      // v2 API がそのスタブ ID を「未コミット」として 404 を返す。
+      // API パスではなくページタイトルを含むエラーメッセージを出力すること。
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      const mockClient = {
+        previewEditV2: async () => {
+          throw new NotFoundError("/api/pages/v2/proj/page-edit-for-ai/preview")
+        },
+        getPage: async () => pageResponse,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runAppendPreview({
+          title: "存在しないページ",
+          project: "テストプロジェクト",
+          line: "追記行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(4)
+      // API パスではなくページタイトルを含むメッセージであること
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("存在しないページ"))
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("PAGE_NOT_FOUND"))
+    })
+
     it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
       requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
       buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(

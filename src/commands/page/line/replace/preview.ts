@@ -15,6 +15,7 @@ import {
   checkSandbox,
   commonArgs,
   exitWithError,
+  handlePreviewEditV2Error,
   requirePat,
   requireProject,
 } from "@/commands/_shared"
@@ -107,10 +108,15 @@ export const pageLineReplacePreviewCommand = defineCommand({
       exitWithError(5, "INVALID_OPS")
     }
 
-    const response = await client.previewEditV2(project, {
-      pageId: page.id,
-      changes: translateResult.changes,
-    })
+    let response: Awaited<ReturnType<typeof client.previewEditV2>>
+    try {
+      response = await client.previewEditV2(project, {
+        pageId: page.id,
+        changes: translateResult.changes,
+      })
+    } catch (err) {
+      handlePreviewEditV2Error(err, a.title)
+    }
 
     const status = response.pagePreview?.persistent === false ? "create" : "update"
     const result = buildPreviewResult(

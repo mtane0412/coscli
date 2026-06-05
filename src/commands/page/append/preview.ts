@@ -14,6 +14,7 @@ import {
   buildRestClient,
   checkSandbox,
   commonArgs,
+  handlePreviewEditV2Error,
   readWriteInput,
   requirePat,
   requireProject,
@@ -73,10 +74,15 @@ export const pageAppendPreviewCommand = defineCommand({
     const page = await client.getPage(project, a.title)
     const translateResult = buildAppendChanges(lines)
 
-    const response = await client.previewEditV2(project, {
-      pageId: page.id,
-      changes: translateResult.changes,
-    })
+    let response: Awaited<ReturnType<typeof client.previewEditV2>>
+    try {
+      response = await client.previewEditV2(project, {
+        pageId: page.id,
+        changes: translateResult.changes,
+      })
+    } catch (err) {
+      handlePreviewEditV2Error(err, a.title)
+    }
 
     const status = response.pagePreview?.persistent === false ? "create" : "update"
     const result = buildPreviewResult(

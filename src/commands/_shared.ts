@@ -826,3 +826,22 @@ export function handleRestError(
     exitWithError(4, "NOT_FOUND")
   }
 }
+
+/**
+ * handlePreviewEditV2Error は previewEditV2 が返したエラーをユーザー向けメッセージに変換する。
+ *
+ * Cosense の getPage は存在しないページでもスタブ ID を返すため、
+ * previewEditV2 が 404 を返したとき API パスではなくページタイトルを含むメッセージを出力する。
+ * NotFoundError 以外は再スローして呼び出し元に委ねる。
+ */
+export function handlePreviewEditV2Error(err: unknown, title: string): never {
+  if (err instanceof NotFoundError) {
+    writeErrorJson(
+      "PAGE_NOT_FOUND",
+      `ページが見つかりません: "${title}"`,
+      "ページが存在しない場合は `cos page new preview` で作成してください",
+    )
+    exitWithError(4, "PAGE_NOT_FOUND")
+  }
+  throw err
+}

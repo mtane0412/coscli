@@ -144,6 +144,36 @@ describe("pageInsertPreviewCommand", () => {
       expect(exitMock).toHaveBeenCalledWith(5)
     })
 
+    it("--after も --after-id も指定しない場合は VALIDATION_ERROR で exit 5 になる（空文字エラーではなく）", async () => {
+      // 両フラグ未指定時に "--after の値が無効です: ''" という誤解を招くメッセージを出さないこと
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          // after も after-id も渡さない
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      // 空文字エラーではなく「どちらかを指定して」というメッセージであること
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      expect(output).toContain("VALIDATION_ERROR")
+      expect(output).not.toContain('""')
+      expect(output).toContain("after-id")
+    })
+
     it("--after に数値以外を指定した場合は VALIDATION_ERROR で exit 5 になる", async () => {
       requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
       buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
