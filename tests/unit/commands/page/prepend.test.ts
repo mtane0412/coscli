@@ -1,30 +1,59 @@
 /**
- * page/prepend.test.ts — `cos page prepend <title>` コマンドのテスト。
+ * page/prepend.test.ts — `cos page prepend preview <title>` コマンドのテスト。
  *
- * --from-file での stdin 読み込み (- と "" の両対応) を含む。
+ * v2 AI ops API (PAT 必須) を使ってページ先頭（タイトル直後）に行を挿入する
+ * preview コマンドを検証する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
-import * as fs from "node:fs"
-import { pagePrependCommand } from "@/commands/page/prepend"
-import * as pages from "@/core/pages"
-
-/** prependToPage に渡された引数をキャプチャする */
-const capturedPrependCalls: { lines: string[] }[] = []
-
-// spyOn 前に実実装を保存する（モックが積み重なっても実ファイルアクセスができるように）
-const realReadFileSync = fs.readFileSync.bind(fs)
+import * as sharedModule from "@/commands/_shared"
+import { pagePrependPreviewCommand } from "@/commands/page/prepend/preview"
+import type * as restModule from "@/core/api/rest"
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
-let readFileSyncSpy: ReturnType<typeof spyOn>
-let prependToPageSpy: ReturnType<typeof spyOn>
+let buildRestClientSpy: ReturnType<typeof spyOn> | undefined
+let requirePatSpy: ReturnType<typeof spyOn> | undefined
 
-/** コマンド run ヘルパー */
-async function runPrepend(args: Record<string, unknown>) {
+/** テスト用 PAT フォーマット */
+const TEST_PAT = `pat_${"a".repeat(64)}`
+
+/** 2 行以上あるページのフィクスチャ */
+const pageWithBody = {
+  id: "ページID-テスト",
+  title: "テストページ",
+  lines: [
+    { id: "行001", text: "テストページ", userId: "u1", created: 0, updated: 0 },
+    { id: "行002", text: "既存の行", userId: "u1", created: 0, updated: 0 },
+  ],
+}
+
+/** タイトル行のみのページのフィクスチャ */
+const pageTitleOnly = {
+  id: "ページID-テスト",
+  title: "タイトルのみ",
+  lines: [{ id: "行001", text: "タイトルのみ", userId: "u1", created: 0, updated: 0 }],
+}
+
+/** previewEditV2 の成功レスポンスフィクスチャ */
+const previewSuccessResponse = {
+  previewId: "プレビューID-prepend001",
+  expireAt: "2026-06-05T12:00:00.000Z",
+  pagePreview: {
+    title: "テストページ",
+    persistent: true,
+    lines: [
+      { id: "行001", text: "テストページ" },
+      { id: "新行001", text: "先頭に挿入する行" },
+      { id: "行002", text: "既存の行" },
+    ],
+  },
+}
+
+async function runPrependPreview(args: Record<string, unknown>) {
   await (
-    pagePrependCommand.run as (ctx: {
+    pagePrependPreviewCommand.run as (ctx: {
       args: unknown
       cmd: never
       rawArgs: string[]
@@ -36,128 +65,190 @@ async function runPrepend(args: Record<string, unknown>) {
   })
 }
 
+/** PAT 認証と REST クライアントのモックをセットアップするヘルパー。 */
+function setupMocks(previewResult = previewSuccessResponse, getPageResult = pageWithBody) {
+  requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+  const mockClient = {
+    previewEditV2: async () => previewResult,
+    getPage: async () => getPageResult,
+  }
+  buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+    mockClient as unknown as restModule.CosenseRestClient,
+  )
+}
+
 beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
   stderrMock = spyOn(process.stderr, "write").mockImplementation(() => true)
   Reflect.deleteProperty(process.env, "COS_PROJECT")
-  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
-  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  process.env["COS_SID"] = "s%3Atest-session-id"
-  capturedPrependCalls.splice(0)
-  // stdin (fd=0) から固定コンテンツを返す。実ファイルは realReadFileSync でパススルーする
-  readFileSyncSpy = spyOn(fs, "readFileSync").mockImplementation(((
-    pathOrFd: number | string,
-    encoding: string,
-  ) => {
-    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
-    return realReadFileSync(
-      pathOrFd as Parameters<typeof fs.readFileSync>[0],
-      encoding as BufferEncoding,
-    )
-  }) as typeof fs.readFileSync)
-  prependToPageSpy = spyOn(pages, "prependToPage").mockImplementation(async (_writer, opts) => {
-    capturedPrependCalls.push({ lines: opts.lines })
-    return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
-  })
+  Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
-  readFileSyncSpy.mockRestore()
-  prependToPageSpy.mockRestore()
-  Reflect.deleteProperty(process.env, "COS_SID")
+  buildRestClientSpy?.mockRestore()
+  requirePatSpy?.mockRestore()
+  buildRestClientSpy = undefined
+  requirePatSpy = undefined
 })
 
-describe("pagePrependCommand", () => {
-  it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runPrepend({
-        title: "テストページ",
-        line: "追加行",
-        project: undefined,
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": false,
-        quiet: false,
+describe("pagePrependPreviewCommand", () => {
+  describe("認証エラー", () => {
+    it("PAT 以外の認証方式では exit 2 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockImplementation(async () => {
+        process.exit(2)
+        throw new Error("AUTH_PAT_REQUIRED")
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
+
+      try {
+        await runPrependPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          line: "先頭行テキスト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(2)
+    })
   })
 
-  it("--line も --from-file も指定しない場合は CONTENT_REQUIRED で exit 5", async () => {
-    try {
-      await runPrepend({
+  describe("バリデーションエラー", () => {
+    it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runPrependPreview({
+          title: "テストページ",
+          project: undefined,
+          line: "先頭行テキスト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--line も --from-file も指定しない場合は CONTENT_REQUIRED で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runPrependPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
+    })
+  })
+
+  describe("成功ケース", () => {
+    it("2 行目の lineId をアンカーとして preview リクエストを送信する", async () => {
+      // タイトル直後（2 行目）の lineId がアンカーとなること
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageWithBody,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      await runPrependPreview({
         title: "テストページ",
         project: "テストプロジェクト",
+        line: "先頭に挿入する行",
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
-  })
 
-  it("--line に実改行を含む文字列を渡すと prependToPage に2行で渡される", async () => {
-    // $'先頭行A\n先頭行B' のようなシェル実改行を含む文字列を渡した場合の検証
-    await runPrepend({
-      title: "テストページ",
-      line: "先頭行A\n先頭行B",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
+      expect(exitMock).not.toHaveBeenCalled()
+      // changes のアンカーが 2 行目 (行002) の lineId であること
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      expect((changes[0] as Record<string, unknown>)["_insert"]).toBe("行002")
     })
-    // 実改行（\n）が展開され、lines が ["先頭行A", "先頭行B"] の2行になること
-    expect(capturedPrependCalls).toHaveLength(1)
-    expect(capturedPrependCalls[0]?.lines).toEqual(["先頭行A", "先頭行B"])
-  })
 
-  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
-    // citty が正しく "-" を渡したケース
-    await runPrepend({
-      title: "テストページ",
-      "from-file": "-",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
-    })
-    expect(capturedPrependCalls).toHaveLength(1)
-    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行1")
-    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行2")
-  })
+    it("タイトル行のみのページでは _end をアンカーとして使う", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageTitleOnly,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
 
-  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
-    // citty が --from-file - を "" に変換するバグへの対応
-    await runPrepend({
-      title: "テストページ",
-      "from-file": "",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
+      await runPrependPreview({
+        title: "タイトルのみ",
+        project: "テストプロジェクト",
+        line: "本文1行目",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+
+      expect(exitMock).not.toHaveBeenCalled()
+      // タイトル行のみのページでは _end をアンカーとして使うこと
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      expect((changes[0] as Record<string, unknown>)["_insert"]).toBe("_end")
     })
-    // "" もstdinとして扱われ、CONTENT_REQUIRED にならずコンテンツが渡されること
-    expect(exitMock).not.toHaveBeenCalledWith(5)
-    expect(capturedPrependCalls).toHaveLength(1)
-    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行1")
-    expect(capturedPrependCalls[0]?.lines).toContain("stdinの行2")
+
+    it("--json フラグで previewId を JSON 出力する", async () => {
+      setupMocks()
+
+      await runPrependPreview({
+        title: "テストページ",
+        project: "テストプロジェクト",
+        line: "先頭に挿入する行",
+        json: true,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const parsed = JSON.parse(output)
+      expect(parsed.data.previewId).toBe("プレビューID-prepend001")
+    })
   })
 })
