@@ -58,9 +58,12 @@ cos exit-codes --json               # 終了コード一覧 (単一ソース)
 cos page list --project <name> --json --results-only --select 'pages[].title' --limit 50 --sort updated
 # sort: updated|created|accessed|pageRank|links|views|title
 
-# ページ全データ
+# ページ全データ (JSON)
 cos page get "タイトル" --project <name> --json --results-only
 # data: { id, title, lines: [{ text, ... }], commitId, persistent, ... }
+
+# AI 向け Markdown (メタデータ・テロメア・本文・1-hop 関連ページをワンショット出力)
+cos page get "タイトル" --project <name> --format ai
 
 # 本文テキスト
 cos page text "タイトル" --project <name>
