@@ -82,6 +82,7 @@ export const pageAppendPreviewCommand = defineCommand({
       })
     } catch (err) {
       handlePreviewEditV2Error(err, a.title)
+      throw err
     }
 
     const status = response.pagePreview?.persistent === false ? "create" : "update"
