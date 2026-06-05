@@ -117,7 +117,7 @@ cos page new --project myproject --title "新しいページ" --body "本文"
 
 ```
 cos page list           ページ一覧を取得 (--pinned でピン留めページのみ表示、--icon <name> でアイコンフィルタ)
-cos page get            ページ本文を取得
+cos page get            ページ本文を取得 (--format ai でエージェント向け Markdown 出力)
 cos page text           ページのテキスト (コードブロックなし) を取得
 cos page context        ページ起点の Smart Context (リンク先本文) を取得
 cos page infobox        LLM 生成 infobox データを取得
