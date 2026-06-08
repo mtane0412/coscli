@@ -223,6 +223,36 @@ describe("pageInsertPreviewCommand", () => {
       expect(exitMock).toHaveBeenCalledWith(5)
     })
 
+    it("--after にページ行数を超える値を指定した場合は VALIDATION_ERROR で exit 5 になる", async () => {
+      // pageWith3Lines は 3 行なので --after 4 以上は範囲外
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      const mockClient = {
+        previewEditV2: async () => previewSuccessResponse,
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "4",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+    })
+
     it("--line も --from-file も指定しない場合は CONTENT_REQUIRED で exit 5 になる", async () => {
       requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
       buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(

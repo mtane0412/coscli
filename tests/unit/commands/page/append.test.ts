@@ -198,6 +198,29 @@ describe("pageAppendPreviewCommand", () => {
       expect(exitMock).toHaveBeenCalledWith(5)
       expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
     })
+
+    it("--strict-notation で Cosense 記法の lint 警告があると NOTATION_LINT で exit 5 になる", async () => {
+      // strictNotationArg を受け取っているが runNotationLint が呼ばれていない場合の回帰防止
+      setupMocks()
+
+      try {
+        await runAppendPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          // Markdown 太字記法は Cosense では lint エラー (markdown-bold-residue)
+          line: "**太字のテスト**",
+          "strict-notation": true,
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
   })
 
   describe("成功ケース", () => {

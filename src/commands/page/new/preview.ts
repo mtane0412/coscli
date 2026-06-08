@@ -17,6 +17,7 @@ import {
   readWriteInput,
   requirePat,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
@@ -67,6 +68,7 @@ export const pageNewPreviewCommand = defineCommand({
       requireContentMessage: "ページ本文が指定されていません",
       requireContentHint: "--line または --from-file でコンテンツを指定してください",
     })
+    runNotationLint(bodyLines, a)
 
     const client = await buildRestClient(a)
     // 新規ページ: pageId なしで previewEditV2 を呼ぶ

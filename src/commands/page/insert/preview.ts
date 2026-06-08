@@ -21,6 +21,7 @@ import {
   readWriteInput,
   requirePat,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
@@ -107,6 +108,7 @@ export const pageInsertPreviewCommand = defineCommand({
       requireContentMessage: "挿入する行が指定されていません",
       requireContentHint: "--line または --from-file でコンテンツを指定してください",
     })
+    runNotationLint(lines, a)
 
     const client = await buildRestClient(a)
     const page = await client.getPage(project, a.title)
@@ -118,6 +120,14 @@ export const pageInsertPreviewCommand = defineCommand({
       anchorLineId = afterId
     } else {
       // --after で行番号指定: 次行 (after番目+1) の lineId を取得する
+      // afterN がページ行数を超える場合は範囲外エラー (最終行 = page.lines.length の場合は末尾挿入として許容)
+      if ((afterN as number) > page.lines.length) {
+        writeErrorJson(
+          "VALIDATION_ERROR",
+          `--after の値が範囲外です: ${afterN} (ページの行数: ${page.lines.length})`,
+        )
+        exitWithError(5, "VALIDATION_ERROR")
+      }
       // lines は 0-indexed なので lines[afterN] が次行 (最終行指定時は undefined → "_end")
       anchorLineId = page.lines[afterN as number]?.id ?? "_end"
     }

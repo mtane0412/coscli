@@ -220,7 +220,8 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 |---|---|
 | `page.line.replace.preview` / `page.line.delete.preview` | 行・範囲編集 (PAT 必須) |
 | `page.new.preview` / `page.edit.preview` / `page.edit.submit` / `page.append.preview` | ページ書き込み (PAT 必須) |
-| `page.prepend.preview` / `page.insert.preview` / `page.rename` | ページ書き込み |
+| `page.prepend.preview` / `page.insert.preview` | ページ書き込み (PAT 必須) |
+| `page.rename` | ページリネーム (SID 必須) |
 | `page.pin` / `page.unpin` | ピン留め (SID 必須) |
 | `page.delete` | 削除 (破壊的、SID 必須) |
 | `page.watch` を除く `auth.*` | 認証変更 |

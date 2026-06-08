@@ -18,6 +18,7 @@ import {
   readWriteInput,
   requirePat,
   requireProject,
+  runNotationLint,
   strictNotationArg,
   unsafeReadArg,
 } from "@/commands/_shared"
@@ -68,6 +69,7 @@ export const pagePrependPreviewCommand = defineCommand({
       requireContentMessage: "挿入する行が指定されていません",
       requireContentHint: "--line または --from-file でコンテンツを指定してください",
     })
+    runNotationLint(lines, a)
 
     const client = await buildRestClient(a)
     const page = await client.getPage(project, a.title)
