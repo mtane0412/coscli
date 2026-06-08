@@ -14,12 +14,13 @@ import {
   buildRestClient,
   checkSandbox,
   exitWithError,
+  handlePreviewEditV2Error,
   requirePat,
   requireProject,
 } from "@/commands/_shared"
 import { translateOps } from "@/core/edit-ops"
+import { buildPreviewResult } from "@/core/edit-v2"
 import { writeErrorJson, writeJson } from "@/presenter/json"
-import type { PagePreview } from "@/schemas/edit-v2"
 import { defineCommand } from "citty"
 
 export const pageEditPreviewCommand = defineCommand({
@@ -206,10 +207,16 @@ export const pageEditPreviewCommand = defineCommand({
 
     // ページの pageId を取得する
     const page = await client.getPage(project, a.title)
-    const response = await client.previewEditV2(project, {
-      pageId: page.id,
-      changes: translateResult.changes,
-    })
+    let response: Awaited<ReturnType<typeof client.previewEditV2>>
+    try {
+      response = await client.previewEditV2(project, {
+        pageId: page.id,
+        changes: translateResult.changes,
+      })
+    } catch (err) {
+      handlePreviewEditV2Error(err, a.title)
+      throw err
+    }
 
     const status = response.pagePreview?.persistent === false ? "create" : "update"
     const result = buildPreviewResult(
@@ -244,28 +251,3 @@ export const pageEditPreviewCommand = defineCommand({
     process.stdout.write(`${lines.join("\n")}\n`)
   },
 })
-
-/** buildPreviewResult はレスポンスから出力用のデータ構造を組み立てる。 */
-function buildPreviewResult(
-  previewId: string,
-  expireAt: string,
-  status: "create" | "update",
-  title: string,
-  pagePreview: PagePreview,
-  idSets: [Set<string>, Set<string>] | [],
-) {
-  const [newLineIds, updatedLineIds] =
-    idSets.length === 2 ? idSets : [new Set<string>(), new Set<string>()]
-
-  const lines = (pagePreview?.lines ?? []).map((line) => ({
-    id: line.id,
-    text: line.text,
-    marker: newLineIds.has(line.id)
-      ? ("new" as const)
-      : updatedLineIds.has(line.id)
-        ? ("updated" as const)
-        : null,
-  }))
-
-  return { previewId, expireAt, status, title, lines }
-}

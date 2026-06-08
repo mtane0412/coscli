@@ -115,58 +115,62 @@ cos project search "キーワード" --json --results-only
 
 記法をトピック別に確認する場合は `cos notation <topic>` を使う (例: `cos notation table` でテーブル記法のみ取得)。利用可能なトピック: `basics` / `link` / `decoration` / `table` / `code-block` / `mermaid` / `image` / `icon` など。`cos notation` で全トピック一覧を表示。
 
-**⚠️ AI エージェントには `cos page edit preview` + `cos page edit submit` の 2 ステップ編集（PAT 必須）を推奨。行レベルの軽微な変更は `cos page line replace` / `cos page line delete` を優先。**
+**⚠️ 編集系コマンドはすべて PAT 必須の 2 ステップ方式 (preview → submit) です。`cos page edit submit <previewId>` で確定します。**
 
 | 用途 | 推奨コマンド |
 |---|---|
-| AI エージェントによる編集 (dry-run → 確定) | `cos page edit preview ... && cos page edit submit <previewId>` |
-| 既存の数行を書き換える | `cos page line replace --range a:b --text ...` |
-| 既存の数行を削除する | `cos page line delete --range a:b` (alias: `rm`) |
-| 末尾に追記 | `cos page append --line ...` |
-| 冒頭 (タイトル直後) に追記 | `cos page prepend --line ...` |
-| 特定行の直後に挿入 | `cos page insert --after N --line ...` |
-| 新規ページを作る | `cos page new --line ...` |
+| 末尾に追記 | `cos page append preview "タイトル" --line ...` |
+| 冒頭 (タイトル直後) に追記 | `cos page prepend preview "タイトル" --line ...` |
+| 特定行の直後に挿入 | `cos page insert preview "タイトル" --after N --line ...` |
+| lineId で直接挿入位置指定 | `cos page insert preview "タイトル" --after-id <id> --line ...` |
+| 指定行を置換 (単一行・改行禁止) | `cos page line replace preview "タイトル" --line N --text ...` |
+| 指定行または範囲を削除 | `cos page line delete preview "タイトル" --line N` / `--range a:b` |
+| 新規ページを作る | `cos page new preview "タイトル" --line ...` |
+| ops JSON で細かく制御 | `cos page edit preview "タイトル" --ops '{"ops":[...]}'` |
 
 ```bash
-# AI エージェント向け 2 ステップ編集 (PAT 必須)
-# 1. 行 ID を取得
-cos page get "タイトル" --json -p <name> | jq '.data.lines[] | {id, text}'
-# 2. ops で dry-run → previewId を取得
-cos page edit preview "タイトル" -p <name> \
-    --ops '{"ops":[{"insertBefore":"<lineId>","text":"挿入テキスト"},{"delete":"<lineId>"}]}'
-# 3. previewId で確定
+# 末尾追記
+cos page append preview "タイトル" --line "追加行" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
-# 新規ページ作成 (--new モード)
-cos page edit preview "新しいページ" --new -p <name> --body "本文1行目\n本文2行目"
+# 先頭挿入
+cos page prepend preview "タイトル" --line "冒頭に追加" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
-# 行置換 (dry-run → 本実行)
-cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name> --dry-run
-cos page line replace "タイトル" --range 3:5 --text "新内容" --project <name>
-# 複数行: --text "1行目\n2行目" / ファイル: --from-file ./patch.txt / stdin: --from-file -
+# 指定行の後ろに挿入 (--after: 1-indexed 行番号、--after-id: lineId 直接指定)
+cos page insert preview "タイトル" --after 3 --line "挿入テキスト" -p <name>
+cos page insert preview "タイトル" --after-id "<lineId>" --line "挿入テキスト" -p <name>
+cos page edit submit "<previewId>" -p <name>
 
-# 行削除 (alias: rm)
-cos page line delete "タイトル" --range 3:5 --project <name>
+# 行置換 (単一行・改行禁止)
+cos page line replace preview "タイトル" --line 3 --text "新しい内容" -p <name>
+cos page edit submit "<previewId>" -p <name>
 
-# 末尾追記 / 冒頭追記 / 挿入
-cos page append "タイトル" --line "追加行" --project <name>
-cos page prepend "タイトル" --line "冒頭に追加" --project <name>
-cos page insert "タイトル" --after 3 --line "挿入テキスト" --project <name>
+# 行削除 (単一行 / 範囲)
+cos page line delete preview "タイトル" --line 3 -p <name>
+cos page line delete preview "タイトル" --range 3:5 -p <name>
+cos page edit submit "<previewId>" -p <name>
 
 # 新規ページ
-cos page new "タイトル" --line "本文\n2行目" --project <name>
+cos page new preview "タイトル" --line "本文\n2行目" -p <name>
+cos page edit submit "<previewId>" -p <name>
+
+# ops JSON で細かく制御 (行 ID 指定)
+cos page get "タイトル" --json -p <name> | jq '.data.lines[] | {id, text}'
+cos page edit preview "タイトル" -p <name> \
+    --ops '{"ops":[{"insertBefore":"<lineId>","text":"挿入テキスト"},{"delete":"<lineId>"}]}'
+cos page edit submit "<previewId>" -p <name>
 
 # ページ削除 (エージェント環境では --force --no-input が必須)
 cos page delete "タイトル" --force --no-input --project <name>
 
-# ピン留め / 解除 / リネーム
+# ピン留め / 解除 / リネーム (SID 必須)
 cos page pin "タイトル" --project <name>
 cos page unpin "タイトル" --project <name>
 cos page rename "旧タイトル" "新タイトル" --project <name>
 ```
 
-**行編集の制約 (v0.5.0)**: `page line replace` / `page line delete` は `--expect-commit` 未対応。厳密な楽観ロックが必要なら `cos page edit preview` + `cos page edit submit` を使う。
+**行置換の制約**: `page line replace preview` は単一行・単一テキスト（改行禁止）のみ対応。複数行の複雑な置換には `cos page edit preview --ops` を使う。
 **範囲指定**: `--line` と `--range` は排他。`--range a:b` は `a >= 1`, `a <= b` 必須。タイトル行 (1行目) は変更不可。exit 5 で失敗する。
 
 ---
@@ -210,15 +214,16 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | `config.get` / `config.path` | 設定確認 |
 | `schema` / `exit-codes` | メタ情報 |
 
-### Sandbox 識別子 — 書き込み系
+### Sandbox 識別子 — 書き込み系 (PAT 必須、preview/submit の 2 ステップ)
 
 | 識別子 | コマンド |
 |---|---|
-| `page.line.replace` / `page.line.delete` | 行・範囲編集 |
-| `page.new` / `page.edit.preview` / `page.edit.submit` / `page.append` | ページ書き込み |
-| `page.prepend` / `page.insert` / `page.rename` | ページ書き込み |
-| `page.pin` / `page.unpin` | ピン留め |
-| `page.delete` | 削除 (破壊的) |
+| `page.line.replace.preview` / `page.line.delete.preview` | 行・範囲編集 (PAT 必須) |
+| `page.new.preview` / `page.edit.preview` / `page.edit.submit` / `page.append.preview` | ページ書き込み (PAT 必須) |
+| `page.prepend.preview` / `page.insert.preview` | ページ書き込み (PAT 必須) |
+| `page.rename` | ページリネーム (SID 必須) |
+| `page.pin` / `page.unpin` | ピン留め (SID 必須) |
+| `page.delete` | 削除 (破壊的、SID 必須) |
 | `page.watch` を除く `auth.*` | 認証変更 |
 | `config.set` | 設定変更 |
 | `sync.pull` / `sync.push` / `sync.diff` | 同期 |
@@ -247,7 +252,7 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | 1 | 一般エラー | stderr を確認 |
 | 2 | 認証エラー (401) / PAT 必須コマンドを非 PAT 認証で実行 | `cos auth login` または PAT を設定 |
 | 3 | 権限エラー (403) | プロジェクトへのアクセス権を確認 |
-| 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page new` で作成 |
+| 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page new preview` で作成 |
 | 5 | バリデーションエラー | 引数・フラグを確認。重複タイトル: `--force-fallback` を追加 |
 | 6 | 楽観ロック競合 | 最新 commitId を再取得して `--expect-commit` を更新し再実行、または `page line` 系に切り替え |
 | 7 | sandbox 違反 | `--enable-commands` を緩和 |

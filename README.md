@@ -109,8 +109,9 @@ cos page list --project myproject
 # ページ取得
 cos page get --project myproject "ページタイトル"
 
-# ページ作成
-cos page new --project myproject --title "新しいページ" --body "本文"
+# ページ作成 (PAT 必須: 2 ステップ)
+cos page new preview "新しいページ" --line "本文" -p myproject
+cos page edit submit <previewId> -p myproject
 ```
 
 ## コマンド一覧
@@ -125,12 +126,12 @@ cos page code           ページのコードブロックを取得
 cos page table          ページ内のテーブルを CSV で取得
 cos page url            ページの URL を表示
 cos page icon           ページアイコン取得 URL を生成する (API 呼び出しなし)
-cos page new            ページを作成
+cos page new preview    ページを作成 (PAT 必須、2 ステップ: preview → submit)
 cos page edit preview   ops を dry-run して previewId を取得 (PAT 必須)
 cos page edit submit    previewId を確定コミットに変換 (PAT 必須)
-cos page append         ページ末尾に行を追記
-cos page prepend        ページ先頭 (タイトル直後) に行を挿入
-cos page insert         指定行の後ろに行を挿入 (--after <n>)
+cos page append preview ページ末尾に行を追記 (PAT 必須、2 ステップ: preview → submit)
+cos page prepend preview ページ先頭 (タイトル直後) に行を挿入 (PAT 必須、2 ステップ: preview → submit)
+cos page insert preview  指定行の後ろに行を挿入 (--after <n> または --after-id <id>、PAT 必須)
 cos page rename         ページタイトルを変更 (--update-links でリネーム後に被リンクを一括更新)
 cos page update-links   プロジェクト内のリンクを一括置換する
 cos page pin            ページをピン留め
@@ -139,9 +140,9 @@ cos page watch          ページ更新をリアルタイム監視 (WebSocket)
 cos page history        コミット履歴を取得 (--page-id でリネーム後も追跡、--since で差分取得)
 cos page delete         ページを削除
 
-cos page line get       指定行または範囲を取得
-cos page line replace   指定行または範囲を置換 (rm エイリアスあり)
-cos page line delete    指定行または範囲を削除
+cos page line get            指定行または範囲を取得
+cos page line replace preview  指定行を置換 (PAT 必須、2 ステップ: preview → submit)
+cos page line delete preview   指定行または範囲を削除 (PAT 必須、2 ステップ: preview → submit)
 
 cos page snapshot list  スナップショット一覧を取得
 cos page snapshot get   特定スナップショットを取得
@@ -213,9 +214,37 @@ cos page text "ページタイトル" --format=md --bold-style=heading
 
 ### AI エージェント向け ops ベース編集 (PAT 必須)
 
-`cos page edit preview` / `cos page edit submit` は Cosense v2 AI 編集 API を使った 2 ステップ編集です。
-行単位の ops を dry-run してプレビューを確認してから確定できます。**Personal Access Token (PAT) が必要です。**
+編集系コマンドはすべて **Personal Access Token (PAT) が必要**な 2 ステップ方式です。
+`preview` で変更内容を dry-run して `previewId` を取得し、`cos page edit submit <previewId>` で確定します。
 
+```bash
+# ページ末尾に行を追加
+cos page append preview "ページタイトル" -p my-project --line "追加する行"
+cos page edit submit "プレビューID" -p my-project
+
+# ページ先頭（タイトル直後）に行を挿入
+cos page prepend preview "ページタイトル" -p my-project --line "先頭行"
+cos page edit submit "プレビューID" -p my-project
+
+# 指定行の後ろに挿入 (--after で 1-indexed 行番号、--after-id で lineId 直接指定)
+cos page insert preview "ページタイトル" -p my-project --after 3 --line "挿入行"
+cos page edit submit "プレビューID" -p my-project
+
+# 指定行を置換 (改行禁止)
+cos page line replace preview "ページタイトル" -p my-project --line 3 --text "新しい内容"
+cos page edit submit "プレビューID" -p my-project
+
+# 指定行または範囲を削除
+cos page line delete preview "ページタイトル" -p my-project --line 3
+cos page line delete preview "ページタイトル" -p my-project --range 3:5
+cos page edit submit "プレビューID" -p my-project
+
+# 新規ページ作成
+cos page new preview "新しいページ" -p my-project --line "本文1行目"
+cos page edit submit "プレビューID" -p my-project
+```
+
+`cos page edit preview` は ops JSON を直接指定する低レベル API です:
 ```bash
 # 1. ページの現在の行 ID を取得
 cos page get "ページタイトル" --json -p my-project | jq '.data.lines[] | {id, text}'
@@ -225,12 +254,6 @@ cos page edit preview "ページタイトル" -p my-project \
   --ops '{"ops":[{"insertBefore":"_end","text":"追加する行"}]}'
 
 # 3. previewId を使って確定
-cos page edit submit "プレビューID" -p my-project
-```
-
-新規ページ作成:
-```bash
-cos page edit preview "新しいページ" --new -p my-project --body "本文1行目\n本文2行目"
 cos page edit submit "プレビューID" -p my-project
 ```
 

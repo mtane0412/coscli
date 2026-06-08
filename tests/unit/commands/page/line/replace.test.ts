@@ -1,29 +1,74 @@
 /**
- * page/line/replace.test.ts — `cos page line replace <title>` コマンドのテスト。
+ * page/line/replace.test.ts — `cos page line replace preview <title>` コマンドのテスト。
+ *
+ * v2 AI ops API (PAT 必須) を使って指定行を置換する preview コマンドを検証する。
+ * 単一行置換のみサポート。改行入りテキストは INVALID_OPS で拒否される。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
-import * as fs from "node:fs"
-import { pageLineReplaceCommand } from "@/commands/page/line/replace"
-import * as pages from "@/core/pages"
-
-const capturedReplaceCalls: { start: number; end: number; lines: string[] }[] = []
-const realReadFileSync = fs.readFileSync.bind(fs)
+import * as sharedModule from "@/commands/_shared"
+import { pageLineReplacePreviewCommand } from "@/commands/page/line/replace/preview"
+import type * as restModule from "@/core/api/rest"
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
-let readFileSyncSpy: ReturnType<typeof spyOn>
-let replacePageSpy: ReturnType<typeof spyOn>
+let buildRestClientSpy: ReturnType<typeof spyOn> | undefined
+let requirePatSpy: ReturnType<typeof spyOn> | undefined
 
-async function runReplace(args: Record<string, unknown>) {
+/** テスト用 PAT フォーマット */
+const TEST_PAT = `pat_${"a".repeat(64)}`
+
+/** 3 行のページフィクスチャ (タイトル + 2 本文行) */
+const pageWith3Lines = {
+  id: "ページID-テスト",
+  title: "テストページ",
+  lines: [
+    { id: "行001", text: "テストページ", userId: "u1", created: 0, updated: 0 },
+    { id: "行002", text: "1行目の内容", userId: "u1", created: 0, updated: 0 },
+    { id: "行003", text: "2行目の内容", userId: "u1", created: 0, updated: 0 },
+  ],
+}
+
+/** previewEditV2 の成功レスポンスフィクスチャ */
+const previewSuccessResponse = {
+  previewId: "プレビューID-line-replace001",
+  expireAt: "2026-06-05T12:00:00.000Z",
+  pagePreview: {
+    title: "テストページ",
+    persistent: true,
+    lines: [
+      { id: "行001", text: "テストページ" },
+      { id: "行002", text: "置換後のテキスト" },
+      { id: "行003", text: "2行目の内容" },
+    ],
+  },
+}
+
+async function runLineReplacePreview(args: Record<string, unknown>) {
   await (
-    pageLineReplaceCommand.run as (ctx: {
+    pageLineReplacePreviewCommand.run as (ctx: {
       args: unknown
       cmd: never
       rawArgs: string[]
     }) => Promise<void>
-  )({ args, cmd: {} as never, rawArgs: [] })
+  )({
+    args,
+    cmd: {} as never,
+    rawArgs: [],
+  })
+}
+
+/** PAT 認証と REST クライアントのモックをセットアップするヘルパー。 */
+function setupMocks(previewResult = previewSuccessResponse, getPageResult = pageWith3Lines) {
+  requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+  const mockClient = {
+    previewEditV2: async () => previewResult,
+    getPage: async () => getPageResult,
+  }
+  buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+    mockClient as unknown as restModule.CosenseRestClient,
+  )
 }
 
 beforeEach(() => {
@@ -31,141 +76,171 @@ beforeEach(() => {
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
   stderrMock = spyOn(process.stderr, "write").mockImplementation(() => true)
   Reflect.deleteProperty(process.env, "COS_PROJECT")
-  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
-  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  process.env["COS_SID"] = "s%3Atest-session-id"
-  capturedReplaceCalls.splice(0)
-  readFileSyncSpy = spyOn(fs, "readFileSync").mockImplementation(((
-    pathOrFd: number | string,
-    encoding: string,
-  ) => {
-    if (pathOrFd === 0) return "stdin行1\nstdin行2\n"
-    return realReadFileSync(
-      pathOrFd as Parameters<typeof fs.readFileSync>[0],
-      encoding as BufferEncoding,
-    )
-  }) as typeof fs.readFileSync)
-  replacePageSpy = spyOn(pages, "replaceLinesInPage").mockImplementation(async (_writer, opts) => {
-    capturedReplaceCalls.push({ start: opts.start, end: opts.end, lines: opts.lines })
-    return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
-  })
+  Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
-  readFileSyncSpy.mockRestore()
-  replacePageSpy.mockRestore()
-  Reflect.deleteProperty(process.env, "COS_SID")
+  buildRestClientSpy?.mockRestore()
+  requirePatSpy?.mockRestore()
+  buildRestClientSpy = undefined
+  requirePatSpy = undefined
 })
 
-describe("pageLineReplaceCommand", () => {
-  it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({ title: "テストページ", line: "5", text: "置換行" })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-  })
-
-  it("--line と --range 両方未指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({ title: "テストページ", text: "置換行", project: "プロジェクト" })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-  })
-
-  it("--line と --range 両方指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({
-        title: "テストページ",
-        line: "5",
-        range: "3:7",
-        text: "置換行",
-        project: "プロジェクト",
+describe("pageLineReplacePreviewCommand", () => {
+  describe("認証エラー", () => {
+    it("PAT 以外の認証方式では exit 2 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockImplementation(async () => {
+        process.exit(2)
+        throw new Error("AUTH_PAT_REQUIRED")
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
+
+      try {
+        await runLineReplacePreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          line: "2",
+          text: "置換後のテキスト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(2)
+    })
   })
 
-  it("--text と --from-file 両方未指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({ title: "テストページ", line: "5", project: "プロジェクト" })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
+  describe("バリデーションエラー", () => {
+    it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runLineReplacePreview({
+          title: "テストページ",
+          project: undefined,
+          line: "2",
+          text: "置換後のテキスト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--line と --text が未指定の場合は VALIDATION_ERROR で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runLineReplacePreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--text に改行を含むテキストを渡すと INVALID_OPS で exit 5 になる", async () => {
+      // v2 API の _update op は改行を含むテキストに対応しないため
+      setupMocks()
+
+      try {
+        await runLineReplacePreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          line: "2",
+          text: "行1\n行2",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("INVALID_OPS"))
+    })
   })
 
-  it("--text と --from-file 両方指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({
+  describe("成功ケース", () => {
+    it("--line 2 で 2 行目の lineId を使って _update change を送信する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      await runLineReplacePreview({
         title: "テストページ",
-        line: "5",
-        text: "置換行",
-        "from-file": "test.txt",
-        project: "プロジェクト",
+        project: "テストプロジェクト",
+        line: "2",
+        text: "置換後のテキスト",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-  })
 
-  it("不正な --range (abc) の場合は exit 5 で終了する", async () => {
-    try {
-      await runReplace({
+      expect(exitMock).not.toHaveBeenCalled()
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      // _update change が生成されていること
+      expect((changes[0] as Record<string, unknown>)["_update"]).toBe("行002")
+      expect(
+        ((changes[0] as Record<string, unknown>)["lines"] as Record<string, unknown>)["text"],
+      ).toBe("置換後のテキスト")
+    })
+
+    it("--json フラグで previewId を JSON 出力する", async () => {
+      setupMocks()
+
+      await runLineReplacePreview({
         title: "テストページ",
-        range: "abc",
-        text: "置換行",
-        project: "プロジェクト",
+        project: "テストプロジェクト",
+        line: "2",
+        text: "置換後のテキスト",
+        json: true,
+        plain: false,
+        "results-only": false,
+        quiet: false,
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-  })
 
-  it("--line 5 --text '新しい行' で replaceLinesInPage を start=5,end=5 で呼ぶ", async () => {
-    await runReplace({
-      title: "テストページ",
-      line: "5",
-      text: "新しい行",
-      project: "プロジェクト",
-      "dry-run": false,
-      json: false,
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const parsed = JSON.parse(output)
+      expect(parsed.data.previewId).toBe("プレビューID-line-replace001")
     })
-    expect(replacePageSpy).toHaveBeenCalledTimes(1)
-    expect(capturedReplaceCalls[0]).toMatchObject({ start: 5, end: 5, lines: ["新しい行"] })
-  })
-
-  it("--range 3:5 --text 'A\\nB' で replaceLinesInPage を start=3,end=5,lines=['A','B'] で呼ぶ", async () => {
-    await runReplace({
-      title: "テストページ",
-      range: "3:5",
-      text: "A\\nB",
-      project: "プロジェクト",
-      "dry-run": false,
-      json: false,
-    })
-    expect(capturedReplaceCalls[0]).toMatchObject({ start: 3, end: 5, lines: ["A", "B"] })
-  })
-
-  it("--from-file - で stdin から行を読み込む", async () => {
-    await runReplace({
-      title: "テストページ",
-      line: "3",
-      "from-file": "-",
-      project: "プロジェクト",
-      "dry-run": false,
-      json: false,
-    })
-    expect(capturedReplaceCalls[0]?.lines).toEqual(["stdin行1", "stdin行2"])
   })
 })

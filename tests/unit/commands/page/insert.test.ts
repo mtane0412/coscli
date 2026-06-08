@@ -1,30 +1,55 @@
 /**
- * page/insert.test.ts — `cos page insert <title> --after <n>` コマンドのテスト。
+ * page/insert.test.ts — `cos page insert preview <title>` コマンドのテスト。
  *
- * --from-file での stdin 読み込み (- と "" の両対応) を含む。
+ * v2 AI ops API (PAT 必須) を使って指定行の後ろに行を挿入する
+ * preview コマンドを検証する。
+ * --after (1-indexed 行番号) と --after-id (lineId 直接指定) の両方に対応する。
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
-import * as fs from "node:fs"
-import { pageInsertCommand } from "@/commands/page/insert"
-import * as pages from "@/core/pages"
-
-/** insertIntoPage に渡された引数をキャプチャする */
-const capturedInsertCalls: { lines: string[] }[] = []
-
-// spyOn 前に実実装を保存する（モックが積み重なっても実ファイルアクセスができるように）
-const realReadFileSync = fs.readFileSync.bind(fs)
+import * as sharedModule from "@/commands/_shared"
+import { pageInsertPreviewCommand } from "@/commands/page/insert/preview"
+import type * as restModule from "@/core/api/rest"
 
 let exitMock: ReturnType<typeof spyOn>
 let stdoutMock: ReturnType<typeof spyOn>
 let stderrMock: ReturnType<typeof spyOn>
-let readFileSyncSpy: ReturnType<typeof spyOn>
-let insertIntoPageSpy: ReturnType<typeof spyOn>
+let buildRestClientSpy: ReturnType<typeof spyOn> | undefined
+let requirePatSpy: ReturnType<typeof spyOn> | undefined
 
-/** コマンド run ヘルパー */
-async function runInsert(args: Record<string, unknown>) {
+/** テスト用 PAT フォーマット */
+const TEST_PAT = `pat_${"a".repeat(64)}`
+
+/** 3 行のページフィクスチャ (タイトル + 2 本文行) */
+const pageWith3Lines = {
+  id: "ページID-テスト",
+  title: "テストページ",
+  lines: [
+    { id: "行001", text: "テストページ", userId: "u1", created: 0, updated: 0 },
+    { id: "行002", text: "1行目の内容", userId: "u1", created: 0, updated: 0 },
+    { id: "行003", text: "2行目の内容", userId: "u1", created: 0, updated: 0 },
+  ],
+}
+
+/** previewEditV2 の成功レスポンスフィクスチャ */
+const previewSuccessResponse = {
+  previewId: "プレビューID-insert001",
+  expireAt: "2026-06-05T12:00:00.000Z",
+  pagePreview: {
+    title: "テストページ",
+    persistent: true,
+    lines: [
+      { id: "行001", text: "テストページ" },
+      { id: "行002", text: "1行目の内容" },
+      { id: "新行001", text: "挿入する行" },
+      { id: "行003", text: "2行目の内容" },
+    ],
+  },
+}
+
+async function runInsertPreview(args: Record<string, unknown>) {
   await (
-    pageInsertCommand.run as (ctx: {
+    pageInsertPreviewCommand.run as (ctx: {
       args: unknown
       cmd: never
       rawArgs: string[]
@@ -36,201 +61,340 @@ async function runInsert(args: Record<string, unknown>) {
   })
 }
 
+/** PAT 認証と REST クライアントのモックをセットアップするヘルパー。 */
+function setupMocks(previewResult = previewSuccessResponse, getPageResult = pageWith3Lines) {
+  requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+  const mockClient = {
+    previewEditV2: async () => previewResult,
+    getPage: async () => getPageResult,
+  }
+  buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+    mockClient as unknown as restModule.CosenseRestClient,
+  )
+}
+
 beforeEach(() => {
   exitMock = spyOn(process, "exit").mockImplementation((() => {}) as () => never)
   stdoutMock = spyOn(process.stdout, "write").mockImplementation(() => true)
   stderrMock = spyOn(process.stderr, "write").mockImplementation(() => true)
   Reflect.deleteProperty(process.env, "COS_PROJECT")
-  Reflect.deleteProperty(process.env, "COS_ENABLE_COMMANDS")
-  Reflect.deleteProperty(process.env, "COS_DISABLE_COMMANDS")
-  process.env["COS_SID"] = "s%3Atest-session-id"
-  capturedInsertCalls.splice(0)
-  // stdin (fd=0) から固定コンテンツを返す。実ファイルは realReadFileSync でパススルーする
-  readFileSyncSpy = spyOn(fs, "readFileSync").mockImplementation(((
-    pathOrFd: number | string,
-    encoding: string,
-  ) => {
-    if (pathOrFd === 0) return "stdinの行1\nstdinの行2\n"
-    return realReadFileSync(
-      pathOrFd as Parameters<typeof fs.readFileSync>[0],
-      encoding as BufferEncoding,
-    )
-  }) as typeof fs.readFileSync)
-  insertIntoPageSpy = spyOn(pages, "insertIntoPage").mockImplementation(async (_writer, opts) => {
-    capturedInsertCalls.push({ lines: opts.lines })
-    return { commitId: "ダミーコミットID", pageId: "ダミーページID" }
-  })
+  Reflect.deleteProperty(process.env, "COS_SID")
+  Reflect.deleteProperty(process.env, "COS_PERSONAL_ACCESS_TOKEN")
 })
 
 afterEach(() => {
   exitMock.mockRestore()
   stdoutMock.mockRestore()
   stderrMock.mockRestore()
-  readFileSyncSpy.mockRestore()
-  insertIntoPageSpy.mockRestore()
-  Reflect.deleteProperty(process.env, "COS_SID")
+  buildRestClientSpy?.mockRestore()
+  requirePatSpy?.mockRestore()
+  buildRestClientSpy = undefined
+  requirePatSpy = undefined
 })
 
-describe("pageInsertCommand", () => {
-  it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
-    try {
-      await runInsert({
+describe("pageInsertPreviewCommand", () => {
+  describe("認証エラー", () => {
+    it("PAT 以外の認証方式では exit 2 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockImplementation(async () => {
+        process.exit(2)
+        throw new Error("AUTH_PAT_REQUIRED")
+      })
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "2",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(2)
+    })
+  })
+
+  describe("バリデーションエラー", () => {
+    it("プロジェクト未指定の場合は exit 5 で終了する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: undefined,
+          after: "2",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--after も --after-id も指定しない場合は VALIDATION_ERROR で exit 5 になる（空文字エラーではなく）", async () => {
+      // 両フラグ未指定時に "--after の値が無効です: ''" という誤解を招くメッセージを出さないこと
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          // after も after-id も渡さない
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      // 空文字エラーではなく「どちらかを指定して」というメッセージであること
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      expect(output).toContain("VALIDATION_ERROR")
+      expect(output).not.toContain('""')
+      expect(output).toContain("after-id")
+    })
+
+    it("--after に数値以外を指定した場合は VALIDATION_ERROR で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "abc",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+    })
+
+    it("--after に 0 を指定した場合は VALIDATION_ERROR で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "0",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+    })
+
+    it("--after にページ行数を超える値を指定した場合は VALIDATION_ERROR で exit 5 になる", async () => {
+      // pageWith3Lines は 3 行なので --after 4 以上は範囲外
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      const mockClient = {
+        previewEditV2: async () => previewSuccessResponse,
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "4",
+          line: "挿入する行",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
+    })
+
+    it("--line も --from-file も指定しない場合は CONTENT_REQUIRED で exit 5 になる", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        {} as restModule.CosenseRestClient,
+      )
+
+      try {
+        await runInsertPreview({
+          title: "テストページ",
+          project: "テストプロジェクト",
+          after: "2",
+          json: false,
+          plain: false,
+          "results-only": false,
+          quiet: false,
+        })
+      } catch {
+        // process.exit モック後の継続 throw は想定内
+      }
+
+      expect(exitMock).toHaveBeenCalledWith(5)
+      expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
+    })
+  })
+
+  describe("成功ケース (--after 行番号指定)", () => {
+    it("--after 2 で 2 行目の次行 (3 行目) の lineId をアンカーとして送信する", async () => {
+      // ページの 2 行目の後ろに挿入するため、3 行目 (行003) がアンカーになること
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      await runInsertPreview({
         title: "テストページ",
+        project: "テストプロジェクト",
         after: "2",
-        line: "挿入行",
-        project: undefined,
+        line: "挿入する行",
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-  })
 
-  it("--after に数値以外を指定した場合は VALIDATION_ERROR で exit 5", async () => {
-    try {
-      await runInsert({
-        title: "テストページ",
-        after: "abc",
-        line: "挿入行",
-        project: "テストプロジェクト",
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": false,
-        quiet: false,
-      })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
-  })
-
-  it("--after に 0 を指定した場合は VALIDATION_ERROR で exit 5", async () => {
-    try {
-      await runInsert({
-        title: "テストページ",
-        after: "0",
-        line: "挿入行",
-        project: "テストプロジェクト",
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": false,
-        quiet: false,
-      })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("VALIDATION_ERROR"))
-  })
-
-  it("--line も --from-file も指定しない場合は CONTENT_REQUIRED で exit 5", async () => {
-    try {
-      await runInsert({
-        title: "テストページ",
-        after: "1",
-        project: "テストプロジェクト",
-        json: false,
-        plain: false,
-        "results-only": false,
-        "dry-run": false,
-        quiet: false,
-      })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringContaining("CONTENT_REQUIRED"))
-  })
-
-  it("--line に実改行を含む文字列を渡すと insertIntoPage に2行で渡される", async () => {
-    // $'挿入行A\n挿入行B' のようなシェル実改行を含む文字列を渡した場合の検証
-    await runInsert({
-      title: "テストページ",
-      after: "1",
-      line: "挿入行A\n挿入行B",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
+      expect(exitMock).not.toHaveBeenCalled()
+      // --after 2 なので lines[2] = 行003 がアンカーになること (0-indexed: lines[after])
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      expect((changes[0] as Record<string, unknown>)["_insert"]).toBe("行003")
     })
-    // 実改行（\n）が展開され、lines が ["挿入行A", "挿入行B"] の2行になること
-    expect(capturedInsertCalls).toHaveLength(1)
-    expect(capturedInsertCalls[0]?.lines).toEqual(["挿入行A", "挿入行B"])
-  })
 
-  it("--from-file '-' (明示的なstdin指定) でstdinからコンテンツを読み込む", async () => {
-    // citty が正しく "-" を渡したケース
-    await runInsert({
-      title: "テストページ",
-      after: "1",
-      "from-file": "-",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
-    })
-    expect(capturedInsertCalls).toHaveLength(1)
-    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行1")
-    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行2")
-  })
+    it("最終行 (--after 3) の後ろへの挿入は _end をアンカーとして使う", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
 
-  it("--after '' (citty のパースバグ: 負数が空文字になるケース) でエラーメッセージに process.argv の実値を表示する", async () => {
-    // citty が --after -1 を --after "" + flag -1 として解析するバグへの対応
-    // process.argv に実際のフラグ値が残っているため、そこから "-1" を取得してエラーメッセージに表示する
-    const originalArgv = process.argv
-    process.argv = ["bun", "cos", "--after", "-1"]
-    try {
-      await runInsert({
+      await runInsertPreview({
         title: "テストページ",
-        after: "",
-        line: "挿入行",
         project: "テストプロジェクト",
+        after: "3",
+        line: "最終行の後ろに挿入",
         json: false,
         plain: false,
         "results-only": false,
-        "dry-run": false,
         quiet: false,
       })
-    } catch {
-      // process.exit モック後の継続による throw は想定内
-    } finally {
-      process.argv = originalArgv
-    }
-    expect(exitMock).toHaveBeenCalledWith(5)
-    // JSON 出力では " が \" にエスケープされるため \"-1\" 形式で含まれることを確認する
-    // (空文字 \"\" ではなく実値 \"-1\" が表示されること)
-    expect(stdoutMock).toHaveBeenCalledWith(expect.stringMatching(/\\"-1\\"/))
+
+      expect(exitMock).not.toHaveBeenCalled()
+      // 最終行への挿入なので _end になること
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      expect((changes[0] as Record<string, unknown>)["_insert"]).toBe("_end")
+    })
   })
 
-  it("--from-file '' (citty のパースバグで空文字になったケース) でstdinからコンテンツを読み込む", async () => {
-    // citty が --from-file - を "" に変換するバグへの対応
-    await runInsert({
-      title: "テストページ",
-      after: "1",
-      "from-file": "",
-      project: "テストプロジェクト",
-      json: false,
-      plain: false,
-      "results-only": false,
-      "dry-run": false,
-      quiet: false,
+  describe("成功ケース (--after-id lineId 直接指定)", () => {
+    it("--after-id でアンカー lineId を直接指定して送信する", async () => {
+      requirePatSpy = spyOn(sharedModule, "requirePat").mockResolvedValue(TEST_PAT)
+      let capturedOpts: unknown = null
+      const mockClient = {
+        previewEditV2: async (_project: string, opts: unknown) => {
+          capturedOpts = opts
+          return previewSuccessResponse
+        },
+        getPage: async () => pageWith3Lines,
+      }
+      buildRestClientSpy = spyOn(sharedModule, "buildRestClient").mockResolvedValue(
+        mockClient as unknown as restModule.CosenseRestClient,
+      )
+
+      await runInsertPreview({
+        title: "テストページ",
+        project: "テストプロジェクト",
+        "after-id": "行003",
+        line: "指定 lineId の直前に挿入",
+        json: false,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+
+      expect(exitMock).not.toHaveBeenCalled()
+      // --after-id で指定した lineId がアンカーとして使われること
+      const changes = (capturedOpts as Record<string, unknown>)["changes"] as unknown[]
+      expect((changes[0] as Record<string, unknown>)["_insert"]).toBe("行003")
     })
-    // "" もstdinとして扱われ、CONTENT_REQUIRED にならずコンテンツが渡されること
-    expect(exitMock).not.toHaveBeenCalledWith(5)
-    expect(capturedInsertCalls).toHaveLength(1)
-    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行1")
-    expect(capturedInsertCalls[0]?.lines).toContain("stdinの行2")
+  })
+
+  describe("JSON / プレーン出力", () => {
+    it("--json フラグで previewId を JSON 出力する", async () => {
+      setupMocks()
+
+      await runInsertPreview({
+        title: "テストページ",
+        project: "テストプロジェクト",
+        after: "2",
+        line: "挿入する行",
+        json: true,
+        plain: false,
+        "results-only": false,
+        quiet: false,
+      })
+
+      expect(exitMock).not.toHaveBeenCalled()
+      const output = (stdoutMock.mock.calls[0]?.[0] as string) ?? ""
+      const parsed = JSON.parse(output)
+      expect(parsed.data.previewId).toBe("プレビューID-insert001")
+    })
   })
 })
