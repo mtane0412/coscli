@@ -42,6 +42,11 @@ describe("READ_COMMANDS", () => {
     expect(READ_COMMANDS).toContain("sync.pull")
   })
 
+  it("page.icon は API 呼び出しなし・URL 生成のみのため READ に含む", () => {
+    // page.icon は WRITE 分類の誤りだったため READ に移送 (codex review 指摘 #9)
+    expect(READ_COMMANDS).toContain("page.icon")
+  })
+
   it("書き込みコマンドを含まない", () => {
     expect(READ_COMMANDS).not.toContain("page.new")
     expect(READ_COMMANDS).not.toContain("page.delete")
@@ -55,7 +60,6 @@ describe("READ_COMMANDS", () => {
     expect(READ_COMMANDS).not.toContain("page.line.delete")
     expect(READ_COMMANDS).not.toContain("page.pin")
     expect(READ_COMMANDS).not.toContain("page.unpin")
-    expect(READ_COMMANDS).not.toContain("page.icon")
     expect(READ_COMMANDS).not.toContain("auth.login")
     expect(READ_COMMANDS).not.toContain("auth.logout")
     expect(READ_COMMANDS).not.toContain("config.set")
@@ -72,6 +76,11 @@ describe("WRITE_COMMANDS", () => {
     expect(overlap).toHaveLength(0)
   })
 
+  it("page.icon は READ に移送されたため WRITE に含まない", () => {
+    // page.icon は URL 生成のみで Cosense API を呼ばないため READ が正しい分類
+    expect(WRITE_COMMANDS).not.toContain("page.icon")
+  })
+
   it("ページ書き込み系コマンドを含む", () => {
     expect(WRITE_COMMANDS).toContain("page.new.preview")
     expect(WRITE_COMMANDS).toContain("page.delete")
@@ -85,7 +94,6 @@ describe("WRITE_COMMANDS", () => {
     expect(WRITE_COMMANDS).toContain("page.line.delete.preview")
     expect(WRITE_COMMANDS).toContain("page.pin")
     expect(WRITE_COMMANDS).toContain("page.unpin")
-    expect(WRITE_COMMANDS).toContain("page.icon")
   })
 
   it("認証・設定・同期系書き込みコマンドを含む", () => {
