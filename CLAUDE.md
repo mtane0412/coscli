@@ -157,9 +157,11 @@ type Credential =
 
 ### PAT 制約
 
-PAT (`pat_` + 64桁小文字16進数、ヘッダ `x-personal-access-token`) は**読み取り系 REST のみ**対応。
+PAT (`pat_` + 64桁小文字16進数、ヘッダ `x-personal-access-token`) の能力一覧は `src/core/auth/capabilities.ts` の `AUTH_CAPABILITIES.pat` が単一の事実ソース。
 
-- **書き込み不可**: `page edit`、`page pin`、`sync push` 等は `connect.sid` が必要
+概要:
+- **v2 AI ops API 書き込み可**: `page edit preview / submit`、`page append preview` 等 (v2 AI ops 移行済みコマンド)
+- **旧 WebSocket commit は不可**: `page delete`、`page pin`、`sync push` 等は `connect.sid` が必要
 - **csrfToken 欠落**: PAT セッションでは `/api/users/me` が csrfToken を返さない。`MeSchema.csrfToken` は `.optional()` にしてある
 - **`replaceLinks` ガード**: `csrfToken === undefined` のとき `AUTH_WRITE_NOT_SUPPORTED` を throw
 

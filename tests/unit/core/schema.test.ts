@@ -165,6 +165,65 @@ describe("buildSchema", () => {
   })
 })
 
+describe("SchemaCommand の拡張フィールド", () => {
+  it("SchemaCommand は省略可能な拡張フィールドを受け取れる", () => {
+    // TypeScript の型チェックを兼ねるランタイムテスト。
+    // SchemaCommand 型に新規フィールドが追加されているか検証する。
+    const extended: import("@/core/schema").SchemaCommand = {
+      name: "page.delete",
+      aliases: ["page.rm"],
+      args: [],
+      subCommands: [],
+      id: "page.delete",
+      requiresAuthKind: "sid",
+      permissionKind: "destructive",
+      examples: [{ description: "ページを削除する", command: "cos page delete タイトル" }],
+      conditionalArgs: [],
+    }
+    expect(extended.id).toBe("page.delete")
+    expect(extended.requiresAuthKind).toBe("sid")
+    expect(extended.permissionKind).toBe("destructive")
+    expect(extended.examples?.[0]?.description).toBe("ページを削除する")
+    expect(extended.conditionalArgs).toEqual([])
+  })
+
+  it("SchemaCommand は canonicalId を持てる (deprecated alias の場合)", () => {
+    const deprecatedCmd: import("@/core/schema").SchemaCommand = {
+      name: "page.text",
+      aliases: [],
+      args: [],
+      subCommands: [],
+      id: "page.text",
+      canonicalId: "page.get",
+      deprecated: {
+        since: "v2.0.0",
+        replacement: "page get --format=text",
+      },
+    }
+    expect(deprecatedCmd.canonicalId).toBe("page.get")
+    expect(deprecatedCmd.deprecated?.since).toBe("v2.0.0")
+    expect(deprecatedCmd.deprecated?.replacement).toBe("page get --format=text")
+  })
+
+  it("SchemaCommand は conditionalArgs を持てる (--format=code のとき --filename 必須)", () => {
+    const conditional: import("@/core/schema").SchemaCommand = {
+      name: "page.get",
+      aliases: [],
+      args: [],
+      subCommands: [],
+      conditionalArgs: [
+        {
+          when: { arg: "format", equals: ["code", "table"] },
+          required: ["filename"],
+        },
+      ],
+    }
+    expect(conditional.conditionalArgs?.[0]?.when.arg).toBe("format")
+    expect(conditional.conditionalArgs?.[0]?.when.equals).toEqual(["code", "table"])
+    expect(conditional.conditionalArgs?.[0]?.required).toEqual(["filename"])
+  })
+})
+
 describe("findCommandByPath", () => {
   it("空パスはルートを返す", async () => {
     const result = await findCommandByPath(rootCommand, "cos", [])

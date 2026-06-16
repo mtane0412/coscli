@@ -85,6 +85,61 @@ describe("writeJson", () => {
     const parsed = JSON.parse(stream.output)
     expect(parsed).toEqual(["タイトルC"])
   })
+
+  it("canonicalCommand が指定された場合は meta.canonicalCommand に含める", () => {
+    const stream = createMockStream()
+    writeJson(
+      { title: "テストページ" },
+      {
+        command: "page.text",
+        startTime: Date.now(),
+        canonicalCommand: "page.get",
+      },
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const parsed = JSON.parse(stream.output)
+    expect(parsed.meta.canonicalCommand).toBe("page.get")
+  })
+
+  it("deprecated が指定された場合は meta.deprecated に含める", () => {
+    const stream = createMockStream()
+    writeJson(
+      { title: "テストページ" },
+      {
+        command: "page.text",
+        startTime: Date.now(),
+        deprecated: { since: "v2.0.0", replacement: "page get --format=text" },
+      },
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const parsed = JSON.parse(stream.output)
+    expect(parsed.meta.deprecated).toEqual({
+      since: "v2.0.0",
+      replacement: "page get --format=text",
+    })
+  })
+
+  it("canonicalCommand が未指定の場合は meta.canonicalCommand を含まない (後方互換)", () => {
+    const stream = createMockStream()
+    writeJson(
+      {},
+      { command: "page.get", startTime: Date.now() },
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const parsed = JSON.parse(stream.output)
+    expect(parsed.meta.canonicalCommand).toBeUndefined()
+  })
+
+  it("deprecated が未指定の場合は meta.deprecated を含まない (後方互換)", () => {
+    const stream = createMockStream()
+    writeJson(
+      {},
+      { command: "page.get", startTime: Date.now() },
+      { stream: stream as unknown as NodeJS.WritableStream },
+    )
+    const parsed = JSON.parse(stream.output)
+    expect(parsed.meta.deprecated).toBeUndefined()
+  })
 })
 
 describe("writeErrorJson", () => {
