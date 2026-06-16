@@ -240,7 +240,13 @@ export const pageEditPreviewCommand = defineCommand({
       const bodyLines = bodyText ? bodyText.split(/\r?\n|\\n/) : []
       const translateResult = buildNewPageChanges(a.title, bodyLines)
 
-      const response = await client.previewEditV2(project, { changes: translateResult.changes })
+      let response: Awaited<ReturnType<typeof client.previewEditV2>>
+      try {
+        response = await client.previewEditV2(project, { changes: translateResult.changes })
+      } catch (err) {
+        handlePreviewEditV2Error(err, a.title)
+        throw err
+      }
       const status = response.pagePreview?.persistent === false ? "create" : "update"
       const result = buildPreviewResult(
         response.previewId,
@@ -280,10 +286,16 @@ export const pageEditPreviewCommand = defineCommand({
 
       const page = await client.getPage(project, a.title)
       const translateResult = buildAppendChanges(lines)
-      const response = await client.previewEditV2(project, {
-        pageId: page.id,
-        changes: translateResult.changes,
-      })
+      let response: Awaited<ReturnType<typeof client.previewEditV2>>
+      try {
+        response = await client.previewEditV2(project, {
+          pageId: page.id,
+          changes: translateResult.changes,
+        })
+      } catch (err) {
+        handlePreviewEditV2Error(err, a.title)
+        throw err
+      }
       const status = response.pagePreview?.persistent === false ? "create" : "update"
       const result = buildPreviewResult(
         response.previewId,
@@ -325,10 +337,16 @@ export const pageEditPreviewCommand = defineCommand({
       // タイトル直後の行 ID をアンカーとする。タイトル行のみなら "_end"
       const anchorLineId = page.lines[1]?.id ?? "_end"
       const translateResult = buildPrependChanges(anchorLineId, lines)
-      const response = await client.previewEditV2(project, {
-        pageId: page.id,
-        changes: translateResult.changes,
-      })
+      let response: Awaited<ReturnType<typeof client.previewEditV2>>
+      try {
+        response = await client.previewEditV2(project, {
+          pageId: page.id,
+          changes: translateResult.changes,
+        })
+      } catch (err) {
+        handlePreviewEditV2Error(err, a.title)
+        throw err
+      }
       const status = response.pagePreview?.persistent === false ? "create" : "update"
       const result = buildPreviewResult(
         response.previewId,
