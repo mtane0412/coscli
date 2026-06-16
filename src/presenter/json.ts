@@ -7,15 +7,40 @@
 
 import { randomUUID } from "node:crypto"
 
+/** ResponseEnvelopeMeta は CLI 出力 envelope の meta フィールド。 */
+export interface ResponseEnvelopeMeta {
+  /** 実行されたコマンド識別子 (deprecated alias の場合は旧識別子のまま) */
+  command: string
+  /** ミリ秒単位の実行時間 */
+  durationMs: number
+  /** リクエスト追跡用 UUID */
+  requestId: string
+  /** 警告メッセージリスト */
+  warnings: string[]
+  /**
+   * 正規コマンド識別子 (deprecated alias 経由で実行された場合のみ設定)。
+   *
+   * エージェントが次のターンで使うべき正規コマンド ID を示す。
+   * command フィールドとの使い分け:
+   *   - command: sandbox 識別子として使用 (後方互換を維持)
+   *   - canonicalCommand: エージェントが学ぶべき正規 ID
+   */
+  canonicalCommand?: string
+  /**
+   * 非推奨情報 (deprecated alias 経由で実行された場合のみ設定)。
+   *
+   * エージェントが次のターンで正規コマンドに切り替えるための移行情報。
+   */
+  deprecated?: {
+    since: string
+    replacement: string
+  }
+}
+
 /** ResponseEnvelope は CLI の標準出力 envelope 形式。 */
 export interface ResponseEnvelope<T> {
   data: T
-  meta: {
-    command: string
-    durationMs: number
-    requestId: string
-    warnings: string[]
-  }
+  meta: ResponseEnvelopeMeta
 }
 
 /** ErrorEnvelope はエラー時の出力形式。 */
@@ -38,12 +63,33 @@ export interface JsonOutputOptions {
   select?: string
 }
 
+/** WriteJsonMeta は writeJson に渡す meta 引数の型。 */
+export interface WriteJsonMeta {
+  /** コマンド識別子 */
+  command: string
+  /** 開始時刻 (Date.now()) */
+  startTime: number
+  /** 警告メッセージリスト */
+  warnings?: string[]
+  /**
+   * 正規コマンド識別子 (deprecated alias 経由の場合のみ指定)。
+   *
+   * 指定すると envelope の meta.canonicalCommand に出力される。
+   */
+  canonicalCommand?: string
+  /**
+   * 非推奨情報 (deprecated alias 経由の場合のみ指定)。
+   *
+   * 指定すると envelope の meta.deprecated に出力される。
+   */
+  deprecated?: {
+    since: string
+    replacement: string
+  }
+}
+
 /** writeJson は envelope を JSON として stdout に書き出す。 */
-export function writeJson<T>(
-  data: T,
-  meta: { command: string; startTime: number; warnings?: string[] },
-  opts: JsonOutputOptions = {},
-): void {
+export function writeJson<T>(data: T, meta: WriteJsonMeta, opts: JsonOutputOptions = {}): void {
   const stream = opts.stream ?? process.stdout
   const durationMs = Date.now() - meta.startTime
 
@@ -51,15 +97,20 @@ export function writeJson<T>(
   if (opts.resultsOnly) {
     output = applySelect(data, opts.select)
   } else {
-    const envelope: ResponseEnvelope<T> = {
-      data,
-      meta: {
-        command: meta.command,
-        durationMs,
-        requestId: randomUUID(),
-        warnings: meta.warnings ?? [],
-      },
+    const envelopeMeta: ResponseEnvelopeMeta = {
+      command: meta.command,
+      durationMs,
+      requestId: randomUUID(),
+      warnings: meta.warnings ?? [],
     }
+    // 省略可能フィールドは値がある場合のみ出力する (後方互換)
+    if (meta.canonicalCommand !== undefined) {
+      envelopeMeta.canonicalCommand = meta.canonicalCommand
+    }
+    if (meta.deprecated !== undefined) {
+      envelopeMeta.deprecated = meta.deprecated
+    }
+    const envelope: ResponseEnvelope<T> = { data, meta: envelopeMeta }
     output = opts.select ? applySelect(envelope.data, opts.select) : envelope
   }
 

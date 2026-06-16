@@ -28,6 +28,42 @@ export interface SchemaArg {
   valueHint?: string
 }
 
+/**
+ * SchemaCommandDeprecated はコマンドの非推奨情報。
+ *
+ * deprecated alias コマンドが持つ移行情報。エージェントが次のターンで
+ * 正規コマンドに切り替えるための情報を機械可読で提供する。
+ */
+export interface SchemaCommandDeprecated {
+  /** 非推奨になったバージョン (例: "v2.0.0") */
+  since: string
+  /** 移行先コマンド文字列 (例: "page get --format=text") */
+  replacement: string
+  /** 移行先コマンドに渡す追加引数マッピング (省略可) */
+  replacementArgs?: Record<string, string>
+}
+
+/** SchemaCommandConditionalArg は条件付き必須引数の定義。 */
+export interface SchemaCommandConditionalArg {
+  /** この条件が発動する引数と値の条件 */
+  when: {
+    /** 引数名 */
+    arg: string
+    /** いずれかに一致する値リスト */
+    equals: string[]
+  }
+  /** when の条件が満たされたとき必須となる引数名リスト */
+  required: string[]
+}
+
+/** SchemaCommandExample はコマンドの使用例。 */
+export interface SchemaCommandExample {
+  /** 使用例の説明 */
+  description: string
+  /** 使用例コマンド文字列 */
+  command: string
+}
+
 /** SchemaCommand はコマンド 1 つのスキーマ表現。 */
 export interface SchemaCommand {
   /** コマンド名（canonical） */
@@ -40,6 +76,59 @@ export interface SchemaCommand {
   args: SchemaArg[]
   /** サブコマンド一覧 */
   subCommands: SchemaCommand[]
+  /**
+   * フル識別子 (例: "page.get", "page.edit.preview")。
+   *
+   * sandbox の --enable-commands / --disable-commands と同じドット区切り形式。
+   * PR 5 で cos schema コマンドが出力する際に実際の ID を流し込む。
+   */
+  id?: string
+  /**
+   * 正規識別子 (deprecated alias の場合のみ設定)。
+   *
+   * 例: page.text の canonicalId は "page.get"。
+   * エージェントが学ぶべき正規コマンドを示す。
+   */
+  canonicalId?: string
+  /**
+   * 必要な認証種別。
+   *
+   * - "pat": PAT 専用 (v2 AI ops API 書き込み系)
+   * - "sid": SID 必須 (旧 WebSocket commit 系)
+   * - "any": PAT/SID/SA いずれかで可 (読み取り系)
+   * - "none": 認証不要 (ローカル情報参照系)
+   */
+  requiresAuthKind?: "pat" | "sid" | "any" | "none"
+  /**
+   * 操作の権限種別。
+   *
+   * - "read": 読み取りのみ
+   * - "write": 書き込み (非破壊的)
+   * - "destructive": 削除・上書き等の破壊的書き込み
+   * - "config": ローカル設定変更
+   * - "meta": メタ情報参照 (schema / exit-codes 等)
+   */
+  permissionKind?: "read" | "write" | "destructive" | "config" | "meta"
+  /**
+   * 非推奨情報 (deprecated alias の場合のみ設定)。
+   *
+   * エージェントが次のターンで正規コマンドに切り替えるための移行情報。
+   */
+  deprecated?: SchemaCommandDeprecated
+  /**
+   * 使用例リスト。
+   *
+   * AI エージェントが `--format=code` のような条件付き引数の正しい使い方を
+   * 学習するための具体的なコマンド例。
+   */
+  examples?: SchemaCommandExample[]
+  /**
+   * 条件付き必須引数の定義。
+   *
+   * 例: `--format=code` または `--format=table` のとき `--filename` が必須。
+   * citty の args では表現できない条件付き必須を機械可読で提供する。
+   */
+  conditionalArgs?: SchemaCommandConditionalArg[]
 }
 
 /**
