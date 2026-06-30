@@ -1,10 +1,13 @@
 /**
  * page/url.ts — `cos page url <title>` コマンド。
  *
+ * @deprecated `cos page get <title> --format=url` を使用してください。
+ *
  * ページの URL をローカルで算出して stdout に出力する。
  * API 呼び出しは行わない。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -34,12 +37,25 @@ export const pageUrlCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page url", "page get --format=url", warnings)
+
     logger.verbose(`URL を生成: ${a.title}`)
 
     const url = buildPageUrl(project, a.title)
 
     if (a.json) {
-      writeJson({ url }, { command: "page.url", startTime }, buildJsonOpts(a))
+      writeJson(
+        { url },
+        {
+          command: "page.url",
+          startTime,
+          warnings,
+          canonicalCommand: "page.get",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page get --format=url" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

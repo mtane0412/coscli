@@ -1,9 +1,12 @@
 /**
  * page/table.ts — `cos page table <title> <filename>` コマンド。
  *
+ * @deprecated `cos page get <title> --format=table --filename=<filename>` を使用してください。
+ *
  * ページ内の [table:filename] ブロックを CSV テキストで取得して stdout に出力する。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -38,12 +41,26 @@ export const pageTableCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const replacement = "page get <title> --format=table --filename=<filename>"
+    const warnings: string[] = []
+    warnDeprecated("page table", replacement, warnings)
+
     try {
       const client = await buildRestClient(a)
       const csv = await getTable(client, { project, title: a.title, filename: a.filename })
 
       if (a.json) {
-        writeJson({ csv }, { command: "page.table", startTime }, buildJsonOpts(a))
+        writeJson(
+          { csv },
+          {
+            command: "page.table",
+            startTime,
+            warnings,
+            canonicalCommand: "page.get",
+            deprecated: { since: DEPRECATION_SINCE, replacement },
+          },
+          buildJsonOpts(a),
+        )
         return
       }
 
