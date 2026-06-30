@@ -1,5 +1,11 @@
 # coscli
 
+> [!WARNING]
+> **このリポジトリはアーカイブされています。**
+>
+> 公式 CLI [cosense-cli](https://github.com/helpfeel/cosense-cli) が公開されました。
+> 新規インストールには公式 CLI の使用を推奨します。
+
 **Cosense in your terminal.**
 
 [Cosense](https://cosen.se/) (旧 Scrapbox) を端末・スクリプト・AI エージェントから操作するための CLI。バイナリ名 `cos`。
