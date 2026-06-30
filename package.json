@@ -1,6 +1,6 @@
 {
   "name": "coscli",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Cosense in your terminal — CLI for pages, projects, search, sync, and AI agents.",
   "bin": {
     "cos": "./dist/cos"
