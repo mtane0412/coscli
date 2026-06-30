@@ -1,6 +1,8 @@
 /**
  * page/line/replace/preview.ts — `cos page line replace preview <title>` コマンド。
  *
+ * @deprecated `cos page edit preview --op=line-replace` を使用してください。
+ *
  * v2 AI ops API を使って指定行 (--line n) のテキストを置換する preview を実行し previewId を取得する。
  * --text に改行が含まれる場合は INVALID_OPS (exit 5) で終了する（API 制約）。
  * 確定は `cos page edit submit <previewId>` で行う。
@@ -8,6 +10,7 @@
  * 認証: PAT 必須（SID・SA では HTTP 403）。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -54,6 +57,9 @@ export const pageLineReplacePreviewCommand = defineCommand({
     checkSandbox("page.line.replace.preview", a)
     const project = requireProject(a)
     const startTime = Date.now()
+
+    const warnings: string[] = []
+    warnDeprecated("page line replace preview", "page edit preview --op=line-replace", warnings)
 
     await requirePat(a)
 
@@ -130,7 +136,20 @@ export const pageLineReplacePreviewCommand = defineCommand({
     )
 
     if (a.json) {
-      writeJson(result, { command: "page.line.replace.preview", startTime }, buildJsonOpts(a))
+      writeJson(
+        result,
+        {
+          command: "page.line.replace.preview",
+          startTime,
+          warnings,
+          canonicalCommand: "page.edit.preview",
+          deprecated: {
+            since: DEPRECATION_SINCE,
+            replacement: "page edit preview --op=line-replace",
+          },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 
