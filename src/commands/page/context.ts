@@ -1,12 +1,15 @@
 /**
  * page/context.ts — `cos page context <title>` コマンド。
  *
+ * @deprecated `cos page get <title> --format=context` を使用してください。
+ *
  * 指定ページを起点に Smart Context API を叩き、
  * 1hop または 2hop 先までのリンク先ページ本文をテキストで取得して stdout に出力する。
  * LLM への文脈投入やエージェントによるページ関連情報収集に使う。
  * --query を指定すると、ページセクション単位でキーワードフィルタを行う。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -53,6 +56,9 @@ export const pageContextCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page context", "page get --format=context", warnings)
+
     // --hops バリデーション
     const hopsNum = Number(a.hops)
     if (!(VALID_HOPS as readonly number[]).includes(hopsNum)) {
@@ -70,7 +76,17 @@ export const pageContextCommand = defineCommand({
     const text = filterSmartContextByQuery(rawText, a.query)
 
     if (a.json) {
-      writeJson({ text }, { command: "page.context", startTime }, buildJsonOpts(a))
+      writeJson(
+        { text },
+        {
+          command: "page.context",
+          startTime,
+          warnings,
+          canonicalCommand: "page.get",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page get --format=context" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

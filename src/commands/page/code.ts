@@ -1,9 +1,12 @@
 /**
  * page/code.ts — `cos page code <title> <filename>` コマンド。
  *
+ * @deprecated `cos page get <title> --format=code --filename=<filename>` を使用してください。
+ *
  * ページ内のコードブロックを取得して stdout に出力する。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -37,11 +40,27 @@ export const pageCodeCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page code", `page get --format=code --filename=${a.filename}`, warnings)
+
     const client = await buildRestClient(a)
     const code = await getCodeBlock(client, { project, title: a.title, filename: a.filename })
 
     if (a.json) {
-      writeJson({ code }, { command: "page.code", startTime }, buildJsonOpts(a))
+      writeJson(
+        { code },
+        {
+          command: "page.code",
+          startTime,
+          warnings,
+          canonicalCommand: "page.get",
+          deprecated: {
+            since: DEPRECATION_SINCE,
+            replacement: `page get --format=code --filename=${a.filename}`,
+          },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

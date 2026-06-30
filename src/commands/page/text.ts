@@ -1,6 +1,8 @@
 /**
  * page/text.ts — `cos page text <title>` コマンド。
  *
+ * @deprecated `cos page get <title> --format=text` を使用してください。
+ *
  * ページのプレーンテキスト本文を取得して stdout に出力する。
  * --format=md を指定すると Scrapbox 記法を Markdown に変換して出力する。
  * --format=scrapbox は --format=txt の alias として扱う。
@@ -8,6 +10,7 @@
  * パイプや他ツールとの連携に使う。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -68,6 +71,9 @@ export const pageTextCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page text", "page get --format=text", warnings)
+
     // alias を正規値に変換する (例: scrapbox → txt)
     const resolvedFormat = FORMAT_ALIASES[a.format] ?? a.format
 
@@ -111,7 +117,17 @@ export const pageTextCommand = defineCommand({
     }
 
     if (a.json) {
-      writeJson({ text: outputText }, { command: "page.text", startTime }, buildJsonOpts(a))
+      writeJson(
+        { text: outputText },
+        {
+          command: "page.text",
+          startTime,
+          warnings,
+          canonicalCommand: "page.get",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page get --format=text" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 
