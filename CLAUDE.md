@@ -79,11 +79,22 @@ bun test                     # テスト全件 pass 必須
 
 ### alias ルール
 
-トップレベル alias は citty で別 command として二重登録している。
-alias を追加・変更する際は `src/cli.ts` の「エイリアス登録」セクションを必ず同時に更新すること。
-また `.agents/skills/coscli/SKILL.md` の該当 alias 記述 (`cos page snapshot ls`、`cos page line rm`、`cos auth me` など) も同時に更新すること。
+トップレベル alias は `src/commands/index.ts` の `rootSubCommands` に登録する (PR 6 以降の規約)。
+alias を追加・変更する際は `src/commands/index.ts` を更新すること。
+また `.agents/skills/coscli/SKILL.md` の該当 alias 記述も同時に更新すること。
 
-sandbox alias (`src/core/sandbox/aliases.ts`) が存在する場合、alias の追加・変更時には当該ファイルも同時に更新すること。
+**現在のトップレベル alias 一覧:**
+
+| alias | 委譲先 | 追加バージョン |
+|---|---|---|
+| `cos search` / `cos find` | `project search` | 初期 |
+| `cos login` | `auth login` | 初期 |
+| `cos me` | `auth whoami` | 初期 |
+| `cos get` | `page get` | v0.10.0 |
+| `cos ls` | `page list` | v0.10.0 |
+| `cos edit` | `page edit preview` | v0.10.0 |
+
+sandbox alias (`src/core/sandbox/aliases.ts`) が存在する場合、書き込み verb の alias 追加・変更時には当該ファイルも同時に更新すること。
 
 ## ディレクトリ構造
 

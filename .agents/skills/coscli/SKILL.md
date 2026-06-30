@@ -37,6 +37,19 @@ cos exit-codes --json               # 終了コード一覧 (単一ソース)
 
 ---
 
+## トップレベル alias (よく使う操作)
+
+頻出コマンドはルートに alias が登録されている。`cos page get` と同じ動作。
+
+```bash
+cos get "ページ名" --format=ai -p myproj     # cos page get の alias
+cos ls -p myproj                              # cos page list の alias
+cos edit "ページ名" --op=append --text "行" -p myproj  # cos page edit preview の alias
+cos search "キーワード" -p myproj            # cos project search の alias (既存)
+```
+
+---
+
 ## 出力フォーマット
 
 | フラグ | 効果 |
@@ -300,6 +313,41 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | `sync.pull` / `sync.diff` | 同期 (読み取り系) |
 | `convert` | 変換 |
 | `serve.rest` | REST サーバー |
+
+### `--enable-commands-exact` — 最小権限モード
+
+通常の `--enable-commands` は `page` (noun ワイルドカード) や `page.*` (glob) で一括許可できるが、
+`--enable-commands-exact` を付けるとワイルドカードが無効になり完全一致のみになる。
+
+```bash
+# glob 不使用: page.get と page.list だけを明示許可
+cos --enable-commands "page.get,page.list" \
+    --enable-commands-exact \
+    page get "タイトル" --project myproj --format=ai
+```
+
+### `--wrap-untrusted` — プロンプトインジェクション対策
+
+ページ本文などの外部取得テキストを `<external_content>` タグで囲む。
+悪意ある Cosense ページが指示を埋め込んでいても、タグ外の信頼コンテキストと分離できる。
+
+```bash
+# AI Markdown をラップして取得
+cos page get "タイトル" --format=ai --wrap-untrusted --project myproj
+
+# テキスト取得もラップ
+cos page get "タイトル" --format=text --wrap-untrusted --project myproj
+
+# JSON 形式でもラップされた文字列が data フィールドに入る
+cos page get "タイトル" --format=text --wrap-untrusted --json --project myproj
+```
+
+出力例:
+```
+<external_content source="cosense:myproject/タイトル">
+ページ本文...
+</external_content>
+```
 
 ### 設定ファイルによる永続制限
 
