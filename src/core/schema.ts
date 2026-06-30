@@ -5,6 +5,7 @@
  * Resolvable<T> の解決と alias グルーピングに src/infra/help.ts のユーティリティを使用する。
  */
 
+import { SCHEMA_COMMAND_METADATA } from "@/core/schema-metadata"
 import { groupSubCommandsByAlias, resolveValue } from "@/infra/help"
 import type { ArgsDef, CommandDef, Resolvable } from "citty"
 
@@ -225,17 +226,22 @@ async function buildArgsSchema(cmd: CommandDef): Promise<SchemaArg[]> {
  * @param cmd - 走査対象の CommandDef
  * @param rootName - コマンド名（meta.name が未設定の場合のフォールバック）
  * @param aliases - このコマンドが持つ alias キー一覧
+ * @param _parentId - 内部使用: 親コマンドまでのドット区切り ID (例: "page" → "page.list" を構築するため)
  */
 export async function buildSchema(
   cmd: CommandDef,
   rootName: string,
   aliases: string[] = [],
+  _parentId = "",
 ): Promise<SchemaCommand> {
   const meta = cmd.meta
     ? await resolveValue(cmd.meta as Resolvable<{ name?: string; description?: string }>)
     : null
   const name = meta?.name ?? rootName
   const argsSchema = await buildArgsSchema(cmd)
+
+  // ドット区切り ID を構築する (ルート "cos" はスキップ)
+  const currentId = _parentId ? `${_parentId}.${name}` : name === "cos" ? "" : name
 
   const subCommandSchemas: SchemaCommand[] = []
   if (cmd.subCommands) {
@@ -247,7 +253,7 @@ export async function buildSchema(
         const resolved = await resolveValue(subCmd)
         // groupKey は groupSubCommandsByAlias が生成する "canonical (alias1, alias2)" 形式
         const { canonicalKey, aliasKeys } = parseGroupKey(groupKey)
-        const subSchema = await buildSchema(resolved, canonicalKey, aliasKeys)
+        const subSchema = await buildSchema(resolved, canonicalKey, aliasKeys, currentId)
         subCommandSchemas.push(subSchema)
       }
     }
@@ -260,6 +266,33 @@ export async function buildSchema(
     subCommands: subCommandSchemas,
   }
   if (meta?.description !== undefined) schema.description = meta.description
+
+  // メタデータレジストリから追加フィールドを付与する
+  if (currentId) {
+    schema.id = currentId
+    const enrichment = SCHEMA_COMMAND_METADATA[currentId]
+    if (enrichment) {
+      if (enrichment.requiresAuthKind !== undefined) {
+        schema.requiresAuthKind = enrichment.requiresAuthKind
+      }
+      if (enrichment.permissionKind !== undefined) {
+        schema.permissionKind = enrichment.permissionKind
+      }
+      if (enrichment.canonicalId !== undefined) {
+        schema.canonicalId = enrichment.canonicalId
+      }
+      if (enrichment.deprecated !== undefined) {
+        schema.deprecated = enrichment.deprecated
+      }
+      if (enrichment.examples !== undefined) {
+        schema.examples = enrichment.examples
+      }
+      if (enrichment.conditionalArgs !== undefined) {
+        schema.conditionalArgs = enrichment.conditionalArgs
+      }
+    }
+  }
+
   return schema
 }
 

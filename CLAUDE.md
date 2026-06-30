@@ -40,14 +40,50 @@ bun test                     # テスト全件 pass 必須
 3. alias がある場合は `src/cli.ts` の両方の登録箇所を更新
 4. `README.md` のコマンド一覧を更新する
 5. `.agents/skills/coscli/SKILL.md` の該当 noun.verb が登場する箇所 (読み取り/書き込みセクション、sandbox 識別子テーブル) を更新する
+6. `src/core/schema-metadata.ts` の `SCHEMA_COMMAND_METADATA` にコマンドメタデータを登録する (詳細は下記)
 
 **コマンドの変更・削除時も同様に `README.md` および `.agents/skills/coscli/SKILL.md` を更新すること。**
+
+#### deprecated verb を追加するとき
+
+新コマンドへの旧 alias として deprecated verb を作る場合は以下の手順に従う:
+
+1. **実装ファイル冒頭** に `@deprecated` JSDoc を付ける
+2. コマンド実行時に `warnDeprecated(oldCommand, replacement, warnings)` を呼ぶ
+   (`src/commands/_deprecation.ts` の `warnDeprecated` 関数を使用)
+3. JSON 出力時は `writeJson(data, { ..., meta: { canonicalCommand: "...", deprecated: { since: DEPRECATION_SINCE, replacement: "..." } } })` を渡す
+4. `src/core/schema-metadata.ts` の `SCHEMA_COMMAND_METADATA` に `canonicalId` と `deprecated` を登録する
+
+#### `SCHEMA_COMMAND_METADATA` への登録手順
+
+`src/core/schema-metadata.ts` の `SCHEMA_COMMAND_METADATA` オブジェクトに追加する:
+
+```ts
+// 正規コマンドの例
+"page.edit.preview": {
+  requiresAuthKind: "pat",   // "any" | "pat" | "sid" | "none"
+  permissionKind: "write",   // "read" | "write" | "destructive" | "config" | "meta"
+  examples: [...],           // オプション
+},
+
+// deprecated verb の例
+"page.append.preview": {
+  requiresAuthKind: "pat",
+  permissionKind: "write",
+  canonicalId: "page.edit.preview",   // 正規コマンドの ID
+  deprecated: { since: D, replacement: "page edit preview --op=append" },
+},
+```
+
+`D` は `const D = "v0.10.0"` のように deprecated が導入されたバージョン文字列。
 
 ### alias ルール
 
 トップレベル alias は citty で別 command として二重登録している。
 alias を追加・変更する際は `src/cli.ts` の「エイリアス登録」セクションを必ず同時に更新すること。
 また `.agents/skills/coscli/SKILL.md` の該当 alias 記述 (`cos page snapshot ls`、`cos page line rm`、`cos auth me` など) も同時に更新すること。
+
+sandbox alias (`src/core/sandbox/aliases.ts`) が存在する場合、alias の追加・変更時には当該ファイルも同時に更新すること。
 
 ## ディレクトリ構造
 

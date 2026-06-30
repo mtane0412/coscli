@@ -53,31 +53,57 @@ cos exit-codes --json               # 終了コード一覧 (単一ソース)
 
 ## 読み取り
 
+### `cos page get` — ページ取得の統合コマンド (推奨)
+
+```bash
+# ページ全データ (JSON) — デフォルト形式
+cos page get "タイトル" --project <name> --json --results-only
+# data: { id, title, lines: [{ text, ... }], commitId, persistent, ... }
+
+# --format で出力形式を指定
+cos page get "タイトル" --project <name> --format <形式>
+```
+
+| `--format` 値 | 出力内容 |
+|---|---|
+| (なし) | ページ全データ (JSON の場合は構造体、テキストの場合は整列テキスト) |
+| `text` | 本文テキスト (コードブロックなし) |
+| `md` | 本文を Markdown に変換して出力 |
+| `scrapbox` | Cosense 記法のまま出力 |
+| `ai` | AI 向け Markdown — メタデータ・テロメア・本文・1-hop 関連ページをワンショット出力 |
+| `context` | Smart Context — リンク先本文を XML 形式でまとめて出力 (AI 文脈注入に最適) |
+| `code` | コードブロック取得 (要 `--filename <name>`) |
+| `table` | テーブルを CSV で取得 (要 `--filename <name>`) |
+| `url` | ページの URL を出力 |
+| `icon` | ページアイコン取得 URL を出力 |
+
+```bash
+# AI エージェント向け Markdown (最も情報量が多い)
+cos page get "タイトル" --project <name> --format ai
+
+# テキスト形式
+cos page get "タイトル" --project <name> --format text
+
+# Smart Context (1hop リンク先本文を取得)
+cos page get "タイトル" --project <name> --format context
+cos page get "タイトル" --project <name> --format context --hops 2   # 2hop まで広げる
+cos page get "タイトル" --project <name> --format context --query "キーワード"  # フィルタ
+
+# コードブロック / テーブル
+cos page get "タイトル" --project <name> --format code --filename src.ts
+cos page get "タイトル" --project <name> --format table --filename data
+
+# URL / アイコン
+cos page get "タイトル" --project <name> --format url --json --results-only
+cos page get "タイトル" --project <name> --format icon --json --results-only
+```
+
+### その他の読み取りコマンド
+
 ```bash
 # ページ一覧 (タイトルだけ)
 cos page list --project <name> --json --results-only --select 'pages[].title' --limit 50 --sort updated
 # sort: updated|created|accessed|pageRank|links|views|title
-
-# ページ全データ (JSON)
-cos page get "タイトル" --project <name> --json --results-only
-# data: { id, title, lines: [{ text, ... }], commitId, persistent, ... }
-
-# AI 向け Markdown (メタデータ・テロメア・本文・1-hop 関連ページをワンショット出力)
-cos page get "タイトル" --project <name> --format ai
-
-# 本文テキスト
-cos page text "タイトル" --project <name>
-cos page text "タイトル" --project <name> --format=md   # Markdown 変換
-
-# 本文 + リンク先文脈 (AI 文脈注入に最適)
-# data.text に "<Page title="A">本文...</Page><Page title="B">本文...</Page>" XML 形式のテキストが入る
-cos page context "タイトル" --project <name> --json --results-only
-cos page context "タイトル" --project <name> --hops 2                    # 2hop まで広げる (取得量大)
-cos page context "タイトル" --project <name> --query "キーワード"          # 本文フィルタ (トークン節約)
-
-# コードブロック / テーブル
-cos page code "タイトル" "filename.ts" --project <name>
-cos page table "タイトル" "filename" --project <name>   # CSV テキスト
 
 # スナップショット
 cos page snapshot list "タイトル" --project <name> --json --results-only  # alias: ls
@@ -92,10 +118,6 @@ cos page history "タイトル" --project <name> --since <commitId> --json --res
 cos page line get "タイトル" --line 3 --project <name> --json --results-only
 cos page line get "タイトル" --range 3:7 --project <name> --json --results-only
 
-# URL / アイコン
-cos page url "タイトル" --project <name> --json --results-only
-cos page icon "タイトル" --project <name> --json --results-only
-
 # 検索
 cos search "キーワード" --project <name> --json --results-only --select 'pages[].title'
 
@@ -107,9 +129,21 @@ cos project stream --project <name> --limit 20 --json --results-only
 cos project search "キーワード" --json --results-only
 ```
 
+### 非推奨の読み取り verb (まだ使用可能、警告あり)
+
+| 非推奨コマンド | 移行先 |
+|---|---|
+| `cos page text "タイトル"` | `cos page get "タイトル" --format=text` を使ってください |
+| `cos page text "タイトル" --format=md` | `cos page get "タイトル" --format=md` を使ってください |
+| `cos page code "タイトル" "file.ts"` | `cos page get "タイトル" --format=code --filename=file.ts` を使ってください |
+| `cos page table "タイトル" "data"` | `cos page get "タイトル" --format=table --filename=data` を使ってください |
+| `cos page url "タイトル"` | `cos page get "タイトル" --format=url` を使ってください |
+| `cos page icon "タイトル"` | `cos page get "タイトル" --format=icon` を使ってください |
+| `cos page context "タイトル"` | `cos page get "タイトル" --format=context` を使ってください |
+
 ---
 
-## 書き込み — 第一選択は行編集 (page line)
+## 書き込み — `cos page edit preview --op` (PAT 必須、2 ステップ方式)
 
 **⚠️ CRITICAL: 書き込みコンテンツは必ず `/cosense-notation` スキルで Cosense 記法を確認してから作成すること。Markdown（`## 見出し`、`- リスト`、`| テーブル |`）で書かないこと。**
 
@@ -117,61 +151,89 @@ cos project search "キーワード" --json --results-only
 
 **⚠️ 編集系コマンドはすべて PAT 必須の 2 ステップ方式 (preview → submit) です。`cos page edit submit <previewId>` で確定します。**
 
-| 用途 | 推奨コマンド |
+### `cos page edit preview --op` — 統合書き込みコマンド (推奨)
+
+| `--op` 値 | 用途 |
 |---|---|
-| 末尾に追記 | `cos page append preview "タイトル" --line ...` |
-| 冒頭 (タイトル直後) に追記 | `cos page prepend preview "タイトル" --line ...` |
-| 特定行の直後に挿入 | `cos page insert preview "タイトル" --after N --line ...` |
-| lineId で直接挿入位置指定 | `cos page insert preview "タイトル" --after-id <id> --line ...` |
-| 指定行を置換 (単一行・改行禁止) | `cos page line replace preview "タイトル" --line N --text ...` |
-| 指定行または範囲を削除 | `cos page line delete preview "タイトル" --line N` / `--range a:b` |
-| 新規ページを作る | `cos page new preview "タイトル" --line ...` |
-| ops JSON で細かく制御 | `cos page edit preview "タイトル" --ops '{"ops":[...]}'` |
+| `append` | ページ末尾に行を追記 |
+| `prepend` | ページ先頭 (タイトル直後) に行を挿入 |
+| `insert` | 特定行の直後に挿入 (要 `--after <n>` または `--after-id <id>`) |
+| `line-replace` | 指定行を置換 (単一行・改行禁止、要 `--line-number <n>`) |
+| `line-delete` | 指定行または範囲を削除 (要 `--line-number <n>` または `--range a:b`) |
+| `new-page` | 新規ページを作成 |
+| `ops` | ops JSON で細かく制御 (要 `--ops '{"ops":[...]}'`) |
 
 ```bash
 # 末尾追記
-cos page append preview "タイトル" --line "追加行" -p <name>
+cos page edit preview "タイトル" --op=append --text "追加行" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # 先頭挿入
-cos page prepend preview "タイトル" --line "冒頭に追加" -p <name>
+cos page edit preview "タイトル" --op=prepend --text "冒頭に追加" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # 指定行の後ろに挿入 (--after: 1-indexed 行番号、--after-id: lineId 直接指定)
-cos page insert preview "タイトル" --after 3 --line "挿入テキスト" -p <name>
-cos page insert preview "タイトル" --after-id "<lineId>" --line "挿入テキスト" -p <name>
+cos page edit preview "タイトル" --op=insert --after 3 --text "挿入テキスト" -p <name>
+cos page edit preview "タイトル" --op=insert --after-id "<lineId>" --text "挿入テキスト" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # 行置換 (単一行・改行禁止)
-cos page line replace preview "タイトル" --line 3 --text "新しい内容" -p <name>
+cos page edit preview "タイトル" --op=line-replace --line-number 3 --text "新しい内容" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # 行削除 (単一行 / 範囲)
-cos page line delete preview "タイトル" --line 3 -p <name>
-cos page line delete preview "タイトル" --range 3:5 -p <name>
+cos page edit preview "タイトル" --op=line-delete --line-number 3 -p <name>
+cos page edit preview "タイトル" --op=line-delete --range 3:5 -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # 新規ページ
-cos page new preview "タイトル" --line "本文\n2行目" -p <name>
+cos page edit preview "タイトル" --op=new-page --text "本文\n2行目" -p <name>
 cos page edit submit "<previewId>" -p <name>
 
 # ops JSON で細かく制御 (行 ID 指定)
 cos page get "タイトル" --json -p <name> | jq '.data.lines[] | {id, text}'
 cos page edit preview "タイトル" -p <name> \
-    --ops '{"ops":[{"insertBefore":"<lineId>","text":"挿入テキスト"},{"delete":"<lineId>"}]}'
+    --op=ops --ops '{"ops":[{"insertBefore":"<lineId>","text":"挿入テキスト"},{"delete":"<lineId>"}]}'
 cos page edit submit "<previewId>" -p <name>
+```
 
+**行置換の制約**: `--op=line-replace` は単一行・単一テキスト（改行禁止）のみ対応。複数行の複雑な置換には `--op=ops` を使う。
+**範囲指定**: `--range a:b` は `a >= 1`, `a <= b` 必須。タイトル行 (1行目) は変更不可。exit 5 で失敗する。
+
+### 非推奨の書き込み verb (まだ使用可能、警告あり)
+
+| 非推奨コマンド | 移行先 |
+|---|---|
+| `cos page append preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=append --text "行"` を使ってください |
+| `cos page prepend preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=prepend --text "行"` を使ってください |
+| `cos page insert preview "タイトル" --after N --line "行"` | `cos page edit preview "タイトル" --op=insert --after N --text "行"` を使ってください |
+| `cos page line replace preview "タイトル" --line N --text "行"` | `cos page edit preview "タイトル" --op=line-replace --line-number N --text "行"` を使ってください |
+| `cos page line delete preview "タイトル" --line N` | `cos page edit preview "タイトル" --op=line-delete --line-number N` を使ってください |
+| `cos page new preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=new-page --text "行"` を使ってください |
+
+---
+
+## SID 必須コマンド
+
+以下のコマンドは PAT では実行できません。`connect.sid` を持つ SID 認証が必要です。
+
+```bash
 # ページ削除 (エージェント環境では --force --no-input が必須)
 cos page delete "タイトル" --force --no-input --project <name>
 
-# ピン留め / 解除 / リネーム (SID 必須)
+# ピン留め / 解除
 cos page pin "タイトル" --project <name>
 cos page unpin "タイトル" --project <name>
-cos page rename "旧タイトル" "新タイトル" --project <name>
-```
 
-**行置換の制約**: `page line replace preview` は単一行・単一テキスト（改行禁止）のみ対応。複数行の複雑な置換には `cos page edit preview --ops` を使う。
-**範囲指定**: `--line` と `--range` は排他。`--range a:b` は `a >= 1`, `a <= b` 必須。タイトル行 (1行目) は変更不可。exit 5 で失敗する。
+# リネーム (--update-links で被リンクを一括更新)
+cos page rename "旧タイトル" "新タイトル" --project <name>
+
+# リンク一括置換
+cos page update-links "旧タイトル" "新タイトル" --project <name>
+
+# ローカル同期 push
+cos sync push "タイトル" --dir ./sync --project <name>   # 競合(exit 6): pull してからマージ
+```
 
 ---
 
@@ -181,9 +243,9 @@ cos page rename "旧タイトル" "新タイトル" --project <name>
 
 ```bash
 # 読み取り専用に制限
-cos --enable-commands "page.list,page.get,page.text,page.code,page.url,page.icon,\
-page.history,page.table,page.snapshot.list,page.snapshot.get,page.line.get,\
-page.context,page.watch,project.list,project.info,project.members,project.graph,\
+cos --enable-commands "page.list,page.get,page.history,page.infobox,\
+page.snapshot.list,page.snapshot.get,page.line.get,\
+page.watch,project.list,project.info,project.members,project.graph,\
 project.stream,project.search,search,auth.whoami,schema,exit-codes" \
     page list --project <name> --json
 
@@ -200,12 +262,10 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 
 | 識別子 | コマンド |
 |---|---|
-| `page.list` / `page.get` / `page.text` | ページ読み取り |
-| `page.code` / `page.url` / `page.icon` | 読み取り補助 |
-| `page.history` / `page.table` | 履歴・テーブル取得 |
+| `page.list` / `page.get` | ページ読み取り (get は --format で多形式に対応) |
+| `page.history` / `page.infobox` | 履歴・infobox 取得 |
 | `page.snapshot.list` / `page.snapshot.get` | スナップショット取得 |
 | `page.line.get` | 行・範囲取得 |
-| `page.context` | Smart Context (リンク先本文取得、読み取り) |
 | `page.watch` | リアルタイム監視 (読み取りのみ) |
 | `project.list` / `project.info` / `project.members` / `project.graph` | プロジェクト情報 |
 | `project.stream` / `project.search` | フィード・横断検索 (読み取り) |
@@ -214,19 +274,30 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | `config.get` / `config.path` | 設定確認 |
 | `schema` / `exit-codes` | メタ情報 |
 
-### Sandbox 識別子 — 書き込み系 (PAT 必須、preview/submit の 2 ステップ)
+### Sandbox 識別子 — 書き込み系 (PAT 必須、2 ステップ: preview → submit)
 
 | 識別子 | コマンド |
 |---|---|
-| `page.line.replace.preview` / `page.line.delete.preview` | 行・範囲編集 (PAT 必須) |
-| `page.new.preview` / `page.edit.preview` / `page.edit.submit` / `page.append.preview` | ページ書き込み (PAT 必須) |
-| `page.prepend.preview` / `page.insert.preview` | ページ書き込み (PAT 必須) |
-| `page.rename` | ページリネーム (SID 必須) |
-| `page.pin` / `page.unpin` | ピン留め (SID 必須) |
-| `page.delete` | 削除 (破壊的、SID 必須) |
-| `page.watch` を除く `auth.*` | 認証変更 |
+| `page.edit.preview` | 統合書き込み (append/prepend/insert/line-replace/line-delete/new-page/ops) |
+| `page.edit.submit` | preview を確定コミットに変換 |
+
+### Sandbox 識別子 — SID 必須コマンド
+
+| 識別子 | コマンド |
+|---|---|
+| `page.rename` | ページリネーム |
+| `page.pin` / `page.unpin` | ピン留め |
+| `page.update-links` | リンク一括置換 |
+| `page.delete` | 削除 (破壊的) |
+| `sync.push` | ローカル → Cosense push |
+
+### Sandbox 識別子 — その他
+
+| 識別子 | コマンド |
+|---|---|
+| `auth.*` (`page.watch` を除く) | 認証変更 |
 | `config.set` | 設定変更 |
-| `sync.pull` / `sync.push` / `sync.diff` | 同期 |
+| `sync.pull` / `sync.diff` | 同期 (読み取り系) |
 | `convert` | 変換 |
 | `serve.rest` | REST サーバー |
 
@@ -252,9 +323,9 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 | 1 | 一般エラー | stderr を確認 |
 | 2 | 認証エラー (401) / PAT 必須コマンドを非 PAT 認証で実行 | `cos auth login` または PAT を設定 |
 | 3 | 権限エラー (403) | プロジェクトへのアクセス権を確認 |
-| 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page new preview` で作成 |
+| 4 | 存在しない (404) | タイトル / プロジェクト名を確認。`cos page edit preview --op=new-page` で作成 |
 | 5 | バリデーションエラー | 引数・フラグを確認。重複タイトル: `--force-fallback` を追加 |
-| 6 | 楽観ロック競合 | 最新 commitId を再取得して `--expect-commit` を更新し再実行、または `page line` 系に切り替え |
+| 6 | 楽観ロック競合 | 最新 commitId を再取得して `--expect-commit` を更新し再実行、または `--op=line-*` 系に切り替え |
 | 7 | sandbox 違反 | `--enable-commands` を緩和 |
 | 124 | タイムアウト | `--timeout` を延長 |
 
@@ -262,12 +333,11 @@ COS_ENABLE_COMMANDS="page.list,page.get,search" cos page list --project <name>
 
 ```bash
 # page edit preview は内部で最新ページを取得するため、競合時はそのまま再実行する
-cos page edit preview "タイトル" -p <name> --ops '{"ops":[...]}'
+cos page edit preview "タイトル" -p <name> --op=ops --ops '{"ops":[...]}'
 cos page edit submit "<newPreviewId>" -p <name>
 
-# または: 変更範囲が局所的なら page line に切り替えて競合リスクを下げる
+# または: 変更範囲が局所的なら --op=line-replace / --op=line-delete に切り替えて競合リスクを下げる
 # (行番号は先に cos page line get で確認する)
-cos page line replace "タイトル" --range 3:5 --from-file ./patch.txt --project <name>
 ```
 
 **対話プロンプトで止まる (CONFIRMATION_REQUIRED)**: `--no-input` を付ける。`page delete` 等は `--force` も追加。
@@ -284,7 +354,7 @@ cos convert --from=md --to=scrapbox --from-file input.md --to-file output.txt
 # ローカル同期
 cos sync diff "タイトル" --dir ./sync --project <name>   # まず確認
 cos sync pull "タイトル" --dir ./sync --project <name>
-cos sync push "タイトル" --dir ./sync --project <name>   # 競合(exit 6): pull してからマージ
+cos sync push "タイトル" --dir ./sync --project <name>   # 競合(exit 6): pull してからマージ (SID 必須)
 
 # ローカル REST プロキシ
 cos serve --rest --port=8080 --project <name>
@@ -309,6 +379,38 @@ cos serve --rest --port=8080 --allow-write --project <name>
 | `--quiet` | `-q` | 成功時の人間向けメッセージを抑制 |
 | `--enable-commands <list>` | — | 許可コマンドを限定 |
 | `--disable-commands <list>` | — | 特定コマンドを禁止 |
+
+---
+
+## 移行ガイド (旧コマンド → 新コマンド)
+
+### 読み取り
+
+| 旧コマンド (v0.10.0 以前) | 新コマンド |
+|---|---|
+| `cos page text "タイトル"` | `cos page get "タイトル" --format=text` |
+| `cos page text "タイトル" --format=md` | `cos page get "タイトル" --format=md` |
+| `cos page code "タイトル" "file.ts"` | `cos page get "タイトル" --format=code --filename=file.ts` |
+| `cos page table "タイトル" "data"` | `cos page get "タイトル" --format=table --filename=data` |
+| `cos page url "タイトル"` | `cos page get "タイトル" --format=url` |
+| `cos page icon "タイトル"` | `cos page get "タイトル" --format=icon` |
+| `cos page context "タイトル"` | `cos page get "タイトル" --format=context` |
+| `cos page context "タイトル" --hops 2` | `cos page get "タイトル" --format=context --hops 2` |
+| `cos page context "タイトル" --query "kw"` | `cos page get "タイトル" --format=context --query "kw"` |
+
+### 書き込み
+
+| 旧コマンド (v0.10.0 以前) | 新コマンド |
+|---|---|
+| `cos page append preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=append --text "行"` |
+| `cos page prepend preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=prepend --text "行"` |
+| `cos page insert preview "タイトル" --after N --line "行"` | `cos page edit preview "タイトル" --op=insert --after N --text "行"` |
+| `cos page insert preview "タイトル" --after-id "<id>" --line "行"` | `cos page edit preview "タイトル" --op=insert --after-id "<id>" --text "行"` |
+| `cos page line replace preview "タイトル" --line N --text "行"` | `cos page edit preview "タイトル" --op=line-replace --line-number N --text "行"` |
+| `cos page line delete preview "タイトル" --line N` | `cos page edit preview "タイトル" --op=line-delete --line-number N` |
+| `cos page line delete preview "タイトル" --range a:b` | `cos page edit preview "タイトル" --op=line-delete --range a:b` |
+| `cos page new preview "タイトル" --line "行"` | `cos page edit preview "タイトル" --op=new-page --text "行"` |
+| `cos page edit preview "タイトル" --ops '...'` | `cos page edit preview "タイトル" --op=ops --ops '...'` |
 
 ---
 
