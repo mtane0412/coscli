@@ -116,33 +116,26 @@ cos page edit submit <previewId> -p myproject
 
 ## コマンド一覧
 
-```
-cos page list           ページ一覧を取得 (--pinned でピン留めページのみ表示、--icon <name> でアイコンフィルタ)
-cos page get            ページ本文を取得 (--format ai でエージェント向け Markdown 出力)
-cos page text           ページのテキスト (コードブロックなし) を取得
-cos page context        ページ起点の Smart Context (リンク先本文) を取得
-cos page infobox        LLM 生成 infobox データを取得
-cos page code           ページのコードブロックを取得
-cos page table          ページ内のテーブルを CSV で取得
-cos page url            ページの URL を表示
-cos page icon           ページアイコン取得 URL を生成する (API 呼び出しなし)
-cos page new preview    ページを作成 (PAT 必須、2 ステップ: preview → submit)
-cos page edit preview   ops を dry-run して previewId を取得 (PAT 必須)
-cos page edit submit    previewId を確定コミットに変換 (PAT 必須)
-cos page append preview ページ末尾に行を追記 (PAT 必須、2 ステップ: preview → submit)
-cos page prepend preview ページ先頭 (タイトル直後) に行を挿入 (PAT 必須、2 ステップ: preview → submit)
-cos page insert preview  指定行の後ろに行を挿入 (--after <n> または --after-id <id>、PAT 必須)
-cos page rename         ページタイトルを変更 (--update-links でリネーム後に被リンクを一括更新)
-cos page update-links   プロジェクト内のリンクを一括置換する
-cos page pin            ページをピン留め
-cos page unpin          ページのピン留めを解除
-cos page watch          ページ更新をリアルタイム監視 (WebSocket)
-cos page history        コミット履歴を取得 (--page-id でリネーム後も追跡、--since で差分取得)
-cos page delete         ページを削除
+### 読み取り
 
-cos page line get            指定行または範囲を取得
-cos page line replace preview  指定行を置換 (PAT 必須、2 ステップ: preview → submit)
-cos page line delete preview   指定行または範囲を削除 (PAT 必須、2 ステップ: preview → submit)
+```
+cos page list     ページ一覧を取得 (--pinned でピン留めページのみ表示、--icon <name> でアイコンフィルタ)
+cos page get      ページ取得の統合コマンド。--format で出力形式を指定する
+                  --format text      本文テキスト (コードブロックなし)
+                  --format md        本文を Markdown に変換
+                  --format scrapbox  Cosense 記法のまま出力
+                  --format ai        AI 向け Markdown (メタデータ + 本文 + 1-hop リンク先)
+                  --format context   Smart Context — リンク先本文を XML 形式で取得 (AI 文脈注入に最適)
+                                       --hops 2 で 2hop まで広げる、--query でキーワードフィルタ
+                  --format code      コードブロック取得 (要 --filename <name>)
+                  --format table     テーブルを CSV で取得 (要 --filename <name>)
+                  --format url       ページの URL を出力
+                  --format icon      ページアイコン取得 URL を出力
+cos page infobox  LLM 生成 infobox データを取得
+cos page watch    ページ更新をリアルタイム監視 (WebSocket)
+cos page history  コミット履歴を取得 (--page-id でリネーム後も追跡、--since で差分取得)
+
+cos page line get  指定行または範囲を取得
 
 cos page snapshot list  スナップショット一覧を取得
 cos page snapshot get   特定スナップショットを取得
@@ -152,14 +145,63 @@ cos project info    プロジェクト情報を取得
 cos project members プロジェクトメンバー一覧を取得
 cos project stream  プロジェクトの最近更新フィードを取得 (--watch でポーリング監視)
 cos project graph   ページ間リンクをグラフとして export する (DOT / JSON / TSV)
-cos project search  参加プロジェクト全体を横断してプロジェクトを検索する (--watch-list でウォッチリスト絞り込み、--joined で参加プロジェクト全体を明示)
+cos project search  参加プロジェクト全体を横断してプロジェクトを検索する
 
 cos watch-list list    ウォッチリストのプロジェクト一覧を表示する
-cos watch-list add     プロジェクトをウォッチリストに追加する
-cos watch-list remove  プロジェクトをウォッチリストから削除する
 
-cos search          全文検索 (--vector でベクトル検索、--infobox で infobox 定義ページを検索)
+cos search  全文検索 (--vector でベクトル検索、--infobox で infobox 定義ページを検索)
+```
 
+### 書き込み (PAT 必須、2 ステップ: preview → submit)
+
+```
+cos page edit preview  書き込みの統合コマンド。--op で操作を指定して previewId を取得する (PAT 必須)
+                       --op append        ページ末尾に行を追記 (--text で指定)
+                       --op prepend       ページ先頭 (タイトル直後) に行を挿入 (--text で指定)
+                       --op insert        指定行の後ろに挿入 (--after <n> または --after-id <id>、--text で指定)
+                       --op line-replace  指定行を置換、改行禁止 (--line-number <n>、--text で指定)
+                       --op line-delete   指定行または範囲を削除 (--line-number <n> または --range a:b)
+                       --op new-page      新規ページを作成 (--text で本文指定)
+                       --op ops           ops JSON で細かく制御 (--ops '{"ops":[...]}')
+cos page edit submit   previewId を確定コミットに変換 (PAT 必須)
+```
+
+### SID 必須コマンド
+
+以下のコマンドは PAT では実行できません。`connect.sid` を持つ SID 認証が必要です。
+
+```
+cos page rename       ページタイトルを変更 (--update-links でリネーム後に被リンクを一括更新) [SID 必須]
+cos page update-links プロジェクト内のリンクを一括置換する [SID 必須]
+cos page pin          ページをピン留め [SID 必須]
+cos page unpin        ページのピン留めを解除 [SID 必須]
+cos page delete       ページを削除 [SID 必須]
+cos sync push         ローカル → Cosense へ push する (楽観ロック) [SID 必須]
+```
+
+### 非推奨コマンド (v0.10.0 で deprecated、警告あり)
+
+> [deprecated] 以下のコマンドは引き続き使用できますが、次のメジャーバージョンで削除される予定です。
+
+```
+cos page text     → cos page get --format=text (または --format=md) を使ってください
+cos page context  → cos page get --format=context を使ってください
+cos page code     → cos page get --format=code --filename=<name> を使ってください
+cos page table    → cos page get --format=table --filename=<name> を使ってください
+cos page url      → cos page get --format=url を使ってください
+cos page icon     → cos page get --format=icon を使ってください
+
+cos page append preview   → cos page edit preview --op=append を使ってください
+cos page prepend preview  → cos page edit preview --op=prepend を使ってください
+cos page insert preview   → cos page edit preview --op=insert を使ってください
+cos page new preview      → cos page edit preview --op=new-page を使ってください
+cos page line replace preview  → cos page edit preview --op=line-replace を使ってください
+cos page line delete preview   → cos page edit preview --op=line-delete を使ってください
+```
+
+### 認証・設定・ユーティリティ
+
+```
 cos auth add       API 検証なしで認証情報を直接 keychain に保存する (non-interactive / CI 向け)
 cos auth login     認証ログイン (--sid / --pat でクレデンシャルを直接渡す)
 cos auth logout    ログアウト
@@ -170,12 +212,14 @@ cos auth doctor    全プロファイルの健全性を検査する
 cos auth use       デフォルトプロファイルを切り替える (--unset で削除)
 cos auth migrate   旧 config.serviceAccounts の SA キーを keychain に移行する
 
+cos watch-list add     プロジェクトをウォッチリストに追加する
+cos watch-list remove  プロジェクトをウォッチリストから削除する
+
 cos config get    設定値を取得
 cos config set    設定値を保存
 cos config path   設定ファイルのパスを表示
 
 cos sync pull     Cosense → ローカルへ pull する
-cos sync push     ローカル → Cosense へ push する (楽観ロック)
 cos sync diff     ローカルと Cosense の差分を表示する
 
 cos convert       Scrapbox 記法と Markdown を相互変換する

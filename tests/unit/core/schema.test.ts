@@ -224,6 +224,29 @@ describe("SchemaCommand の拡張フィールド", () => {
   })
 })
 
+describe("buildSchema — id フィールドの付与", () => {
+  it("トップレベルのサブコマンドに id が付与される", async () => {
+    const schema = await buildSchema(rootCommand, "cos")
+    const pageCmd = schema.subCommands.find((c) => c.name === "page")
+    // page コマンドの id は "page"
+    expect(pageCmd?.id).toBe("page")
+  })
+
+  it("ネストしたサブコマンドに ドット区切りの id が付与される", async () => {
+    const schema = await buildSchema(rootCommand, "cos")
+    const pageCmd = schema.subCommands.find((c) => c.name === "page")
+    const listCmd = pageCmd?.subCommands.find((c) => c.name === "list")
+    // page.list の id は "page.list"
+    expect(listCmd?.id).toBe("page.list")
+  })
+
+  it("ルートコマンド (cos) 自身は id を持たない (空文字のため省略)", async () => {
+    const schema = await buildSchema(rootCommand, "cos")
+    // ルートの id は空文字 → 省略 (undefined)
+    expect(schema.id).toBeUndefined()
+  })
+})
+
 describe("findCommandByPath", () => {
   it("空パスはルートを返す", async () => {
     const result = await findCommandByPath(rootCommand, "cos", [])
