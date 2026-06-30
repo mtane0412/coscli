@@ -346,6 +346,36 @@ ln -s "$(pwd)/.agents/skills/coscli" ~/.claude/skills/coscli
 
 最新コマンド定義は `cos schema --json` から動的取得できます。
 
+### `--wrap-untrusted` — プロンプトインジェクション対策
+
+ページ本文など外部取得テキストを `<external_content>` タグで囲んで出力します。悪意ある Cosense ページが指示を埋め込んでいても、タグ外の信頼コンテキストと分離できます。
+
+```bash
+# AI Markdown 取得時にラップ
+cos page get "ページ名" --format=ai --wrap-untrusted --project myproject
+
+# テキスト取得時にラップ
+cos page get "ページ名" --format=text --wrap-untrusted --project myproject
+```
+
+### `--enable-commands-exact` — 最小権限の明示的許可
+
+`--enable-commands` のワイルドカード (`page` / `page.*`) を無効化し、完全一致のみ許可します。AI エージェントが最小権限で動作させる場合に使用します。
+
+```bash
+cos --enable-commands "page.get,page.list" \
+    --enable-commands-exact \
+    page get "ページ名" --project myproject --format=ai
+```
+
+### トップレベル alias — よく使う操作の短縮コマンド
+
+```bash
+cos get "ページ名" --format=ai -p myproject    # cos page get の alias
+cos ls -p myproject --json                      # cos page list の alias
+cos edit "ページ名" --op=append --text "行" -p myproject  # cos page edit preview の alias
+```
+
 ### infobox でページ構造データを取得
 
 `cos page infobox` は Cosense が LLM で生成した infobox データ（キー・バリュー構造）を取得します。infobox はすべてのページに存在するわけではなく、Cosense 側が生成済みのページでのみ有効です。存在しない場合は空のリストが返ります。

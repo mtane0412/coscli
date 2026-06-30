@@ -174,6 +174,13 @@ describe("SKILL.md と citty コマンドツリーの整合性", () => {
     const schema = await buildSchema(testRoot, "cos")
     const knownPaths = collectAllPaths(schema)
 
+    // rootSubCommands のキー名 (citty が直接解決する alias) も追加する
+    // 例: get/ls/edit など同一参照ではない単純 alias は buildSchema の aliases に
+    // まとめられないため、ここで補完する
+    for (const key of Object.keys(rootSubCommands)) {
+      knownPaths.add(key)
+    }
+
     // SKILL.md からコマンドパスを抽出する
     const skillText = await Bun.file(".agents/skills/coscli/SKILL.md").text()
     const usedPaths = extractCommandsFromSkillDoc(skillText)
