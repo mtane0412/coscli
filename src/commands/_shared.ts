@@ -94,6 +94,20 @@ export const commonArgs = {
     description: "成功時の人間向けメッセージを抑制",
     default: false,
   },
+  "wrap-untrusted": {
+    type: "boolean" as const,
+    description:
+      "外部取得テキスト (ページ本文等) を <external_content> タグで囲む。" +
+      "AI エージェントのプロンプトインジェクション対策に使用する。",
+    default: false,
+  },
+  "enable-commands-exact": {
+    type: "boolean" as const,
+    description:
+      "--enable-commands の glob/noun ワイルドカードを無効化し完全一致のみにする。" +
+      'AI エージェントが最小権限で許可コマンドを明示的に列挙する場合に使用する。例: "page.get,page.list"',
+    default: false,
+  },
 } as const
 
 /** dryRunArg は書き込み系コマンドが追加スプレッドする --dry-run フラグ定義。 */
@@ -145,6 +159,8 @@ export type CommonArgs = {
   "disable-commands"?: string
   verbose?: string
   quiet: boolean
+  "wrap-untrusted"?: boolean
+  "enable-commands-exact"?: boolean
 }
 
 /** DryRunArg は書き込み系コマンドが追加で受け取る --dry-run フラグの型。 */
@@ -213,6 +229,7 @@ export function checkSandbox(commandName: string, args: CommonArgs): void {
   const policyOpts: Parameters<typeof createPolicy>[0] = {}
   if (resolved.enableStr !== undefined) policyOpts.enableStr = resolved.enableStr
   if (resolved.disableStr !== undefined) policyOpts.disableStr = resolved.disableStr
+  if (args["enable-commands-exact"] === true) policyOpts.exact = true
   const policy = createPolicy(policyOpts)
   const denied = policy.allow(commandName)
   if (denied instanceof PolicyError) {

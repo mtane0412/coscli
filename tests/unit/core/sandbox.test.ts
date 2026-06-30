@@ -66,6 +66,39 @@ describe("createPolicy / allow", () => {
   })
 })
 
+describe("exact モード (--enable-commands-exact)", () => {
+  it("exact=true のとき glob 'page.*' はマッチしない (完全一致のみ)", () => {
+    const policy = createPolicy({ enable: ["page.*"], exact: true })
+    // glob は無効化されるため page.list はマッチしない
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+  })
+
+  it("exact=true のとき noun ワイルドカード 'page' はマッチしない", () => {
+    const policy = createPolicy({ enable: ["page"], exact: true })
+    // noun ワイルドカードは無効化される
+    expect(policy.allow("page.list")).toBeInstanceOf(PolicyError)
+  })
+
+  it("exact=true のとき完全一致はマッチする", () => {
+    const policy = createPolicy({ enable: ["page.list", "page.get"], exact: true })
+    expect(policy.allow("page.list")).toBeUndefined()
+    expect(policy.allow("page.get")).toBeUndefined()
+    // リストにないコマンドは拒否
+    expect(policy.allow("page.delete")).toBeInstanceOf(PolicyError)
+  })
+
+  it("exact=true でも alias 解決は有効 (旧→新)", () => {
+    // enableCommands: ["page.append.preview"] で page.edit.preview も許可される
+    const policy = createPolicy({ enable: ["page.append.preview"], exact: true })
+    expect(policy.allow("page.edit.preview")).toBeUndefined()
+  })
+
+  it("exact=false (デフォルト) では glob は有効", () => {
+    const policy = createPolicy({ enable: ["page.*"], exact: false })
+    expect(policy.allow("page.list")).toBeUndefined()
+  })
+})
+
 describe("PolicyError", () => {
   it("コマンド名を含むメッセージを持つ", () => {
     const policy = createPolicy({ disable: ["page.delete"] })

@@ -34,6 +34,14 @@ export interface PolicyOptions {
   enableStr?: string
   /** カンマ区切り文字列での disable 指定 (CLI フラグ用) */
   disableStr?: string
+  /**
+   * enable チェックで glob/noun ワイルドカードを無効化し完全一致のみにする。
+   *
+   * true のとき: "page" "page.*" 等のワイルドカードはマッチしない。
+   * 完全一致と alias 解決 (旧→新) のみ有効。
+   * AI エージェントが最小権限で明示的に許可コマンドを列挙する場合に使用する。
+   */
+  exact?: boolean
 }
 
 /** Policy は allow メソッドでコマンドの実行可否を判定する。 */
@@ -53,11 +61,20 @@ export function createPolicy(opts: PolicyOptions): Policy {
   const enable = mergeList(opts.enable, opts.enableStr)
   const disable = mergeList(opts.disable, opts.disableStr)
 
+  const exact = opts.exact ?? false
+
   return {
     allow(command: string): PolicyError | undefined {
-      // enable リストが空でなければ、許可リストでフィルタ (双方向 alias 解決)
-      if (enable.length > 0 && !isAllowedBidirectional(command, enable)) {
-        return new PolicyError(command)
+      // enable リストが空でなければ、許可リストでフィルタ
+      if (enable.length > 0) {
+        const enableCheck = exact
+          ? // exact モード: glob/noun ワイルドカード無効、完全一致 + alias 解決のみ
+            isAllowedExact(command, enable)
+          : // 通常モード: 双方向 alias 解決 + glob/noun ワイルドカード有効
+            isAllowedBidirectional(command, enable)
+        if (!enableCheck) {
+          return new PolicyError(command)
+        }
       }
       // disable リストに含まれていれば拒否 (旧→新 単方向 alias 解決)
       if (disable.length > 0 && isAllowedWithOldToNewAlias(command, disable)) {
@@ -118,6 +135,36 @@ function isAllowed(command: string, patterns: string[]): boolean {
       return true
     return false
   })
+}
+
+/**
+ * isAllowedExact は exact モードで完全一致と alias 解決のみでコマンドを判定する。
+ *
+ * `--enable-commands-exact` フラグが有効なとき、enable チェックで使用する。
+ * glob (`page.*`) や noun ワイルドカード (`page`) はマッチしない。
+ * 完全一致と alias 解決 (旧 alias ↔ 新識別子の双方向) のみ有効。
+ */
+function isAllowedExact(command: string, patterns: string[]): boolean {
+  const normalizedCmd = normalizeCommand(command)
+  // 完全一致またはワイルドカード (*) のみ
+  const exactMatch = patterns.some((pattern) => {
+    const normalizedPattern = normalizeCommand(pattern)
+    if (normalizedPattern === "*" || normalizedPattern === "all") return true
+    return normalizedPattern === normalizedCmd
+  })
+  if (exactMatch) return true
+  // alias 解決: 双方向 (旧 alias ↔ 新識別子)
+  const oldAliases = WRITE_DEPRECATED_ALIASES_REVERSE[command]
+  if (oldAliases) {
+    for (const oldAlias of oldAliases) {
+      if (patterns.some((p) => normalizeCommand(p) === normalizeCommand(oldAlias))) return true
+    }
+  }
+  const newCanonical = WRITE_DEPRECATED_ALIASES[command]
+  if (newCanonical) {
+    if (patterns.some((p) => normalizeCommand(p) === normalizeCommand(newCanonical))) return true
+  }
+  return false
 }
 
 /**
