@@ -32,24 +32,6 @@ useMswServer([
     }
     return HttpResponse.text("Not found", { status: 404 })
   }),
-  http.get(`${BASE_URL}/api/code/:project/:title/:filename`, ({ params }) => {
-    if (
-      decodeURIComponent(params["project"] as string) === TEST_PROJECT &&
-      decodeURIComponent(params["title"] as string) === TEST_TITLE
-    ) {
-      return HttpResponse.text("const x = 1")
-    }
-    return HttpResponse.text("Not found", { status: 404 })
-  }),
-  http.get(`${BASE_URL}/api/table/:project/:title/:filename`, ({ params }) => {
-    if (
-      decodeURIComponent(params["project"] as string) === TEST_PROJECT &&
-      decodeURIComponent(params["title"] as string) === TEST_TITLE
-    ) {
-      return HttpResponse.text("名前,値\n田中,100")
-    }
-    return HttpResponse.text("Not found", { status: 404 })
-  }),
   http.get(`${BASE_URL}/api/smart-context/export-1hop-links/:project`, ({ params, request }) => {
     const projectParam = decodeURIComponent(params["project"] as string)
     const project = projectParam.endsWith(".txt") ? projectParam.slice(0, -4) : projectParam
@@ -107,20 +89,18 @@ function getStdoutOutput(): string {
 // --- page text ---
 describe("pageTextCommand (deprecated)", () => {
   async function runText(args: Record<string, unknown>) {
-    try {
-      await (pageTextCommand.run as RunFn)({
-        args: {
-          ...COMMON_ARGS,
-          title: TEST_TITLE,
-          format: "txt",
-          "bold-style": "auto",
-          "body-only": false,
-          ...args,
-        },
-        cmd: {} as never,
-        rawArgs: [],
-      })
-    } catch {}
+    await (pageTextCommand.run as RunFn)({
+      args: {
+        ...COMMON_ARGS,
+        title: TEST_TITLE,
+        format: "txt",
+        "bold-style": "auto",
+        "body-only": false,
+        ...args,
+      },
+      cmd: {} as never,
+      rawArgs: [],
+    })
   }
 
   it("実行時に [deprecated] 警告を stderr に出力する", async () => {
@@ -138,7 +118,7 @@ describe("pageTextCommand (deprecated)", () => {
   it("--json 出力に meta.canonicalCommand が含まれる", async () => {
     await runText({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { command: string; canonicalCommand?: string } }
     // meta.command は後方互換のため旧識別子を維持する
     expect(parsed.meta.command).toBe("page.text")
@@ -148,7 +128,7 @@ describe("pageTextCommand (deprecated)", () => {
   it("--json 出力に meta.deprecated が含まれる", async () => {
     await runText({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { deprecated?: { replacement: string } } }
     expect(parsed.meta.deprecated?.replacement).toContain("page get --format")
   })
@@ -157,13 +137,11 @@ describe("pageTextCommand (deprecated)", () => {
 // --- page url ---
 describe("pageUrlCommand (deprecated)", () => {
   async function runUrl(args: Record<string, unknown>) {
-    try {
-      await (pageUrlCommand.run as RunFn)({
-        args: { ...COMMON_ARGS, title: TEST_TITLE, ...args },
-        cmd: {} as never,
-        rawArgs: [],
-      })
-    } catch {}
+    await (pageUrlCommand.run as RunFn)({
+      args: { ...COMMON_ARGS, title: TEST_TITLE, ...args },
+      cmd: {} as never,
+      rawArgs: [],
+    })
   }
 
   it("実行時に [deprecated] 警告を stderr に出力する", async () => {
@@ -175,7 +153,7 @@ describe("pageUrlCommand (deprecated)", () => {
   it("--json 出力に meta.canonicalCommand が含まれる", async () => {
     await runUrl({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { command: string; canonicalCommand?: string } }
     expect(parsed.meta.command).toBe("page.url")
     expect(parsed.meta.canonicalCommand).toBe("page.get")
@@ -184,7 +162,7 @@ describe("pageUrlCommand (deprecated)", () => {
   it("--json 出力に meta.deprecated が含まれる", async () => {
     await runUrl({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { deprecated?: { replacement: string } } }
     expect(parsed.meta.deprecated?.replacement).toContain("page get --format=url")
   })
@@ -193,13 +171,11 @@ describe("pageUrlCommand (deprecated)", () => {
 // --- page icon ---
 describe("pageIconCommand (deprecated)", () => {
   async function runIcon(args: Record<string, unknown>) {
-    try {
-      await (pageIconCommand.run as RunFn)({
-        args: { ...COMMON_ARGS, title: TEST_TITLE, ...args },
-        cmd: {} as never,
-        rawArgs: [],
-      })
-    } catch {}
+    await (pageIconCommand.run as RunFn)({
+      args: { ...COMMON_ARGS, title: TEST_TITLE, ...args },
+      cmd: {} as never,
+      rawArgs: [],
+    })
   }
 
   it("実行時に [deprecated] 警告を stderr に出力する", async () => {
@@ -211,7 +187,7 @@ describe("pageIconCommand (deprecated)", () => {
   it("--json 出力に meta.canonicalCommand が含まれる", async () => {
     await runIcon({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { command: string; canonicalCommand?: string } }
     expect(parsed.meta.command).toBe("page.icon")
     expect(parsed.meta.canonicalCommand).toBe("page.get")
@@ -221,13 +197,11 @@ describe("pageIconCommand (deprecated)", () => {
 // --- page context ---
 describe("pageContextCommand (deprecated)", () => {
   async function runContext(args: Record<string, unknown>) {
-    try {
-      await (pageContextCommand.run as RunFn)({
-        args: { ...COMMON_ARGS, title: TEST_TITLE, hops: "1", query: "", ...args },
-        cmd: {} as never,
-        rawArgs: [],
-      })
-    } catch {}
+    await (pageContextCommand.run as RunFn)({
+      args: { ...COMMON_ARGS, title: TEST_TITLE, hops: "1", query: "", ...args },
+      cmd: {} as never,
+      rawArgs: [],
+    })
   }
 
   it("実行時に [deprecated] 警告を stderr に出力する", async () => {
@@ -239,7 +213,7 @@ describe("pageContextCommand (deprecated)", () => {
   it("--json 出力に meta.canonicalCommand が含まれる", async () => {
     await runContext({ json: true })
     const raw = getStdoutOutput()
-    if (!raw) return
+    expect(raw).not.toBe("")
     const parsed = JSON.parse(raw) as { meta: { command: string; canonicalCommand?: string } }
     expect(parsed.meta.command).toBe("page.context")
     expect(parsed.meta.canonicalCommand).toBe("page.get")

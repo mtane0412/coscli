@@ -37,8 +37,9 @@ export const pageIconCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const replacement = "page get <title> --format=icon"
     const warnings: string[] = []
-    warnDeprecated("page icon", "page get --format=icon", warnings)
+    warnDeprecated("page icon", replacement, warnings)
 
     logger.verbose(`アイコン URL を生成: ${a.title}`)
 
@@ -52,7 +53,7 @@ export const pageIconCommand = defineCommand({
           startTime,
           warnings,
           canonicalCommand: "page.get",
-          deprecated: { since: DEPRECATION_SINCE, replacement: "page get --format=icon" },
+          deprecated: { since: DEPRECATION_SINCE, replacement },
         },
         buildJsonOpts(a),
       )

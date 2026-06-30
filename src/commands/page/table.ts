@@ -41,8 +41,9 @@ export const pageTableCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const replacement = "page get <title> --format=table --filename=<filename>"
     const warnings: string[] = []
-    warnDeprecated("page table", `page get --format=table --filename=${a.filename}`, warnings)
+    warnDeprecated("page table", replacement, warnings)
 
     try {
       const client = await buildRestClient(a)
@@ -56,10 +57,7 @@ export const pageTableCommand = defineCommand({
             startTime,
             warnings,
             canonicalCommand: "page.get",
-            deprecated: {
-              since: DEPRECATION_SINCE,
-              replacement: `page get --format=table --filename=${a.filename}`,
-            },
+            deprecated: { since: DEPRECATION_SINCE, replacement },
           },
           buildJsonOpts(a),
         )

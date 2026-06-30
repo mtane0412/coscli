@@ -40,8 +40,9 @@ export const pageCodeCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const replacement = "page get <title> --format=code --filename=<filename>"
     const warnings: string[] = []
-    warnDeprecated("page code", `page get --format=code --filename=${a.filename}`, warnings)
+    warnDeprecated("page code", replacement, warnings)
 
     const client = await buildRestClient(a)
     const code = await getCodeBlock(client, { project, title: a.title, filename: a.filename })
@@ -54,10 +55,7 @@ export const pageCodeCommand = defineCommand({
           startTime,
           warnings,
           canonicalCommand: "page.get",
-          deprecated: {
-            since: DEPRECATION_SINCE,
-            replacement: `page get --format=code --filename=${a.filename}`,
-          },
+          deprecated: { since: DEPRECATION_SINCE, replacement },
         },
         buildJsonOpts(a),
       )
