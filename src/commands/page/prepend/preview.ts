@@ -1,6 +1,8 @@
 /**
  * page/prepend/preview.ts — `cos page prepend preview <title>` コマンド。
  *
+ * @deprecated `cos page edit preview --op=prepend` を使用してください。
+ *
  * v2 AI ops API を使ってページのタイトル直後に行を挿入する preview を実行し previewId を取得する。
  * タイトル行のみのページでは "_end" をアンカーとして使う。
  * 確定は `cos page edit submit <previewId>` で行う。
@@ -8,6 +10,7 @@
  * 認証: PAT 必須（SID・SA では HTTP 403）。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -62,6 +65,9 @@ export const pagePrependPreviewCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page prepend preview", "page edit preview --op=prepend", warnings)
+
     await requirePat(a)
 
     const lines = readWriteInput(a, {
@@ -100,7 +106,17 @@ export const pagePrependPreviewCommand = defineCommand({
     )
 
     if (a.json) {
-      writeJson(result, { command: "page.prepend.preview", startTime }, buildJsonOpts(a))
+      writeJson(
+        result,
+        {
+          command: "page.prepend.preview",
+          startTime,
+          warnings,
+          canonicalCommand: "page.edit.preview",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page edit preview --op=prepend" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

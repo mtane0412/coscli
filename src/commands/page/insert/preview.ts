@@ -1,6 +1,8 @@
 /**
  * page/insert/preview.ts — `cos page insert preview <title>` コマンド。
  *
+ * @deprecated `cos page edit preview --op=insert` を使用してください。
+ *
  * v2 AI ops API を使って指定行の後ろに行を挿入する preview を実行し previewId を取得する。
  * --after <n> (1-indexed) でページの行番号を指定するか、--after-id <lineId> で直接 lineId を指定する。
  * 最終行の後ろへの挿入は "_end" アンカーを使う。
@@ -9,6 +11,7 @@
  * 認証: PAT 必須（SID・SA では HTTP 403）。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -73,6 +76,9 @@ export const pageInsertPreviewCommand = defineCommand({
     checkSandbox("page.insert.preview", a)
     const project = requireProject(a)
     const startTime = Date.now()
+
+    const warnings: string[] = []
+    warnDeprecated("page insert preview", "page edit preview --op=insert", warnings)
 
     await requirePat(a)
 
@@ -156,7 +162,17 @@ export const pageInsertPreviewCommand = defineCommand({
     )
 
     if (a.json) {
-      writeJson(result, { command: "page.insert.preview", startTime }, buildJsonOpts(a))
+      writeJson(
+        result,
+        {
+          command: "page.insert.preview",
+          startTime,
+          warnings,
+          canonicalCommand: "page.edit.preview",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page edit preview --op=insert" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

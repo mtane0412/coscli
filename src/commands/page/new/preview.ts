@@ -1,6 +1,8 @@
 /**
  * page/new/preview.ts — `cos page new preview <title>` コマンド。
  *
+ * @deprecated `cos page edit preview --op=new-page` を使用してください。
+ *
  * v2 AI ops API を使って新しいページを作成する preview を実行し previewId を取得する。
  * タイトルと本文を `insertBefore: "_end"` ops に変換して pageId なしで送信する。
  * 確定は `cos page edit submit <previewId>` で行う。
@@ -8,6 +10,7 @@
  * 認証: PAT 必須（SID・SA では HTTP 403）。
  */
 
+import { DEPRECATION_SINCE, warnDeprecated } from "@/commands/_deprecation"
 import {
   type CommonArgs,
   buildJsonOpts,
@@ -61,6 +64,9 @@ export const pageNewPreviewCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    const warnings: string[] = []
+    warnDeprecated("page new preview", "page edit preview --op=new-page", warnings)
+
     await requirePat(a)
 
     const bodyLines = readWriteInput(a, {
@@ -87,7 +93,17 @@ export const pageNewPreviewCommand = defineCommand({
     )
 
     if (a.json) {
-      writeJson(result, { command: "page.new.preview", startTime }, buildJsonOpts(a))
+      writeJson(
+        result,
+        {
+          command: "page.new.preview",
+          startTime,
+          warnings,
+          canonicalCommand: "page.edit.preview",
+          deprecated: { since: DEPRECATION_SINCE, replacement: "page edit preview --op=new-page" },
+        },
+        buildJsonOpts(a),
+      )
       return
     }
 

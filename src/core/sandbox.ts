@@ -8,7 +8,13 @@
  *   1. enable リストが指定された場合、そのリストのみ許可 (ワイルドカード "page" で "page.*" 全体)
  *   2. disable リストが指定された場合、そのエントリを拒否
  *   3. 両方指定時: enable で絞ってから disable で削る
+ *
+ * alias 解決 (PR 4 で追加):
+ *   - enable は双方向: 旧 alias ↔ 新識別子 (例: "page.append.preview" ↔ "page.edit.preview")
+ *   - disable は旧→新の単方向のみ: 旧 alias が disable にあれば新識別子も阻止するが逆は不可
  */
+
+import { WRITE_DEPRECATED_ALIASES, WRITE_DEPRECATED_ALIASES_REVERSE } from "@/core/sandbox/aliases"
 
 /** PolicyError は sandbox ポリシー違反を表すエラー。 */
 export class PolicyError extends Error {
@@ -49,12 +55,12 @@ export function createPolicy(opts: PolicyOptions): Policy {
 
   return {
     allow(command: string): PolicyError | undefined {
-      // enable リストが空でなければ、許可リストでフィルタ
-      if (enable.length > 0 && !isAllowed(command, enable)) {
+      // enable リストが空でなければ、許可リストでフィルタ (双方向 alias 解決)
+      if (enable.length > 0 && !isAllowedBidirectional(command, enable)) {
         return new PolicyError(command)
       }
-      // disable リストに含まれていれば拒否
-      if (disable.length > 0 && isAllowed(command, disable)) {
+      // disable リストに含まれていれば拒否 (旧→新 単方向 alias 解決)
+      if (disable.length > 0 && isAllowedWithOldToNewAlias(command, disable)) {
         return new PolicyError(command)
       }
       return undefined
@@ -92,6 +98,7 @@ function mergeList(list: string[] | undefined, str: string | undefined): string[
  * - `page.list`: 完全一致のみマッチ
  *
  * 比較前に両辺を normalizeCommand で正規化するため、大文字小文字・Unicode 空白文字を区別しない。
+ * alias 解決は含まない。alias 解決が必要な場合は isAllowedBidirectional / isAllowedWithOldToNewAlias を使う。
  */
 function isAllowed(command: string, patterns: string[]): boolean {
   const normalizedCmd = normalizeCommand(command)
@@ -111,4 +118,48 @@ function isAllowed(command: string, patterns: string[]): boolean {
       return true
     return false
   })
+}
+
+/**
+ * isAllowedBidirectional は双方向 alias を解決してコマンドがパターンにマッチするか判定する。
+ *
+ * enable チェックで使用する。旧 alias ↔ 新識別子の両方向を解決する。
+ * 例: command = "page.edit.preview", patterns = ["page.append.preview"] → true
+ *     command = "page.append.preview", patterns = ["page.edit.preview"] → true
+ */
+function isAllowedBidirectional(command: string, patterns: string[]): boolean {
+  if (isAllowed(command, patterns)) return true
+  // command が新識別子の場合: 旧 alias がパターンにあればマッチ
+  const oldAliases = WRITE_DEPRECATED_ALIASES_REVERSE[command]
+  if (oldAliases) {
+    for (const oldAlias of oldAliases) {
+      if (isAllowed(oldAlias, patterns)) return true
+    }
+  }
+  // command が旧 alias の場合: 新識別子がパターンにあればマッチ
+  const newCanonical = WRITE_DEPRECATED_ALIASES[command]
+  if (newCanonical && isAllowed(newCanonical, patterns)) return true
+  return false
+}
+
+/**
+ * isAllowedWithOldToNewAlias は旧→新の単方向 alias を解決してコマンドがパターンにマッチするか判定する。
+ *
+ * disable チェックで使用する。旧 alias がパターンにある場合のみ新識別子もマッチする。
+ * 逆方向 (新識別子がパターンにある場合に旧 alias もマッチ) は適用しない。
+ *
+ * 例: command = "page.edit.preview", patterns = ["page.append.preview"] → true (旧→新)
+ *     command = "page.append.preview", patterns = ["page.edit.preview"] → false (逆方向は不可)
+ */
+function isAllowedWithOldToNewAlias(command: string, patterns: string[]): boolean {
+  if (isAllowed(command, patterns)) return true
+  // command が新識別子の場合: 旧 alias がパターンにあればマッチ (旧→新 方向)
+  const oldAliases = WRITE_DEPRECATED_ALIASES_REVERSE[command]
+  if (oldAliases) {
+    for (const oldAlias of oldAliases) {
+      if (isAllowed(oldAlias, patterns)) return true
+    }
+  }
+  // NOTE: command が旧 alias の場合は新識別子へ展開しない (逆方向は適用しない)
+  return false
 }
