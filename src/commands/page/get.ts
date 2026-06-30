@@ -32,6 +32,7 @@ import { type BoldStyle, convert } from "@/core/format/index"
 import { filterSmartContextByQuery } from "@/core/format/page-format"
 import { getCodeBlock, getPage, getPageText, getSmartContext, getTable } from "@/core/pages"
 import { writeErrorJson, writeJson } from "@/presenter/json"
+import { buildCosenseSource, wrapUntrustedText } from "@/presenter/wrap-untrusted"
 import { defineCommand } from "citty"
 
 /** text 系フォーマット (本文テキスト取得を行うもの) */
@@ -116,6 +117,12 @@ export const pageGetCommand = defineCommand({
     const project = requireProject(a)
     const startTime = Date.now()
 
+    // --wrap-untrusted: 外部コンテンツを <external_content> タグで囲むヘルパー
+    const wrapText = (text: string): string =>
+      a["wrap-untrusted"] === true
+        ? wrapUntrustedText(text, buildCosenseSource(project, a.title))
+        : text
+
     // --format バリデーション
     if (a.format !== undefined && !(VALID_FORMATS as readonly string[]).includes(a.format)) {
       writeErrorJson(
@@ -187,7 +194,7 @@ export const pageGetCommand = defineCommand({
         client.getProjectMembers(project).catch(() => null),
       ])
       const markdown = formatAiPage(page, members)
-      process.stdout.write(markdown)
+      process.stdout.write(wrapText(markdown))
       return
     }
 
@@ -211,10 +218,14 @@ export const pageGetCommand = defineCommand({
       }
 
       if (a.json) {
-        writeJson({ text: outputText }, { command: "page.get", startTime }, buildJsonOpts(a))
+        writeJson(
+          { text: wrapText(outputText) },
+          { command: "page.get", startTime },
+          buildJsonOpts(a),
+        )
         return
       }
-      process.stdout.write(`${outputText}\n`)
+      process.stdout.write(`${wrapText(outputText)}\n`)
       return
     }
 
@@ -233,11 +244,11 @@ export const pageGetCommand = defineCommand({
       const rawText = await getSmartContext(client, { project, title: a.title, hops })
       const text = filterSmartContextByQuery(rawText, a.query)
       if (a.json) {
-        writeJson({ text }, { command: "page.get", startTime }, buildJsonOpts(a))
+        writeJson({ text: wrapText(text) }, { command: "page.get", startTime }, buildJsonOpts(a))
         return
       }
       if (text) {
-        process.stdout.write(`${text}\n`)
+        process.stdout.write(`${wrapText(text)}\n`)
       }
       return
     }
@@ -252,10 +263,10 @@ export const pageGetCommand = defineCommand({
         filename: a.filename!,
       })
       if (a.json) {
-        writeJson({ code }, { command: "page.get", startTime }, buildJsonOpts(a))
+        writeJson({ code: wrapText(code) }, { command: "page.get", startTime }, buildJsonOpts(a))
         return
       }
-      process.stdout.write(`${code}\n`)
+      process.stdout.write(`${wrapText(code)}\n`)
       return
     }
 
@@ -268,10 +279,10 @@ export const pageGetCommand = defineCommand({
         filename: a.filename!,
       })
       if (a.json) {
-        writeJson({ csv }, { command: "page.get", startTime }, buildJsonOpts(a))
+        writeJson({ csv: wrapText(csv) }, { command: "page.get", startTime }, buildJsonOpts(a))
         return
       }
-      process.stdout.write(`${csv}\n`)
+      process.stdout.write(`${wrapText(csv)}\n`)
       return
     }
 

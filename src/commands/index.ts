@@ -243,4 +243,9 @@ export const rootSubCommands = {
   "exit-codes": exitCodesCommand,
   schema: schemaCommand,
   notation: notationGuideCommand,
+  // gog 着想のトップレベル alias (頻出操作の発見性向上)
+  // meta.command は委譲先のもの (page.get 等) を返すため sandbox 識別子は変化しない
+  get: pageGetCommand,
+  ls: pageListCommand,
+  edit: pageEditPreviewCommand,
 } as const
